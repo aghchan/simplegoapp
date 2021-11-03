@@ -42,15 +42,12 @@ func NewApp(port int, router Router, services ...interface{}) app {
 }
 
 func (this *App) Run() {
-	rv := &http.Server{
-		Handler: this.router.Router,
-		Addr:    "127.0.0.1:" + strconv.Itoa(this.port),
-		// Good practice: enforce timeouts for servers you create!
+	server := &http.Server{
+		Handler:      this.router.Router,
+		Addr:         "127.0.0.1:" + strconv.Itoa(this.port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
-	rv.ListenAndServe()
-	//	http.ListenAndServe(strconv.Itoa(this.port), nil)
-	//	select{} // TODO: need alternative blocking op
+	server.ListenAndServe()
 }

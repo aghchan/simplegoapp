@@ -10,7 +10,11 @@ func main() {
 	helloService := NewHelloService()
 	dependendentService := NewDependentService(helloService)
 
-	routes := []interface{}{"/hello", &HelloController{helloService: helloService}}
+	routes := []interface{}{
+		"/hello", &HelloController{ // try just passing name of controller and filling in dependencies
+			helloService: helloService,
+		},
+	}
 	router, err := app.NewRouter(
 		routes,
 	)
