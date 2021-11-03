@@ -11,18 +11,10 @@ func main() {
 	dependendentService := NewDependentService(helloService)
 
 	routes := []interface{}{
-		"/hello", &HelloController{ // try just passing name of controller and filling in dependencies
-			helloService: helloService,
-		},
-	}
-	router, err := app.NewRouter(
-		routes,
-	)
-	if err != nil {
-		panic(err)
+		"/hello", HelloController{},
 	}
 
-	app := app.NewApp(8080, router, helloService, dependendentService)
+	app := app.NewApp(8080, routes, helloService, dependendentService)
 
 	app.Run()
 }
