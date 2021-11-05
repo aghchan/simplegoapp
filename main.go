@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"simplegoapp/app"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -13,7 +14,7 @@ func main() {
 	// dependendentService := NewDependentService(helloService)
 
 	routes := []interface{}{
-		"/hello", HelloController{},
+		"/hello", &HelloController{},
 	}
 
 	app := app.NewApp(
@@ -27,11 +28,11 @@ func main() {
 }
 
 type HelloController struct {
-	helloService HelloService
+	HelloService HelloService
 }
 
-func (this *HelloController) GET(w http.ResponseWriter, req *http.Request) {
-	this.helloService.Hello()
+func (this HelloController) GET(w http.ResponseWriter, req *http.Request) {
+	this.HelloService.Hello()
 }
 
 type HelloService interface {
@@ -44,6 +45,7 @@ type helloService struct {
 
 func (this helloService) Hello() {
 	fmt.Println("hello")
+	time.Sleep(15 * time.Second)
 }
 
 func NewHelloService(

@@ -53,8 +53,9 @@ func NewApp(port int, routes []interface{}, serviceFuncs ...interface{}) app {
 		}
 
 		service := reflect.ValueOf(serviceFunc).Call(params)
+		ptr := service[0].Convert(service[0].Type()).Elem()
 
-		singletonsByName[service[0].Type().Name()] = service[0].Convert(service[0].Type())
+		singletonsByName[service[0].Type().Name()] = ptr
 	}
 
 	fmt.Println("I'm A LEGEND")
@@ -109,18 +110,22 @@ func (this *App) newRouter(pathWithControllers []interface{}) (Router, error) {
 
 	for i := 0; i < len(pathWithControllers); i += 2 {
 		path := pathWithControllers[i].(string)
-		controller := pathWithControllers[i+1]
-
+		c := pathWithControllers[i+1]
+		controller := reflect.ValueOf(c).Elem()
 		isController := false
 
 		fmt.Println("controller: ", controller)
-		controllerType := reflect.TypeOf(controller)
-		for i := 0; i < controllerType.NumField(); i++ {
-			field := controllerType.Field(i)
-			rf := reflect.New(field.Type)
 
-			rf.Elem().Set(reflect.ValueOf(field))
-			reflect.ValueOf(this.singletons[field.Name]).Elem().FieldByName("Field").Set(rf)
+		for i := 0; i < controller.NumField(); i++ {
+			field := controller.FieldByIndex([]int{i})
+			fmt.Println("field: ", field, field.Type(), this.singletons[field.Type().Name()].Type())
+
+			//	rf := reflect.New(field.Type)
+			fmt.Println("what dis: ", this.singletons[field.Type().Name()].Kind())
+			//	rf.Elem().Set(reflect.ValueOf(field))
+
+			fmt.Println("can set: ", field.CanSet(), field.Type())
+			field.Set(this.singletons[field.Type().Name()].Elem()) // .Elem().Set(reflect.New(field.Type))
 
 			// fmt.Println("hat this: ", field.Name, reflect.ValueOf(field), reflect.ValueOf(this.singletons[field.Name]))
 			// rf.Elem().Set(reflect.ValueOf(this.singletons[field.Name]))
@@ -131,24 +136,25 @@ func (this *App) newRouter(pathWithControllers []interface{}) (Router, error) {
 			// reflect.ValueOf(controller).Set(reflect.ValueOf(this.singletons[field.Name]))
 		}
 
-		fmt.Println("controller after: ", controller)
+		fmt.Println("controller after: ", controller, controller.Type(), controller.NumMethod())
 
-		for i := 0; i < controllerType.NumMethod(); i++ {
-			method := controllerType.Method(i)
+		for i := 0; i < controller.NumMethod(); i++ {
+			method := controller.Type().Method(i)
+			name := method.Name
 
-			if ok := httpVerbs[method.Name]; !ok {
-				continue
-			}
+			// if ok := httpVerbs[name]; !ok {
+			// 	continue
+			// }
 
 			// "Index",
 			// "GET",
 			// "/",
 			// Index, reflect.ValueOf(f).MethodByName(name).Call(nil)
-			f := reflect.ValueOf(controller).MethodByName(method.Name)
+		//	f := reflect.ValueOf(controller).MethodByName(name)
 			router.
-				HandleFunc(path, f.Interface().(func(http.ResponseWriter, *http.Request))).
+				HandleFunc(path, method.Func.Interface().(func(http.ResponseWriter, *http.Request))).
 				//		HandleFunc(path, http.HandlerFunc(f.Call(nil))).
-				Methods(method.Name)
+				Methods(name)
 			// Path(method.Name).
 			// Name(path).
 			//		Handl
