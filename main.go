@@ -4,17 +4,24 @@ import (
 	"fmt"
 	"net/http"
 	"simplegoapp/app"
+
+	"go.uber.org/zap"
 )
 
 func main() {
-	helloService := NewHelloService()
-	dependendentService := NewDependentService(helloService)
+	// helloService := NewHelloService()
+	// dependendentService := NewDependentService(helloService)
 
 	routes := []interface{}{
 		"/hello", HelloController{},
 	}
 
-	app := app.NewApp(8080, routes, helloService, dependendentService)
+	app := app.NewApp(
+		8080,
+		routes,
+		NewHelloService,
+		NewDependentService,
+	)
 
 	app.Run()
 }
@@ -32,18 +39,27 @@ type HelloService interface {
 }
 
 type helloService struct {
+	logger *zap.SugaredLogger
 }
 
 func (this helloService) Hello() {
 	fmt.Println("hello")
 }
 
-func NewHelloService() HelloService {
-	return &helloService{}
+func NewHelloService(
+	logger *zap.SugaredLogger,
+) HelloService {
+	return &helloService{
+		logger: logger,
+	}
 }
 
-func NewDependentService(helloService HelloService) DependentService {
+func NewDependentService(
+	logger *zap.SugaredLogger,
+	helloService HelloService,
+) DependentService {
 	return &dependendentService{
+		logger:       logger,
 		helloService: helloService,
 	}
 }
@@ -53,6 +69,8 @@ type DependentService interface {
 }
 
 type dependendentService struct {
+	logger *zap.SugaredLogger
+
 	helloService HelloService
 }
 

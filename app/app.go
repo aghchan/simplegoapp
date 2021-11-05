@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
 type app interface {
@@ -18,19 +19,45 @@ type app interface {
 type App struct {
 	port       int
 	router     *mux.Router
-	singletons map[string]interface{}
+	singletons map[string]reflect.Value
 }
 
-func NewApp(port int, routes []interface{}, services ...interface{}) app {
-	singletonsByName := make(map[string]interface{})
-
-	for _, service := range services {
-		if t := reflect.TypeOf(service); t.Kind() == reflect.Ptr {
-			singletonsByName[t.Elem().Name()] = service
-		} else {
-			singletonsByName[t.Name()] = service
-		}
+func Invoke(fn interface{}, args ...string) {
+	v := reflect.ValueOf(fn)
+	rargs := make([]reflect.Value, len(args))
+	for i, a := range args {
+		rargs[i] = reflect.ValueOf(a)
 	}
+	v.Call(rargs)
+}
+
+func NewApp(port int, routes []interface{}, serviceFuncs ...interface{}) app {
+	logger := NewLogger()
+	singletonsByName := make(map[string]reflect.Value)
+
+	for _, serviceFunc := range serviceFuncs {
+		params := []reflect.Value{}
+		serviceFuncType := reflect.TypeOf(serviceFunc)
+
+		for i := 0; i < serviceFuncType.NumIn(); i++ {
+			field := serviceFuncType.In(i)
+
+			var param reflect.Value
+			if field == reflect.TypeOf(logger) {
+				param = reflect.ValueOf(logger)
+			} else {
+				param = singletonsByName[field.Name()]
+			}
+
+			params = append(params, param)
+		}
+
+		service := reflect.ValueOf(serviceFunc).Call(params)
+
+		singletonsByName[service[0].Type().Name()] = service[0].Convert(service[0].Type())
+	}
+
+	fmt.Println("I'm A LEGEND")
 
 	app := &App{
 		port:       port,
@@ -52,6 +79,13 @@ func NewApp(port int, routes []interface{}, services ...interface{}) app {
 	// }
 
 	return app
+}
+
+func NewLogger() *zap.SugaredLogger {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
+	return logger.Sugar()
 }
 
 func (this *App) Run() {
