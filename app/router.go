@@ -22,8 +22,7 @@ func newRouter(singletons map[string]reflect.Value, pathWithControllers []interf
 
 	for i := 0; i < len(pathWithControllers); i += 2 {
 		path := pathWithControllers[i].(string)
-		c := pathWithControllers[i+1]
-		controller := reflect.ValueOf(c).Elem()
+		controller := reflect.ValueOf(pathWithControllers[i+1]).Elem()
 		isController := false
 
 		for i := 0; i < controller.NumField(); i++ {
@@ -34,7 +33,6 @@ func newRouter(singletons map[string]reflect.Value, pathWithControllers []interf
 		for i := 0; i < controller.NumMethod(); i++ {
 			method := controller.Type().Method(i)
 			name := method.Name
-
 			if ok := httpVerbs[name]; !ok {
 				continue
 			}

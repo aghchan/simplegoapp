@@ -43,9 +43,7 @@ func NewApp(host string, port int, routes []interface{}, serviceFuncs ...interfa
 		}
 
 		service := reflect.ValueOf(serviceFunc).Call(params)
-		ptr := service[0].Convert(service[0].Type()).Elem()
-
-		singletonsByName[service[0].Type().Name()] = ptr
+		singletonsByName[service[0].Type().Name()] = service[0].Elem()
 	}
 
 	app := &App{
