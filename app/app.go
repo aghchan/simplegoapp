@@ -21,7 +21,7 @@ type App struct {
 	router *mux.Router
 }
 
-func NewApp(host string, port int, routes []interface{}, serviceFuncs ...interface{}) app {
+func NewApp(host string, port int, routes []interface{}, serviceFuncs []interface{}) app {
 	logger := newLogger()
 	singletonsByName := make(map[string]reflect.Value)
 

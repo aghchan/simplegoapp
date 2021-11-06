@@ -16,8 +16,10 @@ func main() {
 		"localhost",
 		8080,
 		routes,
-		example.NewExampleService,
-		example2.NewExample2Service,
+		[]interface{}{
+			example.NewExampleService,
+			example2.NewExample2Service,
+		},
 	)
 
 	app.Run()

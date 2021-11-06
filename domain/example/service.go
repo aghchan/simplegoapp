@@ -2,7 +2,6 @@ package example
 
 import (
 	"fmt"
-	"time"
 
 	"go.uber.org/zap"
 )
@@ -18,7 +17,6 @@ type exampleService struct {
 
 func (this exampleService) Hello() {
 	fmt.Println("hello")
-	time.Sleep(15 * time.Second)
 }
 
 func (this exampleService) Bye() {
