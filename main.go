@@ -17,8 +17,8 @@ func main() {
 		8080,
 		routes,
 		[]interface{}{
-			example.NewExampleService,
 			example2.NewExample2Service,
+			example.NewExampleService,
 		},
 	)
 

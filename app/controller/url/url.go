@@ -2,7 +2,6 @@ package url
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/schema"
@@ -22,7 +21,7 @@ func Respond(w http.ResponseWriter, obj interface{}) {
 		panic(obj)
 	}
 
-	fmt.Println("resp: ", resp)
+	w.Header().Set("Content-Type", "application/json")
 
 	_, err = w.Write(resp)
 	if err != nil {
