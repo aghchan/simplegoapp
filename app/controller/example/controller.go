@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"simplegoapp/app/controller/url"
 	"simplegoapp/domain/example"
+
+	"go.uber.org/zap"
 )
 
 type ExampleController struct {
+	Logger         *zap.SugaredLogger
 	ExampleService example.ExampleService
 }
 
@@ -15,17 +18,40 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 		P1   int      "json:p1"
 		List []string "json:list"
 	}{}
-	url.ParseParams(req, &testParams)
+	err := url.ParseParams(req, &testParams)
+	if err != nil {
+		this.Logger.Errorw(
+			"Parsing params",
+			"err", err,
+		)
+
+		url.InternalError(this.Logger, w, err)
+	}
 
 	this.ExampleService.Hello()
 
-	x := exampleStruct{
+	resp := exampleStruct{
 		Test: "dumb",
 	}
-	url.Respond(w, x)
+	url.Respond(this.Logger, w, resp)
 }
 
 func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
+	sampleBody := struct {
+		Field1 string "json: field1"
+		Field2 []int  "json: field2"
+	}{}
+
+	err := url.ParseBody(req, &sampleBody)
+	if err != nil {
+		this.Logger.Errorw(
+			"Parsing payload",
+			"err", err,
+		)
+
+		url.InternalError(this.Logger, w, err)
+	}
+
 	this.ExampleService.Bye()
 }
 

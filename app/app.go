@@ -79,7 +79,7 @@ func NewApp(host string, port int, routes []interface{}, serviceFuncs []interfac
 		logger: logger,
 		host:   host,
 		port:   port,
-		router: newRouter(singletonsByName, routes),
+		router: newRouter(logger, singletonsByName, routes),
 	}
 
 	return app

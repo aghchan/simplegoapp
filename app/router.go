@@ -5,9 +5,14 @@ import (
 	"reflect"
 
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 )
 
-func newRouter(singletons map[string]reflect.Value, pathWithControllers []interface{}) *mux.Router {
+func newRouter(
+	logger *zap.SugaredLogger,
+	singletons map[string]reflect.Value,
+	pathWithControllers []interface{},
+) *mux.Router {
 	if len(pathWithControllers)%2 != 0 {
 		panic("mismatching paths and controllers")
 	}
@@ -27,7 +32,15 @@ func newRouter(singletons map[string]reflect.Value, pathWithControllers []interf
 
 		for i := 0; i < controller.NumField(); i++ {
 			field := controller.FieldByIndex([]int{i})
-			field.Set(singletons[field.Type().Name()].Elem())
+
+			var param reflect.Value
+			if field.Type() == reflect.TypeOf(logger) {
+				param = reflect.ValueOf(logger)
+			} else {
+				param = singletons[field.Type().Name()].Elem()
+			}
+
+			field.Set(param)
 		}
 
 		for i := 0; i < controller.NumMethod(); i++ {
