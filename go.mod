@@ -1,4 +1,4 @@
-module simplegoapp
+module github.com/aghchan/simplegoapp
 
 go 1.17
 
