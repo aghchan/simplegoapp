@@ -2,10 +2,11 @@ package controller
 
 import (
 	"net/http"
-	"simplegoapp/app/controller/url"
-	"simplegoapp/domain/example"
 
 	"go.uber.org/zap"
+
+	"github.com/aghchan/simplegoapp/app/controller/url"
+	"github.com/aghchan/simplegoapp/domain/example"
 )
 
 type ExampleController struct {

@@ -1,9 +1,9 @@
 package example2
 
 import (
-	"simplegoapp/domain/example"
-
 	"go.uber.org/zap"
+
+	"github.com/aghchan/simplegoapp/domain/example"
 )
 
 func NewExample2Service(

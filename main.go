@@ -1,10 +1,10 @@
 package main
 
 import (
-	"simplegoapp/app"
-	controller "simplegoapp/app/controller/example"
-	"simplegoapp/domain/example"
-	"simplegoapp/domain/example2"
+	"github.com/aghchan/simplegoapp/app"
+	controller "github.com/aghchan/simplegoapp/app/controller/example"
+	"github.com/aghchan/simplegoapp/domain/example"
+	"github.com/aghchan/simplegoapp/domain/example2"
 )
 
 func main() {
