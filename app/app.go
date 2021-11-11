@@ -35,6 +35,29 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 		servicesToInit[i] = serviceFunc
 	}
 
+	f, err := ioutil.ReadFile("config.yml")
+	if err != nil {
+		panic("loading config file: " + err.Error())
+	}
+
+	err = yaml.Unmarshal(f, config)
+	if err != nil {
+		panic("unmarshaling config file: " + err.Error())
+	}
+
+	configs := make(map[string]interface{})
+	cfg := reflect.ValueOf(config).Elem()
+	for i := 0; i < cfg.NumField(); i++ {
+		field := cfg.FieldByIndex([]int{i})
+		for i := 0; i < field.Type().NumField(); i++ {
+			innerField := field.Type().Field(i)
+			value := field.Field(i)
+			key := innerField.Tag.Get("config")
+
+			configs[key] = value.Interface()
+		}
+	}
+
 	attempts := 0
 	for {
 		if len(servicesToInit) == 0 {
@@ -53,9 +76,12 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 				field := serviceFuncType.In(i)
 
 				var param reflect.Value
-				if field == reflect.TypeOf(logger) {
+				switch field {
+				case reflect.TypeOf(logger):
 					param = reflect.ValueOf(logger)
-				} else {
+				case reflect.TypeOf(configs):
+					param = reflect.ValueOf(configs)
+				default:
 					if _, ok := singletonsByName[field.Name()]; !ok {
 						foundParams = false
 
@@ -78,16 +104,6 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 		}
 
 		attempts++
-	}
-
-	f, err := ioutil.ReadFile("config.yml")
-	if err != nil {
-		panic("loading config file: " + err.Error())
-	}
-
-	err = yaml.Unmarshal(f, config)
-	if err != nil {
-		panic("unmarshaling config file: " + err.Error())
 	}
 
 	app := &App{

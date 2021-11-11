@@ -6,7 +6,7 @@ import (
 	"github.com/aghchan/simplegoapp/domain/example"
 )
 
-func NewExample2Service(
+func NewService(
 	logger *zap.SugaredLogger,
 	exampleService example.ExampleService,
 ) Example2Service {

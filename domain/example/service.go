@@ -23,7 +23,7 @@ func (this exampleService) Bye() {
 	fmt.Println("bye")
 }
 
-func NewExampleService(
+func NewService(
 	logger *zap.SugaredLogger,
 ) ExampleService {
 	return &exampleService{
