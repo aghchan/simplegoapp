@@ -1,6 +1,7 @@
 package app
 
 import (
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 type app interface {
@@ -21,7 +23,10 @@ type App struct {
 	router *mux.Router
 }
 
-func NewApp(host string, port int, routes []interface{}, serviceFuncs []interface{}) app {
+// creates instance of app with singletons of services and initializes router
+//
+// sets value of config struct
+func NewApp(host string, port int, config interface{}, routes, serviceFuncs []interface{}) app {
 	logger := newLogger()
 	singletonsByName := make(map[string]reflect.Value)
 	servicesToInit := make(map[int]interface{})
@@ -32,11 +37,11 @@ func NewApp(host string, port int, routes []interface{}, serviceFuncs []interfac
 
 	attempts := 0
 	for {
-		if attempts >= 1000 {
-			panic("failed to initialize singletons")
-		}
 		if len(servicesToInit) == 0 {
 			break
+		}
+		if attempts >= len(serviceFuncs) {
+			panic("failed to initialize singletons")
 		}
 
 		for i, serviceFunc := range servicesToInit {
@@ -73,6 +78,16 @@ func NewApp(host string, port int, routes []interface{}, serviceFuncs []interfac
 		}
 
 		attempts++
+	}
+
+	f, err := ioutil.ReadFile("config.yml")
+	if err != nil {
+		panic("loading config file: " + err.Error())
+	}
+
+	err = yaml.Unmarshal(f, config)
+	if err != nil {
+		panic("unmarshaling config file: " + err.Error())
 	}
 
 	app := &App{
