@@ -14,7 +14,7 @@ type config struct {
 		Field2 string `yaml:"field2" config:"test_field2"`
 	} `yaml:"test"`
 	Twilio struct {
-		PhoneNumber string `yaml:"phone_number" config:"twilio_number"`
+		PhoneNumber string `yaml:"phone_number" config:"twilio_number" env:"TWILIO_PHONE_NUMBER"`
 	} `yaml:"twilio"`
 }
 

@@ -3,6 +3,7 @@ package app
 import (
 	"io/ioutil"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"time"
@@ -53,6 +54,10 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 			innerField := field.Type().Field(i)
 			value := field.Field(i)
 			key := innerField.Tag.Get("config")
+			env := innerField.Tag.Get("env")
+			if env != "" {
+				os.Setenv(env, value.Interface().(string))
+			}
 
 			configs[key] = value.Interface()
 		}
