@@ -6,27 +6,27 @@ import (
 	"go.uber.org/zap"
 )
 
-type ExampleService interface {
+type Service interface {
 	Hello()
 	Bye()
 }
 
-type exampleService struct {
+type service struct {
 	logger *zap.SugaredLogger
 }
 
-func (this exampleService) Hello() {
+func (this service) Hello() {
 	fmt.Println("hello")
 }
 
-func (this exampleService) Bye() {
+func (this service) Bye() {
 	fmt.Println("bye")
 }
 
 func NewService(
 	logger *zap.SugaredLogger,
-) ExampleService {
-	return &exampleService{
+) Service {
+	return &service{
 		logger: logger,
 	}
 }

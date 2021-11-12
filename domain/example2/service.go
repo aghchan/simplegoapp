@@ -8,24 +8,24 @@ import (
 
 func NewService(
 	logger *zap.SugaredLogger,
-	exampleService example.ExampleService,
-) Example2Service {
-	return &example2Service{
+	exampleService example.Service,
+) Service {
+	return &service{
 		logger:         logger,
-		exampleService: exampleService,
+		example: exampleService,
 	}
 }
 
-type Example2Service interface {
+type Service interface {
 	Yes()
 }
 
-type example2Service struct {
+type service struct {
 	logger *zap.SugaredLogger
 
-	exampleService example.ExampleService
+	example example.Service
 }
 
-func (this example2Service) Yes() {
-	this.exampleService.Hello()
+func (this service) Yes() {
+	this.example.Hello()
 }

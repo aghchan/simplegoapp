@@ -82,13 +82,13 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 				case reflect.TypeOf(configs):
 					param = reflect.ValueOf(configs)
 				default:
-					if _, ok := singletonsByName[field.Name()]; !ok {
+					if _, ok := singletonsByName[field.String()]; !ok {
 						foundParams = false
 
 						break
 					}
 
-					param = singletonsByName[field.Name()]
+					param = singletonsByName[field.String()]
 				}
 
 				params = append(params, param)
@@ -99,7 +99,7 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 			}
 
 			service := reflect.ValueOf(serviceFunc).Call(params)
-			singletonsByName[service[0].Type().Name()] = service[0].Elem()
+			singletonsByName[service[0].Type().String()] = service[0].Elem()
 			delete(servicesToInit, i)
 		}
 

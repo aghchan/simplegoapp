@@ -5,24 +5,24 @@ import (
 	openapi "github.com/twilio/twilio-go/rest/api/v2010"
 )
 
-type TwilioService interface {
+type Service interface {
 	SendSMS(phoneNumber, body string) error
 }
 
 // set twilio number in config as twilio_number
-func NewService(config map[string]interface{}) TwilioService {
-	return &twilioService{
+func NewService(config map[string]interface{}) Service {
+	return &service{
 		twilioNumber: config["twilio_number"].(string),
 		client:       twilio.NewRestClient(),
 	}
 }
 
-type twilioService struct {
+type service struct {
 	twilioNumber string
 	client       *twilio.RestClient
 }
 
-func (this twilioService) SendSMS(phoneNumber, body string) error {
+func (this service) SendSMS(phoneNumber, body string) error {
 	params := &openapi.CreateMessageParams{}
 	params.SetTo(phoneNumber)
 	params.SetFrom(this.twilioNumber)

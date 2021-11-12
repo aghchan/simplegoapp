@@ -37,7 +37,7 @@ func newRouter(
 			if field.Type() == reflect.TypeOf(logger) {
 				param = reflect.ValueOf(logger)
 			} else {
-				param = singletons[field.Type().Name()].Elem()
+				param = singletons[field.Type().String()].Elem()
 			}
 
 			field.Set(param)

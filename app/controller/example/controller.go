@@ -11,7 +11,7 @@ import (
 
 type ExampleController struct {
 	Logger         *zap.SugaredLogger
-	ExampleService example.ExampleService
+	ExampleService example.Service
 }
 
 func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
