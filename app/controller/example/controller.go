@@ -3,14 +3,13 @@ package controller
 import (
 	"net/http"
 
-	"go.uber.org/zap"
-
 	"github.com/aghchan/simplegoapp/app/controller/url"
 	"github.com/aghchan/simplegoapp/domain/example"
+	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
 type ExampleController struct {
-	Logger         *zap.SugaredLogger
+	Logger         logger.Logger
 	ExampleService example.Service
 }
 
@@ -21,7 +20,7 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 	}{}
 	err := url.ParseParams(req, &testParams)
 	if err != nil {
-		this.Logger.Errorw(
+		this.Logger.Error(
 			"Parsing params",
 			"err", err,
 		)
@@ -45,7 +44,7 @@ func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
 
 	err := url.ParseBody(req, &sampleBody)
 	if err != nil {
-		this.Logger.Errorw(
+		this.Logger.Error(
 			"Parsing payload",
 			"err", err,
 		)

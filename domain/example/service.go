@@ -3,7 +3,7 @@ package example
 import (
 	"fmt"
 
-	"go.uber.org/zap"
+	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
 type Service interface {
@@ -12,7 +12,7 @@ type Service interface {
 }
 
 type service struct {
-	logger *zap.SugaredLogger
+	logger logger.Logger
 }
 
 func (this service) Hello() {
@@ -24,7 +24,7 @@ func (this service) Bye() {
 }
 
 func NewService(
-	logger *zap.SugaredLogger,
+	logger logger.Logger,
 ) Service {
 	return &service{
 		logger: logger,

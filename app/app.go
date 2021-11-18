@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+
+	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
 type app interface {
@@ -20,7 +21,7 @@ type app interface {
 type App struct {
 	host   string
 	port   int
-	logger *zap.SugaredLogger
+	logger logger.Logger
 	router *mux.Router
 }
 
@@ -28,7 +29,7 @@ type App struct {
 //
 // sets value of config struct
 func NewApp(host string, port int, config interface{}, routes, serviceFuncs []interface{}) app {
-	logger := newLogger()
+	log := logger.NewService()
 	singletonsByName := make(map[string]reflect.Value)
 	servicesToInit := make(map[int]interface{})
 
@@ -82,8 +83,8 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 
 				var param reflect.Value
 				switch field {
-				case reflect.TypeOf(logger):
-					param = reflect.ValueOf(logger)
+				case reflect.TypeOf(new(logger.Logger)).Elem():
+					param = reflect.ValueOf(log)
 				case reflect.TypeOf(configs):
 					param = reflect.ValueOf(configs)
 				default:
@@ -112,10 +113,10 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 	}
 
 	app := &App{
-		logger: logger,
+		logger: log,
 		host:   host,
 		port:   port,
-		router: newRouter(logger, singletonsByName, routes),
+		router: newRouter(log, singletonsByName, routes),
 	}
 
 	return app
@@ -129,13 +130,10 @@ func (this *App) Run() {
 		ReadTimeout:  15 * time.Second,
 	}
 
-	this.logger.Info("Started server: " + this.host + ":" + strconv.Itoa(this.port))
+	this.logger.Info(
+		"Started server",
+		"host", this.host,
+		"port", strconv.Itoa(this.port),
+	)
 	server.ListenAndServe()
-}
-
-func newLogger() *zap.SugaredLogger {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-
-	return logger.Sugar()
 }

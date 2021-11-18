@@ -1,17 +1,16 @@
 package example2
 
 import (
-	"go.uber.org/zap"
-
 	"github.com/aghchan/simplegoapp/domain/example"
+	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
 func NewService(
-	logger *zap.SugaredLogger,
+	logger logger.Logger,
 	exampleService example.Service,
 ) Service {
 	return &service{
-		logger:         logger,
+		logger:  logger,
 		example: exampleService,
 	}
 }
@@ -21,7 +20,7 @@ type Service interface {
 }
 
 type service struct {
-	logger *zap.SugaredLogger
+	logger logger.Logger
 
 	example example.Service
 }

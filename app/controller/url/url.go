@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/gorilla/schema"
-	"go.uber.org/zap"
 )
 
 func ParseParams(req *http.Request, obj interface{}) error {
@@ -27,10 +27,10 @@ func ParseBody(req *http.Request, obj interface{}) error {
 	return nil
 }
 
-func Respond(logger *zap.SugaredLogger, w http.ResponseWriter, obj interface{}) {
+func Respond(logger logger.Logger, w http.ResponseWriter, obj interface{}) {
 	resp, err := json.Marshal(obj)
 	if err != nil {
-		logger.Errorw(
+		logger.Error(
 			"marshaling response",
 			"err", err,
 		)
@@ -40,14 +40,14 @@ func Respond(logger *zap.SugaredLogger, w http.ResponseWriter, obj interface{}) 
 
 	_, err = w.Write(resp)
 	if err != nil {
-		logger.Errorw(
+		logger.Error(
 			"writing response",
 			"err", err,
 		)
 	}
 }
 
-func InternalError(logger *zap.SugaredLogger, w http.ResponseWriter, err error) {
+func InternalError(logger logger.Logger, w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	resp, _ := json.Marshal(
 		errorResp{
@@ -57,7 +57,7 @@ func InternalError(logger *zap.SugaredLogger, w http.ResponseWriter, err error) 
 
 	_, err = w.Write(resp)
 	if err != nil {
-		logger.Errorw(
+		logger.Error(
 			"marshaling response",
 			"err", err,
 		)

@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 )
 
 func newRouter(
-	logger *zap.SugaredLogger,
+	log logger.Logger,
 	singletons map[string]reflect.Value,
 	pathWithControllers []interface{},
 ) *mux.Router {
@@ -34,8 +34,8 @@ func newRouter(
 			field := controller.FieldByIndex([]int{i})
 
 			var param reflect.Value
-			if field.Type() == reflect.TypeOf(logger) {
-				param = reflect.ValueOf(logger)
+			if field.Type() == reflect.TypeOf(new(logger.Logger)).Elem() {
+				param = reflect.ValueOf(log)
 			} else {
 				param = singletons[field.Type().String()].Elem()
 			}
