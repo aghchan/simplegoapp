@@ -61,11 +61,13 @@ func (this SocketController) SOCKET(w http.ResponseWriter, req *http.Request) {
 	defer close(out)
 
 	for {
-		message, err := this.ReadSocket(conn)
+		_, err := this.ReadSocket(conn)
 		if err != nil {
 			break
 		}
 
-		out <- message
+		this.SendMessage(out, struct {
+			Field1 string `json:"testingSample"`
+		}{Field1: "wooo"})
 	}
 }

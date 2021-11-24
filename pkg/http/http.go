@@ -72,6 +72,23 @@ func (this Controller) ReadSocket(conn *websocket.Conn) ([]byte, error) {
 	return message, nil
 }
 
+func (this Controller) SendMessage(out chan []byte, message interface{}) error {
+	b, err := json.Marshal(message)
+	if err != nil {
+		this.Logger.Error(
+			"marshaling message",
+			"err", err,
+			"message", message,
+		)
+
+		return err
+	}
+
+	out <- b
+
+	return nil
+}
+
 func (this Controller) ParseParams(req *Request, obj interface{}) error {
 	decoder := schema.NewDecoder()
 	err := decoder.Decode(obj, req.URL.Query())
