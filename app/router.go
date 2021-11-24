@@ -1,9 +1,9 @@
 package app
 
 import (
-	"net/http"
 	"reflect"
 
+	"github.com/aghchan/simplegoapp/pkg/http"
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/gorilla/mux"
 )
@@ -21,13 +21,8 @@ func newRouter(
 		panic("mismatching paths and controllers")
 	}
 
+	addImbeddedStructs(log, singletons)
 	router := mux.NewRouter()
-	httpVerbs := map[string]bool{
-		http.MethodGet:    true,
-		http.MethodPut:    true,
-		http.MethodPost:   true,
-		http.MethodDelete: true,
-	}
 
 	for i := 0; i < len(pathWithControllers); i += 2 {
 		path := pathWithControllers[i].(string)
@@ -52,7 +47,7 @@ func newRouter(
 			name := method.Name
 			isSocket := Socket == name
 
-			if ok := httpVerbs[name]; !ok && !isSocket {
+			if ok := http.Verbs[name]; !ok && !isSocket {
 				continue
 			}
 
@@ -76,4 +71,14 @@ func newRouter(
 	}
 
 	return router
+}
+
+func addImbeddedStructs(logger logger.Logger, singletonsByName map[string]reflect.Value) {
+	imbeddedStructs := []interface{}{
+		&http.Controller{Logger: logger},
+	}
+
+	for _, imbeddedStruct := range imbeddedStructs {
+		singletonsByName[reflect.TypeOf(imbeddedStruct).Elem().String()] = reflect.ValueOf(imbeddedStruct)
+	}
 }

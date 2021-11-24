@@ -13,6 +13,12 @@ import (
 
 var (
 	ErrUnexpectedSocketClose = errors.New("unexpected socket close")
+	Verbs                    = map[string]bool{
+		http.MethodGet:    true,
+		http.MethodPut:    true,
+		http.MethodPost:   true,
+		http.MethodDelete: true,
+	}
 
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -24,6 +30,10 @@ var (
 
 type ResponseWriter = http.ResponseWriter
 type Request = http.Request
+
+type Controller struct {
+	Logger logger.Logger
+}
 
 func Upgrade(w http.ResponseWriter, req *http.Request) (*websocket.Conn, chan []byte, error) {
 	conn, err := upgrader.Upgrade(w, req, nil)

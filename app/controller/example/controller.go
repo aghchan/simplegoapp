@@ -5,11 +5,11 @@ import (
 
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/pkg/http"
-	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
 type ExampleController struct {
-	Logger         logger.Logger
+	http.Controller
+
 	ExampleService example.Service
 }
 
@@ -60,7 +60,7 @@ func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
 }
 
 type SocketController struct {
-	Logger logger.Logger
+	http.Controller
 }
 
 func (this SocketController) SOCKET(w http.ResponseWriter, req *http.Request) {
