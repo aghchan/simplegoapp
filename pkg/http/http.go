@@ -47,7 +47,7 @@ func (this Controller) Upgrade(w http.ResponseWriter, req *http.Request) (*webso
 		return nil, nil, err
 	}
 
-	out := make(chan []byte)
+	out := make(chan []byte, 1)
 	go func(conn *websocket.Conn, out <-chan []byte) {
 		writeSocket(conn, out)
 	}(conn, out)
