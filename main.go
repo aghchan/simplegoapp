@@ -21,6 +21,7 @@ type config struct {
 func main() {
 	routes := []interface{}{
 		"/hello", &controller.ExampleController{},
+		"/v1/socket", &controller.SocketController{},
 	}
 	config := config{}
 

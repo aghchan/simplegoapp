@@ -8,6 +8,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	Socket string = "SOCKET"
+)
+
 func newRouter(
 	log logger.Logger,
 	singletons map[string]reflect.Value,
@@ -46,16 +50,23 @@ func newRouter(
 		for i := 0; i < controller.NumMethod(); i++ {
 			method := controller.Type().Method(i)
 			name := method.Name
-			if ok := httpVerbs[name]; !ok {
+			isSocket := Socket == name
+
+			if ok := httpVerbs[name]; !ok && !isSocket {
 				continue
 			}
 
-			router.
+			route := router.
 				HandleFunc(
 					path,
 					controller.Method(i).Interface().(func(http.ResponseWriter, *http.Request)),
-				).
-				Methods(name)
+				)
+			log.Info("route: ", "path", path, "method", name)
+
+			if !isSocket {
+				route.Methods(name)
+			}
+
 			isController = true
 		}
 

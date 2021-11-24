@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"net/http"
+	"errors"
 
-	"github.com/aghchan/simplegoapp/app/controller/url"
 	"github.com/aghchan/simplegoapp/domain/example"
+	"github.com/aghchan/simplegoapp/pkg/http"
 	"github.com/aghchan/simplegoapp/pkg/logger"
 )
 
@@ -18,14 +18,14 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 		P1   int      "json:p1"
 		List []string "json:list"
 	}{}
-	err := url.ParseParams(req, &testParams)
+	err := http.ParseParams(req, &testParams)
 	if err != nil {
 		this.Logger.Error(
 			"Parsing params",
 			"err", err,
 		)
 
-		url.InternalError(this.Logger, w, err)
+		http.InternalError(this.Logger, w, err)
 	}
 
 	this.ExampleService.Hello()
@@ -33,7 +33,11 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 	resp := exampleStruct{
 		Test: "dumb",
 	}
-	url.Respond(this.Logger, w, resp)
+	http.Respond(this.Logger, w, resp)
+}
+
+type exampleStruct struct {
+	Test string "json: test2"
 }
 
 func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
@@ -42,19 +46,49 @@ func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
 		Field2 []int  "json: field2"
 	}{}
 
-	err := url.ParseBody(req, &sampleBody)
+	err := http.ParseBody(req, &sampleBody)
 	if err != nil {
 		this.Logger.Error(
 			"Parsing payload",
 			"err", err,
 		)
 
-		url.InternalError(this.Logger, w, err)
+		http.InternalError(this.Logger, w, err)
 	}
 
 	this.ExampleService.Bye()
 }
 
-type exampleStruct struct {
-	Test string "json: test2"
+type SocketController struct {
+	Logger logger.Logger
+}
+
+func (this SocketController) SOCKET(w http.ResponseWriter, req *http.Request) {
+	conn, out, err := http.Upgrade(w, req)
+	if err != nil {
+		this.Logger.Error(
+			"Upgrading to socket",
+			"error", err,
+		)
+
+		return
+	}
+	defer conn.Close()
+	defer close(out)
+
+	for {
+		message, err := http.ReadSocket(conn)
+		if err != nil {
+			if errors.Is(err, http.ErrUnexpectedSocketClose) {
+				this.Logger.Error(
+					"Reading from socket",
+					"err", err.Error(),
+				)
+			}
+
+			break
+		}
+
+		out <- message
+	}
 }
