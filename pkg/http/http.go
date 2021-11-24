@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrExpectedSocketClose = errors.New("Expected socket close")
+	ErrExpectedSocketClose = errors.New("expected socket close")
 	Verbs                  = map[string]bool{
 		http.MethodGet:    true,
 		http.MethodPut:    true,
@@ -39,8 +39,9 @@ func (this Controller) Upgrade(w http.ResponseWriter, req *http.Request) (*webso
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		this.Logger.Error(
-			"Upgrading to socket",
+			"upgrading to socket",
 			"error", err,
+			"path", req.RequestURI,
 		)
 
 		return nil, nil, err
@@ -60,7 +61,7 @@ func (this Controller) ReadSocket(conn *websocket.Conn) ([]byte, error) {
 		if !errors.Is(err, io.ErrUnexpectedEOF) &&
 			!websocket.IsCloseError(err, expectedSocketCloseErrs...) {
 			this.Logger.Error(
-				"Reading from socket",
+				"reading from socket",
 				"err", err,
 			)
 		}
@@ -76,8 +77,10 @@ func (this Controller) ParseParams(req *Request, obj interface{}) error {
 	err := decoder.Decode(obj, req.URL.Query())
 	if err != nil {
 		this.Logger.Error(
-			"Parsing query params",
+			"parsing query params",
 			"err", err,
+			"params", req.URL.Query(),
+			"path", req.RequestURI,
 		)
 
 		return err
@@ -90,8 +93,10 @@ func (this Controller) ParseBody(req *Request, obj interface{}) error {
 	err := json.NewDecoder(req.Body).Decode(obj)
 	if err != nil {
 		this.Logger.Error(
-			"Parsing payload",
+			"parsing payload",
 			"err", err,
+			"body", req.Body,
+			"path", req.RequestURI,
 		)
 
 		return err
@@ -106,6 +111,7 @@ func (this Controller) Respond(w http.ResponseWriter, obj interface{}) {
 		this.Logger.Error(
 			"marshaling response",
 			"err", err,
+			"response", obj,
 		)
 	}
 
@@ -116,6 +122,7 @@ func (this Controller) Respond(w http.ResponseWriter, obj interface{}) {
 		this.Logger.Error(
 			"writing response",
 			"err", err,
+			"response", resp,
 		)
 	}
 }
@@ -131,8 +138,9 @@ func (this Controller) InternalError(w http.ResponseWriter, err error) {
 	_, err = w.Write(resp)
 	if err != nil {
 		this.Logger.Error(
-			"marshaling response",
+			"marshaling internal error response",
 			"err", err,
+			"response", resp,
 		)
 	}
 }
