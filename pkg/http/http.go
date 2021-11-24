@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	ErrUnexpectedSocketClose = errors.New("unexpected socket close")
-	Verbs                    = map[string]bool{
+	ErrExpectedSocketClose = errors.New("Expected socket close")
+	Verbs                  = map[string]bool{
 		http.MethodGet:    true,
 		http.MethodPut:    true,
 		http.MethodPost:   true,
@@ -35,9 +35,14 @@ type Controller struct {
 	Logger logger.Logger
 }
 
-func Upgrade(w http.ResponseWriter, req *http.Request) (*websocket.Conn, chan []byte, error) {
+func (this Controller) Upgrade(w http.ResponseWriter, req *http.Request) (*websocket.Conn, chan []byte, error) {
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
+		this.Logger.Error(
+			"Upgrading to socket",
+			"error", err,
+		)
+
 		return nil, nil, err
 	}
 
@@ -49,11 +54,15 @@ func Upgrade(w http.ResponseWriter, req *http.Request) (*websocket.Conn, chan []
 	return conn, out, nil
 }
 
-func ReadSocket(conn *websocket.Conn) ([]byte, error) {
+func (this Controller) ReadSocket(conn *websocket.Conn) ([]byte, error) {
 	_, message, err := conn.ReadMessage()
 	if err != nil {
-		if err.Error() == io.ErrUnexpectedEOF.Error() || websocket.IsUnexpectedCloseError(err, expectedSocketCloseErrs...) {
-			return nil, ErrUnexpectedSocketClose
+		if !errors.Is(err, io.ErrUnexpectedEOF) &&
+			!websocket.IsCloseError(err, expectedSocketCloseErrs...) {
+			this.Logger.Error(
+				"Reading from socket",
+				"err", err,
+			)
 		}
 
 		return nil, err
@@ -62,29 +71,39 @@ func ReadSocket(conn *websocket.Conn) ([]byte, error) {
 	return message, nil
 }
 
-func ParseParams(req *Request, obj interface{}) error {
+func (this Controller) ParseParams(req *Request, obj interface{}) error {
 	decoder := schema.NewDecoder()
 	err := decoder.Decode(obj, req.URL.Query())
 	if err != nil {
+		this.Logger.Error(
+			"Parsing query params",
+			"err", err,
+		)
+
 		return err
 	}
 
 	return nil
 }
 
-func ParseBody(req *Request, obj interface{}) error {
+func (this Controller) ParseBody(req *Request, obj interface{}) error {
 	err := json.NewDecoder(req.Body).Decode(obj)
 	if err != nil {
+		this.Logger.Error(
+			"Parsing payload",
+			"err", err,
+		)
+
 		return err
 	}
 
 	return nil
 }
 
-func Respond(logger logger.Logger, w http.ResponseWriter, obj interface{}) {
+func (this Controller) Respond(w http.ResponseWriter, obj interface{}) {
 	resp, err := json.Marshal(obj)
 	if err != nil {
-		logger.Error(
+		this.Logger.Error(
 			"marshaling response",
 			"err", err,
 		)
@@ -94,14 +113,14 @@ func Respond(logger logger.Logger, w http.ResponseWriter, obj interface{}) {
 
 	_, err = w.Write(resp)
 	if err != nil {
-		logger.Error(
+		this.Logger.Error(
 			"writing response",
 			"err", err,
 		)
 	}
 }
 
-func InternalError(logger logger.Logger, w http.ResponseWriter, err error) {
+func (this Controller) InternalError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	resp, _ := json.Marshal(
 		errorResp{
@@ -111,7 +130,7 @@ func InternalError(logger logger.Logger, w http.ResponseWriter, err error) {
 
 	_, err = w.Write(resp)
 	if err != nil {
-		logger.Error(
+		this.Logger.Error(
 			"marshaling response",
 			"err", err,
 		)

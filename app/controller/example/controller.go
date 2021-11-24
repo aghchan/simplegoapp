@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"errors"
-
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/pkg/http"
 )
@@ -15,17 +13,13 @@ type ExampleController struct {
 
 func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 	testParams := struct {
-		P1   int      "json:p1"
-		List []string "json:list"
+		P1   int      `json:"p1"`
+		List []string `json:"list"`
 	}{}
-	err := http.ParseParams(req, &testParams)
-	if err != nil {
-		this.Logger.Error(
-			"Parsing params",
-			"err", err,
-		)
 
-		http.InternalError(this.Logger, w, err)
+	err := this.ParseParams(req, &testParams)
+	if err != nil {
+		this.InternalError(w, err)
 	}
 
 	this.ExampleService.Hello()
@@ -33,27 +27,22 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 	resp := exampleStruct{
 		Test: "dumb",
 	}
-	http.Respond(this.Logger, w, resp)
+	this.Respond(w, resp)
 }
 
 type exampleStruct struct {
-	Test string "json: test2"
+	Test string `json:"test2"`
 }
 
 func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
 	sampleBody := struct {
-		Field1 string "json: field1"
-		Field2 []int  "json: field2"
+		Field1 string `json:"field1"`
+		Field2 []int  `json:"field2"`
 	}{}
 
-	err := http.ParseBody(req, &sampleBody)
+	err := this.ParseBody(req, &sampleBody)
 	if err != nil {
-		this.Logger.Error(
-			"Parsing payload",
-			"err", err,
-		)
-
-		http.InternalError(this.Logger, w, err)
+		this.InternalError(w, err)
 	}
 
 	this.ExampleService.Bye()
@@ -64,28 +53,16 @@ type SocketController struct {
 }
 
 func (this SocketController) SOCKET(w http.ResponseWriter, req *http.Request) {
-	conn, out, err := http.Upgrade(w, req)
+	conn, out, err := this.Upgrade(w, req)
 	if err != nil {
-		this.Logger.Error(
-			"Upgrading to socket",
-			"error", err,
-		)
-
 		return
 	}
 	defer conn.Close()
 	defer close(out)
 
 	for {
-		message, err := http.ReadSocket(conn)
+		message, err := this.ReadSocket(conn)
 		if err != nil {
-			if errors.Is(err, http.ErrUnexpectedSocketClose) {
-				this.Logger.Error(
-					"Reading from socket",
-					"err", err.Error(),
-				)
-			}
-
 			break
 		}
 
