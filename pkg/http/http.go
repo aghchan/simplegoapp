@@ -1,10 +1,16 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
+	"reflect"
+	"time"
 
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/gorilla/schema"
@@ -20,7 +26,8 @@ var (
 		http.MethodDelete: true,
 	}
 
-	upgrader = websocket.Upgrader{
+	httpClient = &http.Client{Timeout: 10 * time.Second}
+	upgrader   = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -30,6 +37,77 @@ var (
 
 type ResponseWriter = http.ResponseWriter
 type Request = http.Request
+
+func GET(url string, params map[string]interface{}, response interface{}) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	// appending to query params
+	query := req.URL.Query()
+	for key, value := range params {
+		rValue := reflect.ValueOf(value)
+		switch rValue.Type().Kind() {
+		case reflect.Slice:
+			for i := 0; i < rValue.Len(); i++ {
+				query.Add(key, fmt.Sprintf("%v", rValue.Index(i).Interface()))
+			}
+		default:
+			query.Add(key, fmt.Sprintf("%v", rValue.Interface()))
+		}
+	}
+
+	req.URL.RawQuery = query.Encode()
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(responseBody, response)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func POST(url string, body, response interface{}) error {
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(responseBody, response)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 type Controller struct {
 	Logger logger.Logger

@@ -3,3 +3,6 @@ test:
   field2: there
 twilio:
   phone_number: 1234
+ticketmaster:
+  base_url: https://app.ticketmaster.com
+  api_key: OSrIAJMbQfu3K3tfo6TB4e1xtW3coOY2

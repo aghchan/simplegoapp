@@ -1,5 +1,3 @@
 tasks:
-  - init: |
-      echo 'TODO: build project'
-    command: |
-      echo 'TODO: start app'
+  - init: npm install -g wscat
+    command: npm install -g wscat

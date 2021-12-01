@@ -5,6 +5,7 @@ import (
 	controller "github.com/aghchan/simplegoapp/app/controller/example"
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/domain/example2"
+	"github.com/aghchan/simplegoapp/pkg/ticketmaster"
 	"github.com/aghchan/simplegoapp/pkg/twilio"
 )
 
@@ -16,6 +17,10 @@ type config struct {
 	Twilio struct {
 		PhoneNumber string `yaml:"phone_number" config:"twilio_number" env:"TWILIO_PHONE_NUMBER"`
 	} `yaml:"twilio"`
+	Ticketmaster struct {
+		APIKey  string `yaml:"api_key" config:"ticketmaster_api_key"`
+		BaseUrl string `yaml:"base_url" config:"ticketmaster_base_url"`
+	}
 }
 
 func main() {
@@ -32,6 +37,7 @@ func main() {
 		routes,
 		[]interface{}{
 			twilio.NewService,
+			ticketmaster.NewService,
 			example2.NewService,
 			example.NewService,
 		},
