@@ -5,6 +5,7 @@ import (
 	controller "github.com/aghchan/simplegoapp/app/controller/example"
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/domain/example2"
+	"github.com/aghchan/simplegoapp/pkg/mongo"
 	"github.com/aghchan/simplegoapp/pkg/ticketmaster"
 	"github.com/aghchan/simplegoapp/pkg/twilio"
 )
@@ -20,7 +21,12 @@ type config struct {
 	Ticketmaster struct {
 		APIKey  string `yaml:"api_key" config:"ticketmaster_api_key"`
 		BaseUrl string `yaml:"base_url" config:"ticketmaster_base_url"`
-	}
+	} `yaml:"ticketmaster"`
+	Mongo struct {
+		Host     string `yaml:"host" config:"mongo_host"`
+		Port     string `yaml:"port" config:"mongo_port"`
+		Database string `yaml:"database" config:"mongo_database"`
+	} `yaml:"mongo"`
 }
 
 func main() {
@@ -36,6 +42,7 @@ func main() {
 		&config,
 		routes,
 		[]interface{}{
+			mongo.NewService,
 			twilio.NewService,
 			ticketmaster.NewService,
 			example2.NewService,

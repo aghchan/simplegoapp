@@ -6,3 +6,7 @@ twilio:
 ticketmaster:
   base_url: https://app.ticketmaster.com
   api_key: OSrIAJMbQfu3K3tfo6TB4e1xtW3coOY2
+mongo:
+  host: localhost
+  port: 27017
+  database: sparrow
