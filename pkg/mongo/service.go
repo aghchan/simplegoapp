@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -19,6 +20,8 @@ type Service interface {
 	Update(collection string, filter, update interface{}, opts ...*options.UpdateOptions) error
 	FindOneAndUpdate(collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error
 }
+
+var ErrNoFilter = errors.New("no filter criteria for finding itineraries")
 
 type D = bson.D
 type E = bson.E
@@ -65,6 +68,10 @@ func connect(host, port, database string) *mongo.Database {
 }
 
 func (this service) Find(collection string, filter, result interface{}, opts ...*options.FindOptions) error {
+	if reflect.ValueOf(filter).Len() == 0 {
+		return ErrNoFilter
+	}
+
 	cursor, err := this.database.Collection(collection).Find(context.TODO(), filter, opts...)
 	if err != nil {
 		return err
