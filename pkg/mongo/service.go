@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,14 +15,14 @@ import (
 
 type Service interface {
 	Find(collection string, filter, result interface{}, opts ...*options.FindOptions) error
-	Insert(collection string, documents []interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error)
+	Insert(collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error)
 	Update(collection string, filter, update interface{}, opts ...*options.UpdateOptions) error
 	FindOneAndUpdate(collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error
 }
 
 type D = bson.D
 type E = bson.E
-type A = bson.A 
+type A = bson.A
 type M = bson.M
 
 type ObjectID = primitive.ObjectID
@@ -73,8 +74,16 @@ func (this service) Find(collection string, filter, result interface{}, opts ...
 	return nil
 }
 
-func (this service) Insert(collection string, documents []interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error) {
-	cursor, err := this.database.Collection(collection).InsertMany(context.TODO(), documents, opts...)
+func (this service) Insert(collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error) {
+	var documentsToInsert []interface{}
+
+	if reflect.ValueOf(documents).Kind() != reflect.Slice {
+		documentsToInsert = []interface{}{documents}
+	} else {
+		documentsToInsert = documents.([]interface{})
+	}
+
+	cursor, err := this.database.Collection(collection).InsertMany(context.TODO(), documentsToInsert, opts...)
 	if err != nil {
 		return nil, err
 	}
