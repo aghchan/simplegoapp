@@ -27,6 +27,10 @@ type M = bson.M
 
 type ObjectID = primitive.ObjectID
 
+func NewObjectId() ObjectID {
+	return primitive.NewObjectID()
+}
+
 func NewService(config map[string]interface{}, logger logger.Logger) Service {
 	return &service{
 		logger: logger,
@@ -80,7 +84,11 @@ func (this service) Insert(collection string, documents interface{}, opts ...*op
 	if reflect.ValueOf(documents).Kind() != reflect.Slice {
 		documentsToInsert = []interface{}{documents}
 	} else {
-		documentsToInsert = documents.([]interface{})
+		docs := reflect.ValueOf(documents)
+
+		for i := 0; i < docs.Len(); i++ {
+			documentsToInsert = append(documentsToInsert, docs.Index(i).Interface())
+		}
 	}
 
 	cursor, err := this.database.Collection(collection).InsertMany(context.TODO(), documentsToInsert, opts...)
