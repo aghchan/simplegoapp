@@ -28,7 +28,7 @@ type App struct {
 // creates instance of app with singletons of services and initializes router
 //
 // sets value of config struct
-func NewApp(host string, port int, config interface{}, routes, serviceFuncs []interface{}) app {
+func NewApp(host string, port int, routes, serviceFuncs []interface{}, config ...interface{}) app {
 	log := logger.NewService()
 	singletonsByName := make(map[string]reflect.Value)
 	servicesToInit := make(map[int]interface{})
@@ -37,30 +37,32 @@ func NewApp(host string, port int, config interface{}, routes, serviceFuncs []in
 		servicesToInit[i] = serviceFunc
 	}
 
-	f, err := ioutil.ReadFile("config.yml")
-	if err != nil {
-		panic("loading config file: " + err.Error())
-	}
-
-	err = yaml.Unmarshal(f, config)
-	if err != nil {
-		panic("unmarshaling config file: " + err.Error())
-	}
-
 	configs := make(map[string]interface{})
-	cfg := reflect.ValueOf(config).Elem()
-	for i := 0; i < cfg.NumField(); i++ {
-		field := cfg.FieldByIndex([]int{i})
-		for i := 0; i < field.Type().NumField(); i++ {
-			innerField := field.Type().Field(i)
-			value := field.Field(i)
-			key := innerField.Tag.Get("config")
-			env := innerField.Tag.Get("env")
-			if env != "" {
-				os.Setenv(env, value.Interface().(string))
-			}
+	if len(config) > 0 {
+		f, err := ioutil.ReadFile("config.yml")
+		if err != nil {
+			panic("loading config file: " + err.Error())
+		}
 
-			configs[key] = value.Interface()
+		err = yaml.Unmarshal(f, config[0])
+		if err != nil {
+			panic("unmarshaling config file: " + err.Error())
+		}
+
+		cfg := reflect.ValueOf(config[0]).Elem()
+		for i := 0; i < cfg.NumField(); i++ {
+			field := cfg.FieldByIndex([]int{i})
+			for i := 0; i < field.Type().NumField(); i++ {
+				innerField := field.Type().Field(i)
+				value := field.Field(i)
+				key := innerField.Tag.Get("config")
+				env := innerField.Tag.Get("env")
+				if env != "" {
+					os.Setenv(env, value.Interface().(string))
+				}
+
+				configs[key] = value.Interface()
+			}
 		}
 	}
 

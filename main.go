@@ -39,7 +39,6 @@ func main() {
 	app := app.NewApp(
 		"localhost",
 		8080,
-		&config,
 		routes,
 		[]interface{}{
 			mongo.NewService,
@@ -48,6 +47,7 @@ func main() {
 			example2.NewService,
 			example.NewService,
 		},
+		&config,
 	)
 
 	app.Run()
