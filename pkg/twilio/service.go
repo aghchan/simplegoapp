@@ -28,10 +28,11 @@ func (this service) SendSMS(phoneNumber, body string) error {
 	params.SetFrom(this.twilioNumber)
 	params.SetBody(body)
 
-	_, err := this.client.ApiV2010.CreateMessage(params)
-	if err != nil {
-		return err
-	}
+	// TODO: fix twilio send
+	// _, err := this.client.Api.CreateMessage(params)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
