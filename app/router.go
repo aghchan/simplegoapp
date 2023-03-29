@@ -39,7 +39,11 @@ func newRouter(
 				param = singletons[field.Type().String()].Elem()
 			}
 
-			field.Set(param)
+			if !param.Type().AssignableTo(field.Type()) {
+				field.Set(param.Addr())
+			} else {
+				field.Set(param)
+			}
 		}
 
 		for i := 0; i < controller.NumMethod(); i++ {
