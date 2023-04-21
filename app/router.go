@@ -12,6 +12,13 @@ const (
 	Socket string = "SOCKET"
 )
 
+type HealthController struct {
+	http.Controller
+}
+
+func (this HealthController) GET(w http.ResponseWriter, req *http.Request) {
+}
+
 func newRouter(
 	log logger.Logger,
 	singletons map[string]reflect.Value,
@@ -20,6 +27,8 @@ func newRouter(
 	if len(pathWithControllers)%2 != 0 {
 		panic("mismatching paths and controllers")
 	}
+
+	pathWithControllers = append(pathWithControllers, "/health", &HealthController{})
 
 	addImbeddedStructs(log, singletons)
 	router := mux.NewRouter()
