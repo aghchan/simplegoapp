@@ -42,6 +42,7 @@ func main() {
 		"/v1/socket", &controller.SocketController{},
 	}
 	config := config{}
+	models := []interface{}{}
 
 	app := app.NewApp(
 		"localhost",
@@ -55,6 +56,7 @@ func main() {
 			example2.NewService,
 			example.NewService,
 		},
+		models,
 		&config,
 	)
 

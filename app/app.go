@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/aghchan/simplegoapp/pkg/logger"
+	"github.com/aghchan/simplegoapp/pkg/postgres"
 )
 
 type app interface {
@@ -19,16 +20,23 @@ type app interface {
 }
 
 type App struct {
-	host   string
-	port   int
-	logger logger.Logger
-	router *mux.Router
+	host     string
+	port     int
+	logger   logger.Logger
+	postgres postgres.Service
+	router   *mux.Router
 }
 
 // creates instance of app with singletons of services and initializes router
 //
 // sets value of config struct
-func NewApp(host string, port int, routes, serviceFuncs []interface{}, config ...interface{}) app {
+func NewApp(
+	host string,
+	port int,
+	routes, serviceFuncs []interface{},
+	models []interface{},
+	config ...interface{},
+) app {
 	log := logger.NewService()
 	singletonsByName := make(map[string]reflect.Value)
 	servicesToInit := make(map[int]interface{})
@@ -115,13 +123,20 @@ func NewApp(host string, port int, routes, serviceFuncs []interface{}, config ..
 	}
 
 	app := &App{
-		logger: log,
-		host:   host,
-		port:   port,
-		router: newRouter(log, singletonsByName, routes),
+		logger:   log,
+		host:     host,
+		port:     port,
+		postgres: singletonsByName[reflect.TypeOf(new(postgres.Service)).Elem().String()].Interface().(postgres.Service),
+		router:   newRouter(log, singletonsByName, routes),
 	}
 
+	app.runMigrations(models)
+
 	return app
+}
+
+func (this *App) runMigrations(models []interface{}) {
+	this.postgres.RunMigrations(models)
 }
 
 func (this *App) Run() {

@@ -9,6 +9,7 @@ import (
 )
 
 type Service interface {
+	RunMigrations(models []interface{})
 	Insert(objects interface{}) error
 	Find(model interface{}, query, args string) error
 }
@@ -17,7 +18,7 @@ func NewService(
 	config map[string]interface{},
 	logger logger.Logger,
 ) Service {
-	return &service{
+	service := &service{
 		logger: logger,
 		db: connect(
 			logger,
@@ -28,6 +29,8 @@ func NewService(
 			config["postgres_database"].(string),
 		),
 	}
+
+	return service
 }
 
 type service struct {
@@ -42,6 +45,15 @@ func (this service) Insert(objects interface{}) error {
 
 func (this service) Find(model interface{}, filter, args string) error {
 	return this.db.Where(filter, filter, args).Find(model).Error
+}
+
+func (this service) RunMigrations(models []interface{}) {
+	if err := this.db.AutoMigrate(models); err != nil {
+		this.logger.Fatal(
+			"running migration",
+			"error", err,
+		)
+	}
 }
 
 func connect(
