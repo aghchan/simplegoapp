@@ -6,6 +6,7 @@ import (
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/domain/example2"
 	"github.com/aghchan/simplegoapp/pkg/mongo"
+	"github.com/aghchan/simplegoapp/pkg/postgres"
 	"github.com/aghchan/simplegoapp/pkg/ticketmaster"
 	"github.com/aghchan/simplegoapp/pkg/twilio"
 )
@@ -27,6 +28,13 @@ type config struct {
 		Port     string `yaml:"port" config:"mongo_port"`
 		Database string `yaml:"database" config:"mongo_database"`
 	} `yaml:"mongo"`
+	Postgres struct {
+		User     string `yaml:"user" config:"postgres_user"`
+		Password string `yaml:"password" config:"postgres_password"`
+		Host     string `yaml:"host" config:"postgres_host"`
+		Port     string `yaml:"port" config:"postgres_port"`
+		Database string `yaml:"database" config:"postgres_database"`
+	} `yaml:"postgres"`
 }
 
 func main() {
@@ -41,6 +49,7 @@ func main() {
 		8080,
 		routes,
 		[]interface{}{
+			postgres.NewService,
 			mongo.NewService,
 			twilio.NewService,
 			ticketmaster.NewService,
