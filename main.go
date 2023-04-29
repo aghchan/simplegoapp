@@ -5,7 +5,6 @@ import (
 	controller "github.com/aghchan/simplegoapp/app/controller/example"
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/domain/example2"
-	"github.com/aghchan/simplegoapp/pkg/mongo"
 	"github.com/aghchan/simplegoapp/pkg/postgres"
 	"github.com/aghchan/simplegoapp/pkg/ticketmaster"
 	"github.com/aghchan/simplegoapp/pkg/twilio"
@@ -50,7 +49,7 @@ func main() {
 		routes,
 		[]interface{}{
 			postgres.NewService,
-			mongo.NewService,
+			//		mongo.NewService,
 			twilio.NewService,
 			ticketmaster.NewService,
 			example2.NewService,
