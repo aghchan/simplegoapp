@@ -8,7 +8,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type Service interface{}
+type Service interface {
+	Insert(objects interface{}) error
+	Find(model interface{}, filter string) error
+}
 
 func NewService(
 	config map[string]interface{},
@@ -16,7 +19,7 @@ func NewService(
 ) Service {
 	return &service{
 		logger: logger,
-		DB: connect(
+		db: connect(
 			logger,
 			config["postgres_user"].(string),
 			config["postgres_password"].(string),
@@ -30,7 +33,15 @@ func NewService(
 type service struct {
 	logger logger.Logger
 
-	DB *gorm.DB
+	db *gorm.DB
+}
+
+func (this service) Insert(objects interface{}) error {
+	return this.db.Create(objects).Error
+}
+
+func (this service) Find(model interface{}, filter string) error {
+	return this.db.Where(filter).Find(model).Error
 }
 
 func connect(
