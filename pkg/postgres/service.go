@@ -10,7 +10,7 @@ import (
 
 type Service interface {
 	Insert(objects interface{}) error
-	Find(model interface{}, filter string) error
+	Find(model interface{}, query, args string) error
 }
 
 func NewService(
@@ -40,8 +40,8 @@ func (this service) Insert(objects interface{}) error {
 	return this.db.Create(objects).Error
 }
 
-func (this service) Find(model interface{}, filter string) error {
-	return this.db.Where(filter).Find(model).Error
+func (this service) Find(model interface{}, filter, args string) error {
+	return this.db.Where(filter, filter, args).Find(model).Error
 }
 
 func connect(
