@@ -48,7 +48,7 @@ func (this service) Find(model interface{}, filter, args string) error {
 }
 
 func (this service) RunMigrations(models []interface{}) {
-	if err := this.db.AutoMigrate(models); err != nil {
+	if err := this.db.AutoMigrate(models...); err != nil {
 		this.logger.Fatal(
 			"running migration",
 			"error", err,

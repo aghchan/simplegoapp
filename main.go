@@ -42,7 +42,9 @@ func main() {
 		"/v1/socket", &controller.SocketController{},
 	}
 	config := config{}
-	models := []interface{}{}
+	models := []interface{}{
+		&SampleModel{},
+	}
 
 	app := app.NewApp(
 		"localhost",
@@ -61,4 +63,9 @@ func main() {
 	)
 
 	app.Run()
+}
+
+type SampleModel struct {
+	Id   string `gorm:"type:uuid;primaryKey"`
+	Name string `gorm:"type:varchar(100);index"`
 }
