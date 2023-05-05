@@ -47,7 +47,12 @@ func NewApp(
 
 	configs := make(map[string]interface{})
 	if len(config) > 0 {
-		f, err := ioutil.ReadFile("config.yml")
+		config := "config.yml"
+		if os.Getenv("ENV") != "PRODUCTION" {
+			config = "local.yml"
+		}
+
+		f, err := ioutil.ReadFile(config)
 		if err != nil {
 			panic("loading config file: " + err.Error())
 		}
