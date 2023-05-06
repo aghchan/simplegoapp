@@ -12,7 +12,7 @@ type Service interface {
 	RunMigrations(models []interface{})
 
 	Find(model interface{}, query, args string) error
-	GetOrCreate(object interface{}) (interface{}, error)
+	GetOrCreate(result, object interface{}) error
 	Insert(objects interface{}) error
 }
 
@@ -45,20 +45,18 @@ func (this service) Insert(objects interface{}) error {
 	return this.db.Create(objects).Error
 }
 
-func (this service) GetOrCreate(object interface{}) (interface{}, error) {
-	var result interface{}
-
-	err := this.db.FirstOrCreate(&result, object).Error
+func (this service) GetOrCreate(result, conditions interface{}) error {
+	err := this.db.FirstOrCreate(result, conditions).Error
 	if err != nil {
-		this.logger.Info(
+		this.logger.Error(
 			"GetOrCreate",
 			"error", err,
 		)
 
-		return nil, err
+		return err
 	}
 
-	return result, nil
+	return nil
 }
 
 func (this service) Find(model interface{}, filter, args string) error {
