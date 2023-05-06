@@ -43,6 +43,22 @@ func (this service) Insert(objects interface{}) error {
 	return this.db.Create(objects).Error
 }
 
+func (this service) GetOrCreate(object interface{}) (interface{}, error) {
+	var result interface{}
+
+	err := this.db.FirstOrCreate(&result, object).Error
+	if err != nil {
+		this.logger.Info(
+			"GetOrCreate",
+			"error", err,
+		)
+
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func (this service) Find(model interface{}, filter, args string) error {
 	return this.db.Where(filter, filter, args).Find(model).Error
 }
