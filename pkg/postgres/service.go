@@ -10,8 +10,10 @@ import (
 
 type Service interface {
 	RunMigrations(models []interface{})
-	Insert(objects interface{}) error
+
 	Find(model interface{}, query, args string) error
+	GetOrCreate(object interface{}) (interface{}, error)
+	Insert(objects interface{}) error
 }
 
 func NewService(
