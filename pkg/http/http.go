@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"time"
 
@@ -35,8 +36,10 @@ var (
 	expectedSocketCloseErrs = []int{websocket.CloseNoStatusReceived}
 )
 
-type ResponseWriter = http.ResponseWriter
-type Request = http.Request
+type (
+	ResponseWriter = http.ResponseWriter
+	Request        = http.Request
+)
 
 func GET(url string, params map[string]interface{}, response interface{}) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -211,6 +214,12 @@ func (this Controller) Respond(w http.ResponseWriter, obj interface{}) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	cors := os.Getenv("CORS_ORIGIN")
+	if os.Getenv("ENV") != "PRODUCTION" {
+		cors = "*"
+	}
+	w.Header().Set("Access-Control-Allow-Origin", cors)
 
 	_, err = w.Write(resp)
 	if err != nil {
