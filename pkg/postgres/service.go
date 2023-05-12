@@ -20,8 +20,6 @@ func NewService(
 	config map[string]interface{},
 	logger logger.Logger,
 ) Service {
-	fmt.Println("connecting to: ", config)
-
 	service := &service{
 		logger: logger,
 		db: connect(
@@ -62,7 +60,12 @@ func (this service) GetOrCreate(result, conditions interface{}) error {
 }
 
 func (this service) Find(model interface{}, filter, args string) error {
-	return this.db.Where(filter, filter, args).Find(model).Error
+	query := this.db
+	if filter != "" && args != "" {
+		query = query.Where(filter, filter, args)
+	}
+
+	return query.Find(model).Error
 }
 
 func (this service) RunMigrations(models []interface{}) {
