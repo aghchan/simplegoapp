@@ -20,6 +20,8 @@ func NewService(
 	config map[string]interface{},
 	logger logger.Logger,
 ) Service {
+	fmt.Println("connecting to: ", config)
+
 	service := &service{
 		logger: logger,
 		db: connect(
