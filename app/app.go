@@ -38,12 +38,6 @@ func NewApp(
 	config ...interface{},
 ) app {
 	log := logger.NewService()
-	singletonsByName := make(map[string]reflect.Value)
-	servicesToInit := make(map[int]interface{})
-
-	for i, serviceFunc := range serviceFuncs {
-		servicesToInit[i] = serviceFunc
-	}
 
 	configs := make(map[string]interface{})
 	if len(config) > 0 {
@@ -79,60 +73,27 @@ func NewApp(
 		}
 	}
 
-	attempts := 0
-	for {
-		if len(servicesToInit) == 0 {
-			break
-		}
-		if attempts >= len(serviceFuncs) {
-			panic("failed to initialize singletons")
-		}
+	builtins := map[reflect.Type]reflect.Value{
+		reflect.TypeOf(new(logger.Logger)).Elem(): reflect.ValueOf(log),
+		reflect.TypeOf(configs):                   reflect.ValueOf(configs),
+	}
 
-		for i, serviceFunc := range servicesToInit {
-			params := []reflect.Value{}
-			serviceFuncType := reflect.TypeOf(serviceFunc)
-			foundParams := true
+	singletons, err := resolve(serviceFuncs, builtins)
+	if err != nil {
+		panic("initializing services: " + err.Error())
+	}
 
-			for i := 0; i < serviceFuncType.NumIn(); i++ {
-				field := serviceFuncType.In(i)
-
-				var param reflect.Value
-				switch field {
-				case reflect.TypeOf(new(logger.Logger)).Elem():
-					param = reflect.ValueOf(log)
-				case reflect.TypeOf(configs):
-					param = reflect.ValueOf(configs)
-				default:
-					if _, ok := singletonsByName[field.String()]; !ok {
-						foundParams = false
-
-						break
-					}
-
-					param = singletonsByName[field.String()]
-				}
-
-				params = append(params, param)
-			}
-
-			if !foundParams {
-				continue
-			}
-
-			service := reflect.ValueOf(serviceFunc).Call(params)
-			singletonsByName[service[0].Type().String()] = service[0].Elem()
-			delete(servicesToInit, i)
-		}
-
-		attempts++
+	postgresService, ok := singletons[reflect.TypeOf(new(postgres.Service)).Elem()]
+	if !ok {
+		panic("postgres.NewService must be included in the service list")
 	}
 
 	app := &App{
 		logger:   log,
 		host:     host,
 		port:     port,
-		postgres: singletonsByName[reflect.TypeOf(new(postgres.Service)).Elem().String()].Interface().(postgres.Service),
-		router:   newRouter(log, singletonsByName, routes),
+		postgres: postgresService.Interface().(postgres.Service),
+		router:   newRouter(log, singletons, routes),
 	}
 
 	app.runMigrations(models)
