@@ -15,13 +15,17 @@ import (
 )
 
 type Service interface {
-	Find(collection string, filter, result interface{}, opts ...*options.FindOptions) error
-	Insert(collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error)
-	Update(collection string, filter, update interface{}, opts ...*options.UpdateOptions) error
-	FindOneAndUpdate(collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error
+	Find(ctx context.Context, collection string, filter, result interface{}, opts ...*options.FindOptions) error
+	Insert(ctx context.Context, collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error)
+	Update(ctx context.Context, collection string, filter, update interface{}, opts ...*options.UpdateOptions) error
+	FindOneAndUpdate(ctx context.Context, collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error
+	BulkUpsert(ctx context.Context, collection string, filters, updates []interface{}) error
+	Transaction(ctx context.Context, fn func(tx Service) error) error
 }
 
-var ErrNoFilter = errors.New("no filter criteria for finding itineraries")
+var ErrNoFilter = errors.New("no filter criteria provided")
+var ErrMismatchedBulk = errors.New("filters and updates must have the same length")
+var ErrNestedTransaction = errors.New("nested transactions are not supported")
 
 type D = bson.D
 type E = bson.E
@@ -67,17 +71,29 @@ func connect(host, port, database string) *mongo.Database {
 	return client.Database(database)
 }
 
-func (this service) Find(collection string, filter, result interface{}, opts ...*options.FindOptions) error {
-	if reflect.ValueOf(filter).Len() == 0 {
+// validateFilter rejects nil and empty map/slice filters (M, D); other
+// filter types pass through to the driver.
+func validateFilter(filter interface{}) error {
+	v := reflect.ValueOf(filter)
+	if !v.IsValid() ||
+		((v.Kind() == reflect.Map || v.Kind() == reflect.Slice) && v.Len() == 0) {
 		return ErrNoFilter
 	}
 
-	cursor, err := this.database.Collection(collection).Find(context.TODO(), filter, opts...)
+	return nil
+}
+
+func (this service) Find(ctx context.Context, collection string, filter, result interface{}, opts ...*options.FindOptions) error {
+	if err := validateFilter(filter); err != nil {
+		return err
+	}
+
+	cursor, err := this.database.Collection(collection).Find(ctx, filter, opts...)
 	if err != nil {
 		return err
 	}
 
-	err = cursor.All(context.TODO(), result)
+	err = cursor.All(ctx, result)
 	if err != nil {
 		return err
 	}
@@ -85,7 +101,7 @@ func (this service) Find(collection string, filter, result interface{}, opts ...
 	return nil
 }
 
-func (this service) Insert(collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error) {
+func (this service) Insert(ctx context.Context, collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error) {
 	var documentsToInsert []interface{}
 
 	if reflect.ValueOf(documents).Kind() != reflect.Slice {
@@ -98,21 +114,24 @@ func (this service) Insert(collection string, documents interface{}, opts ...*op
 		}
 	}
 
-	cursor, err := this.database.Collection(collection).InsertMany(context.TODO(), documentsToInsert, opts...)
+	cursor, err := this.database.Collection(collection).InsertMany(ctx, documentsToInsert, opts...)
 	if err != nil {
 		return nil, err
 	}
 
 	insertedIds := make([]ObjectID, len(cursor.InsertedIDs))
 	for i, v := range cursor.InsertedIDs {
-		insertedIds[i] = v.(ObjectID)
+		// user-supplied _ids may not be ObjectIDs; those slots stay zero
+		if id, ok := v.(ObjectID); ok {
+			insertedIds[i] = id
+		}
 	}
 
 	return insertedIds, nil
 }
 
-func (this service) Update(collection string, filter, update interface{}, opts ...*options.UpdateOptions) error {
-	_, err := this.database.Collection(collection).UpdateMany(context.TODO(), filter, update, opts...)
+func (this service) Update(ctx context.Context, collection string, filter, update interface{}, opts ...*options.UpdateOptions) error {
+	_, err := this.database.Collection(collection).UpdateMany(ctx, filter, update, opts...)
 	if err != nil {
 		return err
 	}
@@ -120,8 +139,8 @@ func (this service) Update(collection string, filter, update interface{}, opts .
 	return nil
 }
 
-func (this service) FindOneAndUpdate(collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error {
-	cursor := this.database.Collection(collection).FindOneAndUpdate(context.TODO(), filter, update, opts...)
+func (this service) FindOneAndUpdate(ctx context.Context, collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error {
+	cursor := this.database.Collection(collection).FindOneAndUpdate(ctx, filter, update, opts...)
 	if cursor.Err() != nil {
 		return cursor.Err()
 	}
@@ -132,4 +151,78 @@ func (this service) FindOneAndUpdate(collection string, filter, update, result i
 	}
 
 	return nil
+}
+
+// BulkUpsert applies updates[i] to the document matching filters[i],
+// inserting when unmatched; atomic only inside a Transaction.
+func (this service) BulkUpsert(ctx context.Context, collection string, filters, updates []interface{}) error {
+	if len(filters) != len(updates) {
+		return ErrMismatchedBulk
+	}
+	if len(filters) == 0 {
+		return nil
+	}
+
+	models := make([]mongo.WriteModel, len(filters))
+	for i := range filters {
+		if err := validateFilter(filters[i]); err != nil {
+			return err
+		}
+
+		models[i] = mongo.NewUpdateOneModel().
+			SetFilter(filters[i]).
+			SetUpdate(updates[i]).
+			SetUpsert(true)
+	}
+
+	_, err := this.database.Collection(collection).BulkWrite(ctx, models)
+
+	return err
+}
+
+// Transaction runs fn atomically; use fn's tx-bound Service inside the
+// callback. Requires a replica set; do not nest. fn may run more than
+// once on transient errors, so it must be idempotent.
+func (this service) Transaction(ctx context.Context, fn func(tx Service) error) error {
+	session, err := this.database.Client().StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(ctx)
+
+	_, err = session.WithTransaction(ctx, func(_ mongo.SessionContext) (interface{}, error) {
+		return nil, fn(&txService{service: this, session: session})
+	})
+
+	return err
+}
+
+// txService rebinds each call's ctx to the transaction session.
+type txService struct {
+	service
+	session mongo.Session
+}
+
+func (this *txService) Find(ctx context.Context, collection string, filter, result interface{}, opts ...*options.FindOptions) error {
+	return this.service.Find(mongo.NewSessionContext(ctx, this.session), collection, filter, result, opts...)
+}
+
+func (this *txService) Insert(ctx context.Context, collection string, documents interface{}, opts ...*options.InsertManyOptions) ([]ObjectID, error) {
+	return this.service.Insert(mongo.NewSessionContext(ctx, this.session), collection, documents, opts...)
+}
+
+func (this *txService) Update(ctx context.Context, collection string, filter, update interface{}, opts ...*options.UpdateOptions) error {
+	return this.service.Update(mongo.NewSessionContext(ctx, this.session), collection, filter, update, opts...)
+}
+
+func (this *txService) FindOneAndUpdate(ctx context.Context, collection string, filter, update, result interface{}, opts ...*options.FindOneAndUpdateOptions) error {
+	return this.service.FindOneAndUpdate(mongo.NewSessionContext(ctx, this.session), collection, filter, update, result, opts...)
+}
+
+func (this *txService) BulkUpsert(ctx context.Context, collection string, filters, updates []interface{}) error {
+	return this.service.BulkUpsert(mongo.NewSessionContext(ctx, this.session), collection, filters, updates)
+}
+
+func (this *txService) Transaction(ctx context.Context, fn func(tx Service) error) error {
+	return ErrNestedTransaction
 }

@@ -372,14 +372,25 @@ integrating a third-party HTTP API:
 - Postgres is a first-class citizen: the `App` struct holds `postgres.Service`
   directly, so it is effectively required. Comment it out of the service list
   only if you also remove models/migrations.
-- Data access goes through the `postgres.Service` interface methods; add new
-  query methods to the interface rather than exposing gorm.
+- Data access goes through the `postgres.Service` interface: `Find(model, conds...)`
+  for filtered multi-row selects, `Insert`, `Upsert(objects, conflictColumns...)`
+  for bulk insert-or-update, `GetOrCreate`, and `Transaction(fn)` — the callback
+  receives a transaction-bound `Service`; use it (not the outer service) for
+  every call inside the transaction. Add new query methods to the interface
+  rather than exposing gorm.
 
 ### Mongo (optional)
 
-`pkg/mongo` follows the same shape — collection-name-first methods
-(`Find(collection, filter, result)`), guard rails like rejecting empty filters
-(`ErrNoFilter`), and `Insert` accepting either a single document or a slice.
+`pkg/mongo` follows the same shape with a `context.Context` first parameter on
+every method — collection-name-first methods (`Find(ctx, collection, filter,
+result)`), `BulkUpsert(ctx, collection, filters, updates)` for insert-or-update
+of many documents in one write, and `Transaction(ctx, fn)` — the callback
+receives a transaction-bound `Service`; use it (not the outer service) for
+every call inside the transaction (requires mongo running as a replica set; do
+not nest). Guard rails: `Find` and `BulkUpsert` (per-filter) reject nil and
+empty filters with `ErrNoFilter` — `Update` and `FindOneAndUpdate` do not, so
+an empty filter there matches every document. `Insert` accepts either a single
+document or a slice.
 
 ---
 

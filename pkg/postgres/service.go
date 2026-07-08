@@ -6,14 +6,17 @@ import (
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Service interface {
 	RunMigrations(models []interface{})
 
-	Find(model interface{}, query, args string) error
+	Find(model interface{}, conds ...interface{}) error
 	GetOrCreate(result, object interface{}) error
 	Insert(objects interface{}) error
+	Upsert(objects interface{}, conflictColumns ...string) error
+	Transaction(fn func(tx Service) error) error
 }
 
 func NewService(
@@ -45,6 +48,17 @@ func (this service) Insert(objects interface{}) error {
 	return this.db.Create(objects).Error
 }
 
+// Upsert inserts objects, updating all non-key columns on conflict;
+// conflictColumns defaults to the primary key. Structs only, not maps.
+func (this service) Upsert(objects interface{}, conflictColumns ...string) error {
+	onConflict := clause.OnConflict{UpdateAll: true}
+	for _, col := range conflictColumns {
+		onConflict.Columns = append(onConflict.Columns, clause.Column{Name: col})
+	}
+
+	return this.db.Clauses(onConflict).Create(objects).Error
+}
+
 func (this service) GetOrCreate(result, conditions interface{}) error {
 	err := this.db.FirstOrCreate(result, conditions).Error
 	if err != nil {
@@ -59,13 +73,16 @@ func (this service) GetOrCreate(result, conditions interface{}) error {
 	return nil
 }
 
-func (this service) Find(model interface{}, filter, args string) error {
-	query := this.db
-	if filter != "" && args != "" {
-		query = query.Where(filter, filter, args)
-	}
+func (this service) Find(model interface{}, conds ...interface{}) error {
+	return this.db.Find(model, conds...).Error
+}
 
-	return query.Find(model).Error
+// Transaction runs fn atomically; use fn's tx-bound Service inside the
+// callback. Nested calls run in savepoints (mongo forbids nesting).
+func (this service) Transaction(fn func(tx Service) error) error {
+	return this.db.Transaction(func(txDB *gorm.DB) error {
+		return fn(&service{logger: this.logger, db: txDB})
+	})
 }
 
 func (this service) RunMigrations(models []interface{}) {
