@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
 
+	pkghttp "github.com/aghchan/simplegoapp/pkg/http"
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/aghchan/simplegoapp/pkg/postgres"
 )
@@ -107,7 +108,15 @@ func (this *App) runMigrations(models []interface{}) {
 
 func (this *App) Run() {
 	server := &http.Server{
-		Handler:      this.router,
+		Handler: pkghttp.Chain(
+			this.router,
+			pkghttp.RequestID,
+			pkghttp.RequestLogger(this.logger),
+			pkghttp.Recover(this.logger),
+			pkghttp.CORS,
+			pkghttp.TimeoutMW(10*time.Second),
+			pkghttp.Auth(),
+		),
 		Addr:         this.host + ":" + strconv.Itoa(this.port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,

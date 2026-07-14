@@ -224,8 +224,35 @@ func NewService(config map[string]interface{}) Service {
 
 ## 5. Controller Pattern
 
-Controllers live in `app/controller/<resource>/controller.go` and follow a
-convention-over-configuration model
+Controllers live in `app/controller/<resource>/controller.go`. There are two
+kinds: spec-first controllers implementing a generated OpenAPI contract (the
+standard for public endpoints), and verb-convention controllers for
+everything else.
+
+### Spec-first APIs (the standard for public endpoints)
+
+Public endpoints are contract-first: author `api/v1/openapi.yml`, run
+`make api`, and implement the generated `apiv1.ServerInterface` on a
+controller registered with `app.Spec(...)` in `main.go` (pass
+`pkghttp.SpecErrorHandler` as the `ErrorHandlerFunc` so parameter-binding
+failures stay problem+json). Bodies come in via `this.Bind`, responses go
+out via `this.Respond(w, r, status, v)` (JSON by default, negotiated by
+`Accept`), and failures via `this.Problem(w, r, err)` — RFC 9457
+`application/problem+json` with a stable `code`. Unmatched routes and wrong
+methods also return problems (the router installs 404/405 handlers). Every
+route gets request IDs, panic recovery, request logging, timeouts, CORS,
+and the auth hook automatically. Validation belongs at the edge: generated
+code binds but does not validate, so controllers enforce the contract's
+constraints (see the limit clamp and sku/quantity checks in the reference);
+domain services own only invariants that must hold for every caller.
+`make check-api` (run by CI) fails if `api/` drifts from the spec. The
+verb-method convention below remains for websockets and out-of-contract
+endpoints (`/health` is framework-registered). See `app/controller/orders/`
+for the reference implementation.
+
+### Verb-convention controllers (websockets and out-of-contract routes)
+
+Verb-convention controllers follow a convention-over-configuration model
 ([app/controller/example/controller.go](../app/controller/example/controller.go)):
 
 ```go
@@ -268,8 +295,8 @@ built-in error logging):
 |---|---|
 | `this.ParseParams(req, &obj)` | Decode query params into a tagged struct |
 | `this.ParseBody(req, &obj)` | Decode a JSON body into a tagged struct |
-| `this.Respond(w, obj)` | Marshal `obj` as JSON, set content-type and CORS headers |
-| `this.InternalError(w, err)` | 500 + `{"error": "..."}` body |
+| `this.Respond(w, req, status, obj)` | Encode `obj` per `Accept` (JSON default), set status |
+| `this.Problem(w, req, err)` | Render `err` as RFC 9457 problem+json (typed `apierror` values keep their status; unknown errors become logged 500s) |
 
 Request and response shapes are defined as structs with `json:` tags —
 anonymous structs inline in the handler for one-off shapes, named structs when
@@ -400,7 +427,9 @@ document or a slice.
   failures, invalid controllers, and unresolvable dependencies all `panic` or
   `logger.Fatal`. The app should never come up half-wired.
 - **Request-time errors are returned**, logged where they occur, and surfaced
-  to clients via `this.InternalError(w, err)`.
+  to clients via `this.Problem(w, req, err)` as RFC 9457 problems: typed
+  `apierror` constructors choose the status; unknown errors are logged with
+  the request ID and masked as generic 500s.
 - Logging is structured key-value throughout, via the injected `logger.Logger`:
 
   ```go

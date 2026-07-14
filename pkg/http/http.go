@@ -9,10 +9,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"reflect"
 	"time"
 
+	"github.com/aghchan/simplegoapp/pkg/http/apierror"
 	"github.com/aghchan/simplegoapp/pkg/logger"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
@@ -203,54 +203,54 @@ func (this Controller) ParseBody(req *Request, obj interface{}) error {
 	return nil
 }
 
-func (this Controller) Respond(w http.ResponseWriter, obj interface{}) {
-	resp, err := json.Marshal(obj)
+// Bind decodes the request body per Content-Type (JSON when absent).
+func (this Controller) Bind(req *Request, v interface{}) error {
+	codec, err := requestCodec(req)
 	if err != nil {
-		this.Logger.Error(
-			"marshaling response",
-			"err", err,
-			"response", obj,
-		)
+		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
-	cors := os.Getenv("CORS_ORIGIN")
-	if os.Getenv("ENV") != "PRODUCTION" {
-		cors = "*"
+	if err := codec.Decode(req.Body, v); err != nil {
+		return apierror.Invalid("malformed request body")
 	}
-	w.Header().Set("Access-Control-Allow-Origin", cors)
 
-	_, err = w.Write(resp)
+	return nil
+}
+
+// Respond encodes v per Accept (JSON when absent); nil v writes no body.
+func (this Controller) Respond(w ResponseWriter, req *Request, status int, v interface{}) {
+	codec, err := responseCodec(req)
 	if err != nil {
-		this.Logger.Error(
-			"writing response",
-			"err", err,
-			"response", resp,
-		)
+		this.Problem(w, req, err)
+		return
+	}
+
+	if v == nil {
+		w.WriteHeader(status)
+		return
+	}
+
+	w.Header().Set("Content-Type", codec.MediaType())
+	w.WriteHeader(status)
+	if err := codec.Encode(w, v); err != nil {
+		this.Logger.Error("encoding response", "err", err, "path", req.RequestURI)
 	}
 }
 
-func (this Controller) InternalError(w http.ResponseWriter, err error) {
-	w.WriteHeader(http.StatusInternalServerError)
-	resp, _ := json.Marshal(
-		errorResp{
-			Message: err.Error(),
-		},
-	)
-
-	_, err = w.Write(resp)
-	if err != nil {
+// Problem renders err per RFC 9457; unrecognized errors are logged before
+// being masked as generic 500s.
+func (this Controller) Problem(w ResponseWriter, req *Request, err error) {
+	e := &apierror.Error{}
+	if !errors.As(err, &e) {
 		this.Logger.Error(
-			"marshaling internal error response",
+			"unhandled error",
 			"err", err,
-			"response", resp,
+			"path", req.RequestURI,
+			"request_id", req.Context().Value(RequestIDKey),
 		)
 	}
-}
 
-type errorResp struct {
-	Message string `json:"error"`
+	apierror.Write(w, req, err)
 }
 
 func writeSocket(conn *websocket.Conn, out <-chan []byte) {

@@ -1,10 +1,14 @@
 package main
 
 import (
+	apiv1 "github.com/aghchan/simplegoapp/api/v1"
 	"github.com/aghchan/simplegoapp/app"
 	controller "github.com/aghchan/simplegoapp/app/controller/example"
+	ordersctrl "github.com/aghchan/simplegoapp/app/controller/orders"
 	"github.com/aghchan/simplegoapp/domain/example"
 	"github.com/aghchan/simplegoapp/domain/example2"
+	"github.com/aghchan/simplegoapp/domain/orders"
+	pkghttp "github.com/aghchan/simplegoapp/pkg/http"
 	"github.com/aghchan/simplegoapp/pkg/postgres"
 	"github.com/aghchan/simplegoapp/pkg/ticketmaster"
 	"github.com/aghchan/simplegoapp/pkg/twilio"
@@ -37,7 +41,15 @@ type config struct {
 }
 
 func main() {
+	ordersController := &ordersctrl.OrdersController{}
 	routes := []interface{}{
+		app.Spec(ordersController, func(r *app.Router) {
+			apiv1.HandlerWithOptions(ordersController, apiv1.GorillaServerOptions{
+				BaseURL:          "/v1",
+				BaseRouter:       r,
+				ErrorHandlerFunc: pkghttp.SpecErrorHandler,
+			})
+		}),
 		"/hello", &controller.ExampleController{},
 		"/v1/socket", &controller.SocketController{},
 	}
@@ -57,6 +69,7 @@ func main() {
 			ticketmaster.NewService,
 			example2.NewService,
 			example.NewService,
+			orders.NewService,
 		},
 		models,
 		&config,

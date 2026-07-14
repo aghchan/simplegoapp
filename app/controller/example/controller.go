@@ -19,7 +19,8 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 
 	err := this.ParseParams(req, &testParams)
 	if err != nil {
-		this.InternalError(w, err)
+		this.Problem(w, req, err)
+		return
 	}
 
 	this.ExampleService.Hello()
@@ -27,7 +28,7 @@ func (this ExampleController) GET(w http.ResponseWriter, req *http.Request) {
 	resp := exampleStruct{
 		Test: "dumb",
 	}
-	this.Respond(w, resp)
+	this.Respond(w, req, 200, resp)
 }
 
 type exampleStruct struct {
@@ -42,7 +43,8 @@ func (this ExampleController) POST(w http.ResponseWriter, req *http.Request) {
 
 	err := this.ParseBody(req, &sampleBody)
 	if err != nil {
-		this.InternalError(w, err)
+		this.Problem(w, req, err)
+		return
 	}
 
 	this.ExampleService.Bye()
