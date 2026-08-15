@@ -9,13 +9,20 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// ErrNotFound is returned by First when no row matches. Re-exported so callers
+// never import gorm to test for it.
+var ErrNotFound = gorm.ErrRecordNotFound
+
 type Service interface {
 	RunMigrations(models []interface{})
 
 	Find(model interface{}, conds ...interface{}) error
+	First(model interface{}, conds ...interface{}) error
+	Page(models interface{}, order string, limit int, conds ...interface{}) error
 	GetOrCreate(result, object interface{}) error
 	Insert(objects interface{}) error
 	Upsert(objects interface{}, conflictColumns ...string) error
+	Delete(model interface{}, conds ...interface{}) error
 	Transaction(fn func(tx Service) error) error
 }
 
@@ -59,6 +66,11 @@ func (this service) Upsert(objects interface{}, conflictColumns ...string) error
 	return this.db.Clauses(onConflict).Create(objects).Error
 }
 
+// Delete requires at least one condition; gorm refuses an unscoped delete.
+func (this service) Delete(model interface{}, conds ...interface{}) error {
+	return this.db.Delete(model, conds...).Error
+}
+
 func (this service) GetOrCreate(result, conditions interface{}) error {
 	err := this.db.FirstOrCreate(result, conditions).Error
 	if err != nil {
@@ -75,6 +87,17 @@ func (this service) GetOrCreate(result, conditions interface{}) error {
 
 func (this service) Find(model interface{}, conds ...interface{}) error {
 	return this.db.Find(model, conds...).Error
+}
+
+// First loads the single matching row, returning ErrNotFound when there is none.
+func (this service) First(model interface{}, conds ...interface{}) error {
+	return this.db.First(model, conds...).Error
+}
+
+// Page loads an ordered, bounded slice. order is interpolated into ORDER BY, so
+// it must be a literal owned by the caller — never a value derived from a request.
+func (this service) Page(models interface{}, order string, limit int, conds ...interface{}) error {
+	return this.db.Order(order).Limit(limit).Find(models, conds...).Error
 }
 
 // Transaction runs fn atomically; use fn's tx-bound Service inside the

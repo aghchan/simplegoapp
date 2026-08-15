@@ -336,12 +336,17 @@ A core principle of the repo: **application code never imports third-party
 packages directly**. Every external dependency is hidden behind a `pkg/`
 service with a `Service` interface:
 
-- `gorm` → `pkg/postgres` — generic `Find` / `Insert` / `GetOrCreate` /
-  `RunMigrations` methods so callers never see `*gorm.DB`.
+- `gorm` → `pkg/postgres` — generic `Find` / `First` / `Page` / `Insert` /
+  `Upsert` / `Delete` / `GetOrCreate` / `RunMigrations` methods so callers
+  never see `*gorm.DB`.
 - `zap` → `pkg/logger` — a four-method `Logger` interface
   (`Info`/`Warn`/`Error`/`Fatal`) over the sugared logger.
 - `net/http`, `gorilla/websocket`, `gorilla/schema` → `pkg/http`.
 - `twilio-go` → `pkg/twilio` — a single `SendSMS(phoneNumber, body string)`.
+- Linear's GraphQL API → `pkg/linear` — issues, comments, states, and Relay
+  cursors, so no caller writes a GraphQL document.
+- `google/uuid` → `pkg/id` — a single `New() string` returning UUIDv7, whose
+  lexical order is creation order (keyset pagination relies on this).
 
 When leaking a third-party type is unavoidable, re-export it with a **type
 alias** so consumers still only import the wrapper package:
@@ -400,11 +405,14 @@ integrating a third-party HTTP API:
   directly, so it is effectively required. Comment it out of the service list
   only if you also remove models/migrations.
 - Data access goes through the `postgres.Service` interface: `Find(model, conds...)`
-  for filtered multi-row selects, `Insert`, `Upsert(objects, conflictColumns...)`
-  for bulk insert-or-update, `GetOrCreate`, and `Transaction(fn)` — the callback
-  receives a transaction-bound `Service`; use it (not the outer service) for
-  every call inside the transaction. Add new query methods to the interface
-  rather than exposing gorm.
+  for filtered multi-row selects, `First` (single row, `ErrNotFound`), `Page`
+  (ordered + bounded), `Insert`, `Upsert(objects, conflictColumns...)` for bulk
+  insert-or-update, `Delete` (condition required), `GetOrCreate`, and
+  `Transaction(fn)` — the callback receives a transaction-bound `Service`; use
+  it (not the outer service) for every call inside the transaction. Add new
+  query methods to the interface rather than exposing gorm. See
+  [pkg/postgres/CLAUDE.md](../pkg/postgres/CLAUDE.md) for each method's sharp
+  edges.
 
 ### Mongo (optional)
 

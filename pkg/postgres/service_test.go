@@ -171,3 +171,63 @@ func TestTransactionCommits(t *testing.T) {
 		t.Fatal("committed row missing")
 	}
 }
+
+func TestFirstFindsOneOrErrNotFound(t *testing.T) {
+	svc := newTestService(t)
+
+	seed := []testRecord{{Name: "a", Count: 1}, {Name: "b", Count: 2}}
+	if err := svc.Insert(&seed); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var got testRecord
+	if err := svc.First(&got, "name = ?", "b"); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	if got.Count != 2 {
+		t.Fatalf("wrong row: %+v", got)
+	}
+
+	err := svc.First(&testRecord{}, "name = ?", "missing")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+func TestPageOrdersAndBounds(t *testing.T) {
+	svc := newTestService(t)
+
+	seed := []testRecord{{Name: "a", Count: 3}, {Name: "b", Count: 1}, {Name: "c", Count: 2}}
+	if err := svc.Insert(&seed); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var page []testRecord
+	if err := svc.Page(&page, "count DESC", 2); err != nil {
+		t.Fatalf("page: %v", err)
+	}
+	if len(page) != 2 || page[0].Name != "a" || page[1].Name != "c" {
+		t.Fatalf("wrong page: %+v", page)
+	}
+}
+
+func TestDeleteWithCondition(t *testing.T) {
+	svc := newTestService(t)
+
+	seed := []testRecord{{Name: "keep", Count: 1}, {Name: "drop", Count: 2}}
+	if err := svc.Insert(&seed); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	if err := svc.Delete(&testRecord{}, "name = ?", "drop"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	var rest []testRecord
+	if err := svc.Find(&rest); err != nil {
+		t.Fatalf("find: %v", err)
+	}
+	if len(rest) != 1 || rest[0].Name != "keep" {
+		t.Fatalf("wrong survivors: %+v", rest)
+	}
+}
