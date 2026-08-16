@@ -68,6 +68,12 @@ type Team struct {
 	Name string
 }
 
+type Attachment struct {
+	Id    string
+	Url   string
+	Title string
+}
+
 type Service interface {
 	CreateIssue(ctx context.Context, input IssueInput) (Issue, error)
 	UpdateIssue(ctx context.Context, id string, patch IssuePatch) (Issue, error)
@@ -75,6 +81,10 @@ type Service interface {
 	Issues(ctx context.Context, query IssueQuery) (IssuePage, error)
 	StateNames(ctx context.Context) ([]string, error)
 	CreateComment(ctx context.Context, issueId, body string) error
+	// Attachments and AttachURL carry the agent's thread⇄issue links.
+	// attachmentCreate is idempotent per (issue, url) on Linear's side.
+	Attachments(ctx context.Context, issueId string) ([]Attachment, error)
+	AttachURL(ctx context.Context, issueId, url, title string) error
 	// Teams is the only call that works without a configured team id, which is
 	// what makes it usable for discovering one during setup.
 	Teams(ctx context.Context) ([]Team, error)

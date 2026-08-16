@@ -229,6 +229,58 @@ func (this *service) CreateComment(ctx context.Context, issueId, body string) er
 	return nil
 }
 
+func (this *service) Attachments(ctx context.Context, issueId string) ([]Attachment, error) {
+	var result struct {
+		Issue *struct {
+			Attachments struct {
+				Nodes []Attachment `json:"nodes"`
+			} `json:"attachments"`
+		} `json:"issue"`
+	}
+	document := `query($id: String!) { issue(id: $id) { attachments { nodes { id url title } } } }`
+
+	err := this.query(ctx, document, map[string]interface{}{"id": issueId}, &result)
+	if err != nil {
+		if isMissing(err) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+	if result.Issue == nil {
+		return nil, ErrNotFound
+	}
+
+	return result.Issue.Attachments.Nodes, nil
+}
+
+func (this *service) AttachURL(ctx context.Context, issueId, url, title string) error {
+	var result struct {
+		AttachmentCreate struct {
+			Success bool `json:"success"`
+		} `json:"attachmentCreate"`
+	}
+	document := `mutation($input: AttachmentCreateInput!) {
+		attachmentCreate(input: $input) { success }
+	}`
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{"issueId": issueId, "url": url, "title": title},
+	}
+
+	if err := this.query(ctx, document, variables, &result); err != nil {
+		if isMissing(err) {
+			return ErrNotFound
+		}
+
+		return err
+	}
+	if !result.AttachmentCreate.Success {
+		return fmt.Errorf("linear: attachment create rejected")
+	}
+
+	return nil
+}
+
 // CreateState invalidates the cached state map so a just-created state is
 // immediately addressable by name.
 func (this *service) CreateState(ctx context.Context, state StateInput) (string, error) {

@@ -264,3 +264,61 @@ func TestEmptyPatchSkipsTheMutation(t *testing.T) {
 		}
 	}
 }
+
+func TestAttachmentsReadsIssueAttachments(t *testing.T) {
+	service, _ := newTestService(t, func(call recordedCall) string {
+		return `{"data":{"issue":{"attachments":{"nodes":[
+			{"id":"att-1","url":"https://mail.google.com/mail/u/0/#all/t1","title":"Gmail thread"}]}}}}`
+	})
+
+	attachments, err := service.Attachments(context.Background(), "issue-1")
+	if err != nil {
+		t.Fatalf("attachments: %v", err)
+	}
+	if len(attachments) != 1 || attachments[0].Url != "https://mail.google.com/mail/u/0/#all/t1" {
+		t.Fatalf("unexpected attachments: %+v", attachments)
+	}
+}
+
+func TestAttachmentsNotFoundOnNullIssue(t *testing.T) {
+	service, _ := newTestService(t, func(call recordedCall) string {
+		return `{"data":{"issue":null}}`
+	})
+
+	_, err := service.Attachments(context.Background(), "missing")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
+
+func TestAttachURLSendsCreateMutation(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		return `{"data":{"attachmentCreate":{"success":true}}}`
+	})
+
+	err := service.AttachURL(context.Background(), "issue-1",
+		"https://mail.google.com/mail/u/0/#all/t1", "Gmail thread")
+	if err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+
+	sent := (*calls)[0]
+	if !strings.Contains(sent.Query, "attachmentCreate") {
+		t.Fatalf("wrong mutation: %s", sent.Query)
+	}
+	input := sent.Variables["input"].(map[string]interface{})
+	if input["issueId"] != "issue-1" || input["url"] != "https://mail.google.com/mail/u/0/#all/t1" {
+		t.Fatalf("input not forwarded: %+v", input)
+	}
+}
+
+func TestAttachURLNotFoundOnEntityError(t *testing.T) {
+	service, _ := newTestService(t, func(call recordedCall) string {
+		return `{"errors":[{"message":"Entity not found"}]}`
+	})
+
+	err := service.AttachURL(context.Background(), "gone", "https://example.com", "t")
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("got %v, want ErrNotFound", err)
+	}
+}
