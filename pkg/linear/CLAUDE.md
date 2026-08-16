@@ -20,6 +20,9 @@ cannot reshape the workspace it reads from).
   `createdAt`/`updatedAt` are RFC3339. Do not conflate them.
 - `Teams` is the only call that works without a configured team id — that is
   what makes it usable for discovering one during setup.
+- `Attachments`/`AttachURL` — thread⇄issue links; `attachmentCreate` is
+  idempotent per (issue, url). `Comments` returns the newest 50, newest
+  first — sized for marker checks, not history export.
 
 ## Pitfalls
 

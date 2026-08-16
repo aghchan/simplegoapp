@@ -322,3 +322,21 @@ func TestAttachURLNotFoundOnEntityError(t *testing.T) {
 		t.Fatalf("got %v, want ErrNotFound", err)
 	}
 }
+
+func TestCommentsReadsBodiesNewestFirst(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		return `{"data":{"issue":{"comments":{"nodes":[
+			{"id":"c1","body":"older"},{"id":"c2","body":"newer"}]}}}}`
+	})
+
+	comments, err := service.Comments(context.Background(), "issue-1")
+	if err != nil {
+		t.Fatalf("comments: %v", err)
+	}
+	if len(comments) != 2 || comments[0].Body != "newer" {
+		t.Fatalf("unexpected comments: %+v", comments)
+	}
+	if !strings.Contains((*calls)[0].Query, "last:") {
+		t.Fatalf("query should page from the newest end: %s", (*calls)[0].Query)
+	}
+}

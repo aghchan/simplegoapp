@@ -74,6 +74,11 @@ type Attachment struct {
 	Title string
 }
 
+type Comment struct {
+	Id   string
+	Body string
+}
+
 type Service interface {
 	CreateIssue(ctx context.Context, input IssueInput) (Issue, error)
 	UpdateIssue(ctx context.Context, id string, patch IssuePatch) (Issue, error)
@@ -85,6 +90,9 @@ type Service interface {
 	// attachmentCreate is idempotent per (issue, url) on Linear's side.
 	Attachments(ctx context.Context, issueId string) ([]Attachment, error)
 	AttachURL(ctx context.Context, issueId, url, title string) error
+	// Comments returns the newest 50 comment bodies — enough for the
+	// agent's marker check without paging an entire history.
+	Comments(ctx context.Context, issueId string) ([]Comment, error)
 	// Teams is the only call that works without a configured team id, which is
 	// what makes it usable for discovering one during setup.
 	Teams(ctx context.Context) ([]Team, error)

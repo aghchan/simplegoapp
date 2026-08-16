@@ -281,6 +281,36 @@ func (this *service) AttachURL(ctx context.Context, issueId, url, title string) 
 	return nil
 }
 
+func (this *service) Comments(ctx context.Context, issueId string) ([]Comment, error) {
+	var result struct {
+		Issue *struct {
+			Comments struct {
+				Nodes []Comment `json:"nodes"`
+			} `json:"comments"`
+		} `json:"issue"`
+	}
+	document := `query($id: String!) { issue(id: $id) { comments(last: 50) { nodes { id body } } } }`
+
+	err := this.query(ctx, document, map[string]interface{}{"id": issueId}, &result)
+	if err != nil {
+		if isMissing(err) {
+			return nil, ErrNotFound
+		}
+
+		return nil, err
+	}
+	if result.Issue == nil {
+		return nil, ErrNotFound
+	}
+
+	nodes := result.Issue.Comments.Nodes
+	for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	}
+
+	return nodes, nil
+}
+
 // CreateState invalidates the cached state map so a just-created state is
 // immediately addressable by name.
 func (this *service) CreateState(ctx context.Context, state StateInput) (string, error) {
