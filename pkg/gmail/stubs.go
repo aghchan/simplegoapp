@@ -4,10 +4,6 @@ import "context"
 
 // Stubs for methods delivered by later tasks in this plan; each panics so an
 // accidental call is loud. Deleted as the real implementations land.
-func (this *service) Message(ctx context.Context, id string) (Message, error) {
-	panic("pkg/gmail: Message not yet implemented")
-}
-
 func (this *service) SendToSelf(ctx context.Context, subject, body string) error {
 	panic("pkg/gmail: SendToSelf not yet implemented")
 }

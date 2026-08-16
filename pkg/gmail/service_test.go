@@ -79,3 +79,63 @@ func TestSearchReturnsMessageRefsAcrossPages(t *testing.T) {
 		t.Fatalf("unexpected refs: %+v", refs)
 	}
 }
+
+func TestMessageExtractsPlainTextFromNestedMultipart(t *testing.T) {
+	fake := newFakeGmail(t)
+	// "hello world" base64url; nested multipart/alternative inside mixed —
+	// the shape real ATS mail arrives in.
+	fake.handle["/gmail/v1/users/me/messages/m1"] = func(r *http.Request) (int, string) {
+		return 200, `{
+			"id":"m1","threadId":"t1","labelIds":["INBOX","Label_7"],
+			"internalDate":"1786745190000",
+			"payload":{
+				"mimeType":"multipart/mixed",
+				"headers":[
+					{"name":"From","value":"Lauren Watrous <lauren@metriport.com>"},
+					{"name":"To","value":"alanghchan@gmail.com"},
+					{"name":"Subject","value":"Interview with Metriport"}],
+				"parts":[{
+					"mimeType":"multipart/alternative",
+					"parts":[
+						{"mimeType":"text/plain","body":{"data":"aGVsbG8gd29ybGQ"}},
+						{"mimeType":"text/html","body":{"data":"PGI-aHRtbDwvYj4"}}]}]}}`
+	}
+
+	message, err := newTestService(t, fake).Message(context.Background(), "m1")
+	if err != nil {
+		t.Fatalf("message: %v", err)
+	}
+	if message.Body != "hello world" {
+		t.Fatalf("body %q, want plain text part", message.Body)
+	}
+	if message.From != "Lauren Watrous <lauren@metriport.com>" || message.Subject != "Interview with Metriport" {
+		t.Fatalf("headers lost: %+v", message)
+	}
+	if len(message.LabelIds) != 2 || message.ThreadId != "t1" {
+		t.Fatalf("metadata lost: %+v", message)
+	}
+	if message.Received.IsZero() {
+		t.Fatalf("internalDate not parsed")
+	}
+}
+
+// Search must stop at its page cap and return what it has, not loop forever.
+func TestSearchStopsAtPageCap(t *testing.T) {
+	fake := newFakeGmail(t)
+	pages := 0
+	fake.handle["/gmail/v1/users/me/messages"] = func(r *http.Request) (int, string) {
+		pages++
+		return 200, `{"messages":[{"id":"m","threadId":"t"}],"nextPageToken":"more"}`
+	}
+
+	refs, err := newTestService(t, fake).Search(context.Background(), "q")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if pages != searchPageCap {
+		t.Fatalf("made %d page calls, want exactly %d", pages, searchPageCap)
+	}
+	if len(refs) != searchPageCap {
+		t.Fatalf("got %d refs, want %d", len(refs), searchPageCap)
+	}
+}
