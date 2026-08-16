@@ -139,3 +139,56 @@ func TestSearchStopsAtPageCap(t *testing.T) {
 		t.Fatalf("got %d refs, want %d", len(refs), searchPageCap)
 	}
 }
+
+func TestEnsureLabelReturnsExistingByName(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/labels"] = func(r *http.Request) (int, string) {
+		if r.Method == http.MethodPost {
+			t.Errorf("must not create when the label exists")
+		}
+		return 200, `{"labels":[{"id":"Label_7","name":"recruiter-processed"}]}`
+	}
+
+	label, err := newTestService(t, fake).EnsureLabel(context.Background(), "recruiter-processed")
+	if err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	if label.Id != "Label_7" {
+		t.Fatalf("wrong label: %+v", label)
+	}
+}
+
+func TestEnsureLabelCreatesWhenMissing(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/labels"] = func(r *http.Request) (int, string) {
+		if r.Method == http.MethodPost {
+			return 200, `{"id":"Label_9","name":"recruiter-unmatched"}`
+		}
+		return 200, `{"labels":[]}`
+	}
+
+	label, err := newTestService(t, fake).EnsureLabel(context.Background(), "recruiter-unmatched")
+	if err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	if label.Id != "Label_9" {
+		t.Fatalf("wrong label: %+v", label)
+	}
+}
+
+func TestAddLabelSendsModify(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/messages/m1/modify"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"m1"}`
+	}
+
+	if err := newTestService(t, fake).AddLabel(context.Background(), "m1", "Label_7"); err != nil {
+		t.Fatalf("add label: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	added, _ := last["addLabelIds"].([]interface{})
+	if len(added) != 1 || added[0] != "Label_7" {
+		t.Fatalf("modify body wrong: %+v", last)
+	}
+}

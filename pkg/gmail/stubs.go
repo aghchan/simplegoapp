@@ -7,15 +7,3 @@ import "context"
 func (this *service) SendToSelf(ctx context.Context, subject, body string) error {
 	panic("pkg/gmail: SendToSelf not yet implemented")
 }
-
-func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error) {
-	panic("pkg/gmail: EnsureLabel not yet implemented")
-}
-
-func (this *service) AddLabel(ctx context.Context, messageId, labelId string) error {
-	panic("pkg/gmail: AddLabel not yet implemented")
-}
-
-func (this *service) RemoveLabel(ctx context.Context, messageId, labelId string) error {
-	panic("pkg/gmail: RemoveLabel not yet implemented")
-}
