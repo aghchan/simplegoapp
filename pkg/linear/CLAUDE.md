@@ -23,6 +23,8 @@ cannot reshape the workspace it reads from).
 - `Attachments`/`AttachURL` — thread⇄issue links; `attachmentCreate` is
   idempotent per (issue, url). `Comments` returns the newest 50, newest
   first — sized for marker checks, not history export.
+- AttachmentsForURL is the reverse thread→issue lookup; Attachment carries
+  IssueId.
 
 ## Pitfalls
 

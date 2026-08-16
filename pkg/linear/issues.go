@@ -281,6 +281,37 @@ func (this *service) AttachURL(ctx context.Context, issueId, url, title string) 
 	return nil
 }
 
+func (this *service) AttachmentsForURL(ctx context.Context, url string) ([]Attachment, error) {
+	var result struct {
+		AttachmentsForURL struct {
+			Nodes []struct {
+				Id    string `json:"id"`
+				Url   string `json:"url"`
+				Title string `json:"title"`
+				Issue *struct {
+					Id string `json:"id"`
+				} `json:"issue"`
+			} `json:"nodes"`
+		} `json:"attachmentsForURL"`
+	}
+	document := `query($url: String!) { attachmentsForURL(url: $url) { nodes { id url title issue { id } } } }`
+
+	if err := this.query(ctx, document, map[string]interface{}{"url": url}, &result); err != nil {
+		return nil, err
+	}
+
+	attachments := make([]Attachment, 0, len(result.AttachmentsForURL.Nodes))
+	for _, node := range result.AttachmentsForURL.Nodes {
+		attachment := Attachment{Id: node.Id, Url: node.Url, Title: node.Title}
+		if node.Issue != nil {
+			attachment.IssueId = node.Issue.Id
+		}
+		attachments = append(attachments, attachment)
+	}
+
+	return attachments, nil
+}
+
 func (this *service) Comments(ctx context.Context, issueId string) ([]Comment, error) {
 	var result struct {
 		Issue *struct {

@@ -13,7 +13,7 @@ func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error
 	if err != nil {
 		this.logger.Error("gmail list labels", "error", err)
 
-		return Label{}, err
+		return Label{}, classifyErr(err)
 	}
 	for _, label := range response.Labels {
 		if label.Name == name {
@@ -25,7 +25,7 @@ func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error
 	if err != nil {
 		this.logger.Error("gmail create label", "error", err, "name", name)
 
-		return Label{}, err
+		return Label{}, classifyErr(err)
 	}
 
 	return Label{Id: created.Id, Name: created.Name}, nil
@@ -38,7 +38,7 @@ func (this *service) AddLabel(ctx context.Context, messageId, labelId string) er
 		this.logger.Error("gmail add label", "error", err, "message", messageId)
 	}
 
-	return err
+	return classifyErr(err)
 }
 
 func (this *service) RemoveLabel(ctx context.Context, messageId, labelId string) error {
@@ -48,5 +48,5 @@ func (this *service) RemoveLabel(ctx context.Context, messageId, labelId string)
 		this.logger.Error("gmail remove label", "error", err, "message", messageId)
 	}
 
-	return err
+	return classifyErr(err)
 }

@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 
 	"github.com/aghchan/simplegoapp/pkg/logger"
 )
@@ -282,5 +286,20 @@ func TestRemoveLabelSendsModify(t *testing.T) {
 	}
 	if _, present := last["addLabelIds"]; present {
 		t.Fatalf("addLabelIds must not be present: %+v", last)
+	}
+}
+
+func TestClassifyErrMapsInvalidGrant(t *testing.T) {
+	retrieve := &oauth2.RetrieveError{ErrorCode: "invalid_grant"}
+	wrapped := &url.Error{Op: "Get", URL: "https://gmail.googleapis.com", Err: retrieve}
+
+	if err := classifyErr(wrapped); !errors.Is(err, ErrAuthExpired) {
+		t.Fatalf("got %v, want ErrAuthExpired", err)
+	}
+	if err := classifyErr(errors.New("plain")); errors.Is(err, ErrAuthExpired) {
+		t.Fatalf("plain errors must pass through unclassified")
+	}
+	if err := classifyErr(nil); err != nil {
+		t.Fatalf("nil must stay nil, got %v", err)
 	}
 }

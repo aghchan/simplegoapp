@@ -340,3 +340,22 @@ func TestCommentsReadsBodiesNewestFirst(t *testing.T) {
 		t.Fatalf("query should page from the newest end: %s", (*calls)[0].Query)
 	}
 }
+
+func TestAttachmentsForURLReturnsIssueRefs(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		return `{"data":{"attachmentsForURL":{"nodes":[
+			{"id":"att-1","url":"https://mail.google.com/mail/u/0/#all/t1","title":"Gmail thread","issue":{"id":"issue-9"}}]}}}`
+	})
+
+	attachments, err := service.AttachmentsForURL(context.Background(),
+		"https://mail.google.com/mail/u/0/#all/t1")
+	if err != nil {
+		t.Fatalf("attachmentsForURL: %v", err)
+	}
+	if len(attachments) != 1 || attachments[0].IssueId != "issue-9" {
+		t.Fatalf("unexpected: %+v", attachments)
+	}
+	if !strings.Contains((*calls)[0].Query, "attachmentsForURL") {
+		t.Fatalf("wrong query: %s", (*calls)[0].Query)
+	}
+}

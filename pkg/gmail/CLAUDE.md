@@ -22,6 +22,8 @@ prefilter.
 - `Authorize` is setup-only (interactive consent, loopback redirect with a
   per-run random state, token written 0600). The service constructor fails
   with instructions when the token cache is missing.
+- Terminal auth death surfaces as ErrAuthExpired — the only error consumers
+  must branch on.
 
 ## Setup prerequisite
 

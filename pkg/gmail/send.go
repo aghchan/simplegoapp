@@ -26,7 +26,7 @@ func (this *service) SendToSelf(ctx context.Context, subject, body string) error
 		this.logger.Error("gmail send to self", "error", err)
 	}
 
-	return err
+	return classifyErr(err)
 }
 
 // headerSafe truncates at the first CR or LF so caller-supplied text cannot
@@ -54,7 +54,7 @@ func (this *service) selfAddress(ctx context.Context) (string, error) {
 	if err != nil {
 		this.logger.Error("gmail get profile", "error", err)
 
-		return "", err
+		return "", classifyErr(err)
 	}
 	this.self = profile.EmailAddress
 

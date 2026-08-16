@@ -24,7 +24,7 @@ func (this *service) Search(ctx context.Context, query string) ([]MessageRef, er
 		if err != nil {
 			this.logger.Error("gmail search", "error", err, "query", query)
 
-			return nil, err
+			return nil, classifyErr(err)
 		}
 
 		for _, message := range response.Messages {
@@ -44,7 +44,7 @@ func (this *service) Message(ctx context.Context, id string) (Message, error) {
 	if err != nil {
 		this.logger.Error("gmail get message", "error", err, "id", id)
 
-		return Message{}, err
+		return Message{}, classifyErr(err)
 	}
 
 	message := Message{

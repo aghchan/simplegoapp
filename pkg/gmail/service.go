@@ -3,6 +3,7 @@ package gmail
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -35,6 +36,27 @@ type Message struct {
 type Label struct {
 	Id   string
 	Name string
+}
+
+// ErrAuthExpired means the refresh token is dead (revoked or expired) —
+// terminal, not retryable; the fix is re-running Authorize.
+var ErrAuthExpired = errors.New("gmail: auth token expired or revoked — re-run authorize")
+
+// classifyErr maps vendor auth failures onto the package sentinel so
+// consumers never import oauth2 to detect the one error that matters.
+// CONVENTION: every vendor .Do() error return in this package must pass
+// through classifyErr — check all call sites before adding a method.
+func classifyErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var retrieve *oauth2.RetrieveError
+	if errors.As(err, &retrieve) && retrieve.ErrorCode == "invalid_grant" {
+		return fmt.Errorf("%w: %v", ErrAuthExpired, err)
+	}
+
+	return err
 }
 
 type Service interface {

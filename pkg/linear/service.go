@@ -69,9 +69,10 @@ type Team struct {
 }
 
 type Attachment struct {
-	Id    string
-	Url   string
-	Title string
+	Id      string
+	Url     string
+	Title   string
+	IssueId string
 }
 
 type Comment struct {
@@ -90,6 +91,9 @@ type Service interface {
 	// attachmentCreate is idempotent per (issue, url) on Linear's side.
 	Attachments(ctx context.Context, issueId string) ([]Attachment, error)
 	AttachURL(ctx context.Context, issueId, url, title string) error
+	// AttachmentsForURL is the reverse lookup: which issues carry this URL.
+	// One call replaces a per-issue attachment sweep during thread matching.
+	AttachmentsForURL(ctx context.Context, url string) ([]Attachment, error)
 	// Comments returns the newest 50 comment bodies — enough for the
 	// agent's marker check without paging an entire history.
 	Comments(ctx context.Context, issueId string) ([]Comment, error)
