@@ -182,6 +182,31 @@ func TestEnsureLabelCreatesWhenMissing(t *testing.T) {
 	}
 }
 
+// Two concurrent instances may race create-if-absent during a deploy
+// overlap; the loser must recover the winner's label, not error.
+func TestEnsureLabelRecoversFromCreateConflict(t *testing.T) {
+	fake := newFakeGmail(t)
+	listCalls := 0
+	fake.handle["/gmail/v1/users/me/labels"] = func(r *http.Request) (int, string) {
+		if r.Method == http.MethodPost {
+			return 409, `{"error":{"code":409,"message":"Label name exists or conflicts"}}`
+		}
+		listCalls++
+		if listCalls == 1 {
+			return 200, `{"labels":[]}`
+		}
+		return 200, `{"labels":[{"id":"Label_7","name":"recruiter-processed"}]}`
+	}
+
+	label, err := newTestService(t, fake).EnsureLabel(context.Background(), "recruiter-processed")
+	if err != nil {
+		t.Fatalf("ensure after conflict: %v", err)
+	}
+	if label.Id != "Label_7" {
+		t.Fatalf("did not recover the winner: %+v", label)
+	}
+}
+
 func TestAddLabelSendsModify(t *testing.T) {
 	fake := newFakeGmail(t)
 	fake.handle["/gmail/v1/users/me/messages/m1/modify"] = func(r *http.Request) (int, string) {

@@ -6,8 +6,8 @@ import (
 	gmailapi "google.golang.org/api/gmail/v1"
 )
 
-// EnsureLabel is list-then-create and not concurrency-safe; the agent is a
-// single sequential process, which is the only intended caller shape.
+// EnsureLabel is list-then-create; if two instances race the create, the
+// loser re-lists and adopts the winner's label instead of erroring.
 func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error) {
 	response, err := this.api.Users.Labels.List("me").Context(ctx).Do()
 	if err != nil {
@@ -23,6 +23,16 @@ func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error
 
 	created, err := this.api.Users.Labels.Create("me", &gmailapi.Label{Name: name}).Context(ctx).Do()
 	if err != nil {
+		// create-if-absent race (concurrent instance won): re-list and
+		// adopt the winner rather than failing the run.
+		relisted, listErr := this.api.Users.Labels.List("me").Context(ctx).Do()
+		if listErr == nil {
+			for _, label := range relisted.Labels {
+				if label.Name == name {
+					return Label{Id: label.Id, Name: label.Name}, nil
+				}
+			}
+		}
 		this.logger.Error("gmail create label", "error", err, "name", name)
 
 		return Label{}, classifyErr(err)

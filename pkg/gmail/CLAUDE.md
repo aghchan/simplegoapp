@@ -16,9 +16,11 @@ prefilter.
   first CR/LF so caller text cannot mint extra RFC 822 headers. A third-party
   recipient is unrepresentable. Do not add a general Send.
 - `EnsureLabel` is create-or-get by exact name, list-then-create (not
-  concurrency-safe; the intended caller is a single sequential process). Use
-  hyphenated names (`recruiter-processed`) — slash-nested names translate
-  undocumentedly in search syntax.
+  concurrency-safe; the intended caller is a single sequential process), but
+  is conflict-tolerant: the loser of a create race re-lists and adopts the
+  winner's label instead of erroring. Use hyphenated names
+  (`recruiter-processed`) — slash-nested names translate undocumentedly in
+  search syntax.
 - `Authorize` is setup-only (interactive consent, loopback redirect with a
   per-run random state, token written 0600). The service constructor fails
   with instructions when the token cache is missing.
