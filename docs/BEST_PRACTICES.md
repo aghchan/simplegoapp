@@ -345,6 +345,8 @@ service with a `Service` interface:
 - `twilio-go` → `pkg/twilio` — a single `SendSMS(phoneNumber, body string)`.
 - Linear's GraphQL API → `pkg/linear` — issues, comments, states, and Relay
   cursors, so no caller writes a GraphQL document.
+- Gmail's REST API → `pkg/gmail` — message-granular search/read/labels and a
+  send that can only address the authenticated user.
 - `google/uuid` → `pkg/id` — a single `New() string` returning UUIDv7, whose
   lexical order is creation order (keyset pagination relies on this).
 
