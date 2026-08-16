@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"reflect"
@@ -69,7 +68,7 @@ func GET(url string, params map[string]interface{}, response interface{}) error 
 	}
 
 	defer resp.Body.Close()
-	responseBody, err := ioutil.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func POST(url string, body, response interface{}) error {
 	}
 
 	defer resp.Body.Close()
-	responseBody, err := ioutil.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -254,25 +253,9 @@ func (this Controller) Problem(w ResponseWriter, req *Request, err error) {
 }
 
 func writeSocket(conn *websocket.Conn, out <-chan []byte) {
-	for {
-		select {
-		case msg, ok := <-out:
-			if !ok {
-				out = nil
-
-				break
-			}
-
-			err := conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				out = nil
-
-				break
-			}
-		}
-
-		if out == nil {
-			break
+	for msg := range out {
+		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			return
 		}
 	}
 }

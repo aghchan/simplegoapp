@@ -1,7 +1,6 @@
 package app
 
 import (
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -47,7 +46,7 @@ func NewApp(
 			configFile = "local.yml"
 		}
 
-		f, err := ioutil.ReadFile(configFile)
+		f, err := os.ReadFile(configFile)
 		if err != nil {
 			panic("loading config file: " + err.Error())
 		}
