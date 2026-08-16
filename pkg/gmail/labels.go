@@ -29,6 +29,8 @@ func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error
 		if listErr == nil {
 			for _, label := range relisted.Labels {
 				if label.Name == name {
+					this.logger.Info("label create race recovered", "name", name)
+
 					return Label{Id: label.Id, Name: label.Name}, nil
 				}
 			}
