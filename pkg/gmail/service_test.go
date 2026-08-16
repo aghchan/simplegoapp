@@ -1,0 +1,81 @@
+package gmail
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/aghchan/simplegoapp/pkg/logger"
+)
+
+// fakeGmail routes Gmail REST paths to canned handlers and records requests.
+type fakeGmail struct {
+	server   *httptest.Server
+	requests []*http.Request
+	bodies   []map[string]interface{}
+	handle   map[string]func(r *http.Request) (int, string)
+}
+
+func newFakeGmail(t *testing.T) *fakeGmail {
+	t.Helper()
+	fake := &fakeGmail{handle: map[string]func(*http.Request) (int, string){}}
+	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		fake.requests = append(fake.requests, r)
+		fake.bodies = append(fake.bodies, body)
+
+		handler, ok := fake.handle[r.URL.Path]
+		if !ok {
+			t.Errorf("unhandled fake path: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+			return
+		}
+		status, payload := handler(r)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		w.Write([]byte(payload))
+	}))
+	t.Cleanup(fake.server.Close)
+
+	return fake
+}
+
+func newTestService(t *testing.T, fake *fakeGmail) Service {
+	t.Helper()
+	service, err := NewService(map[string]interface{}{
+		"gmail_credentials_path": "",
+		"gmail_token_path":       "",
+		"gmail_base_url":         fake.server.URL + "/",
+	}, logger.NewService())
+	if err != nil {
+		t.Fatalf("constructing service: %v", err)
+	}
+
+	return service
+}
+
+func TestSearchReturnsMessageRefsAcrossPages(t *testing.T) {
+	fake := newFakeGmail(t)
+	page := 0
+	fake.handle["/gmail/v1/users/me/messages"] = func(r *http.Request) (int, string) {
+		if got := r.URL.Query().Get("q"); got != "newer_than:14d" {
+			t.Errorf("query not forwarded: %q", got)
+		}
+		page++
+		if page == 1 {
+			return 200, `{"messages":[{"id":"m1","threadId":"t1"}],"nextPageToken":"p2"}`
+		}
+		return 200, `{"messages":[{"id":"m2","threadId":"t1"}]}`
+	}
+
+	refs, err := newTestService(t, fake).Search(context.Background(), "newer_than:14d")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(refs) != 2 || refs[0].Id != "m1" || refs[1].Id != "m2" {
+		t.Fatalf("unexpected refs: %+v", refs)
+	}
+}
