@@ -2,9 +2,11 @@ package gmail
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aghchan/simplegoapp/pkg/logger"
@@ -190,5 +192,95 @@ func TestAddLabelSendsModify(t *testing.T) {
 	added, _ := last["addLabelIds"].([]interface{})
 	if len(added) != 1 || added[0] != "Label_7" {
 		t.Fatalf("modify body wrong: %+v", last)
+	}
+}
+
+func TestSendToSelfAddressesTheAuthenticatedUserOnly(t *testing.T) {
+	fake := newFakeGmail(t)
+	profileCalls := 0
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		profileCalls++
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+	fake.handle["/gmail/v1/users/me/messages/send"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"sent-1"}`
+	}
+
+	service := newTestService(t, fake)
+	if err := service.SendToSelf(context.Background(), "Morning brief", "hello"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if err := service.SendToSelf(context.Background(), "Again", "world"); err != nil {
+		t.Fatalf("second send: %v", err)
+	}
+	if profileCalls != 1 {
+		t.Fatalf("profile fetched %d times, want cached after 1", profileCalls)
+	}
+
+	var sendBody map[string]interface{}
+	for _, body := range fake.bodies {
+		if _, ok := body["raw"]; ok {
+			sendBody = body
+			break
+		}
+	}
+	raw, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(sendBody["raw"].(string))
+	message := string(raw)
+	if !strings.Contains(message, "To: alan@example.com\r\n") {
+		t.Fatalf("recipient not the authenticated user:\n%s", message)
+	}
+	if !strings.Contains(message, "Subject: Morning brief\r\n") || !strings.Contains(message, "hello") {
+		t.Fatalf("subject/body missing:\n%s", message)
+	}
+}
+
+// A subject carrying CRLF must not become extra RFC822 headers — that would
+// defeat the no-third-party guarantee SendToSelf exists to provide.
+func TestSendToSelfNeutralizesHeaderInjection(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+	fake.handle["/gmail/v1/users/me/messages/send"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"sent-1"}`
+	}
+
+	err := newTestService(t, fake).SendToSelf(context.Background(),
+		"Re: offer\r\nBcc: attacker@evil.com", "body")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	raw, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(last["raw"].(string))
+	headers := strings.SplitN(string(raw), "\r\n\r\n", 2)[0]
+	if strings.Contains(headers, "Bcc") {
+		t.Fatalf("injected header survived:\n%s", headers)
+	}
+	if !strings.Contains(headers, "Subject: Re: offer Bcc: attacker@evil.com") &&
+		!strings.Contains(headers, "Subject: Re: offer") {
+		t.Fatalf("subject lost entirely:\n%s", headers)
+	}
+}
+
+// RemoveLabel must send removeLabelIds — a transposed copy of AddLabel would
+// pass every other test in this file.
+func TestRemoveLabelSendsModify(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/messages/m1/modify"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"m1"}`
+	}
+
+	if err := newTestService(t, fake).RemoveLabel(context.Background(), "m1", "Label_7"); err != nil {
+		t.Fatalf("remove label: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	removed, _ := last["removeLabelIds"].([]interface{})
+	if len(removed) != 1 || removed[0] != "Label_7" {
+		t.Fatalf("modify body wrong: %+v", last)
+	}
+	if _, present := last["addLabelIds"]; present {
+		t.Fatalf("addLabelIds must not be present: %+v", last)
 	}
 }

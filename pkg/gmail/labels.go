@@ -6,6 +6,8 @@ import (
 	gmailapi "google.golang.org/api/gmail/v1"
 )
 
+// EnsureLabel is list-then-create and not concurrency-safe; the agent is a
+// single sequential process, which is the only intended caller shape.
 func (this *service) EnsureLabel(ctx context.Context, name string) (Label, error) {
 	response, err := this.api.Users.Labels.List("me").Context(ctx).Do()
 	if err != nil {

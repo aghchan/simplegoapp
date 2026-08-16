@@ -94,9 +94,7 @@ type service struct {
 
 	api *gmailapi.Service
 
-	//lint:ignore U1000 will cache the authenticated address for SendToSelf
-	mu sync.Mutex
-	//lint:ignore U1000 will cache the authenticated address for SendToSelf
+	mu   sync.Mutex
 	self string
 }
 
