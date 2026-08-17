@@ -27,3 +27,5 @@ docs/BEST_PRACTICES.md. Design specs: docs/superpowers/specs/.
   hand-rolled JSON or `http.Error`.
 - main.go is the only composition root: routes, service constructors, config
   struct, DB models all declared there.
+- Every directory embodying a distinct pattern carries a CLAUDE.md with the
+  context needed to extend it; adding a new pattern includes writing one.
