@@ -137,6 +137,142 @@ func TestStatesAreCachedAcrossCalls(t *testing.T) {
 	}
 }
 
+const projectsPayload = `{"data":{"team":{"projects":{"nodes":[
+	{"id":"project-agents","name":"Agents"},
+	{"id":"project-infra","name":"Infra"}
+]}}}}`
+
+func isProjectsQuery(call recordedCall) bool {
+	return strings.Contains(call.Query, "projects {")
+}
+
+func TestCreateIssueResolvesProjectByName(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		if isStatesQuery(call) {
+			return statesPayload
+		}
+		if isProjectsQuery(call) {
+			return projectsPayload
+		}
+
+		return `{"data":{"issueCreate":{"success":true,"issue":{
+			"id":"issue-1","title":"x","state":{"name":"Saved"},"project":{"name":"Agents"}}}}}`
+	})
+
+	issue, err := service.CreateIssue(context.Background(), IssueInput{
+		Title: "x", State: "saved", Project: "agents",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if issue.Project != "Agents" {
+		t.Fatalf("project %q, want Agents", issue.Project)
+	}
+
+	create := (*calls)[len(*calls)-1]
+	input := create.Variables["input"].(map[string]interface{})
+	if input["projectId"] != "project-agents" {
+		t.Fatalf("projectId %v, want the id looked up by name", input["projectId"])
+	}
+}
+
+// An unset project must not send projectId at all — sending an empty string
+// would ask Linear to move the issue out of whatever project it belongs to.
+func TestCreateIssueOmitsProjectWhenUnset(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		if isStatesQuery(call) {
+			return statesPayload
+		}
+		if isProjectsQuery(call) {
+			t.Errorf("must not resolve projects when none was requested")
+		}
+
+		return `{"data":{"issueCreate":{"success":true,"issue":{"id":"i","state":{"name":"Saved"}}}}}`
+	})
+
+	if _, err := service.CreateIssue(context.Background(), IssueInput{Title: "x", State: "saved"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	create := (*calls)[len(*calls)-1]
+	input := create.Variables["input"].(map[string]interface{})
+	if _, present := input["projectId"]; present {
+		t.Fatalf("projectId must be absent, got %+v", input)
+	}
+}
+
+func TestUpdateIssueMovesProjectByName(t *testing.T) {
+	service, calls := newTestService(t, func(call recordedCall) string {
+		if isProjectsQuery(call) {
+			return projectsPayload
+		}
+
+		return `{"data":{"issueUpdate":{"success":true,"issue":{
+			"id":"issue-1","title":"x","project":{"name":"Agents"}}}}}`
+	})
+
+	project := "Agents"
+	issue, err := service.UpdateIssue(context.Background(), "issue-1", IssuePatch{Project: &project})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if issue.Project != "Agents" {
+		t.Fatalf("project %q, want Agents", issue.Project)
+	}
+
+	update := (*calls)[len(*calls)-1]
+	input := update.Variables["input"].(map[string]interface{})
+	if input["projectId"] != "project-agents" {
+		t.Fatalf("projectId %v, want the id looked up by name", input["projectId"])
+	}
+}
+
+func TestUnknownProjectNameIsUnorganized(t *testing.T) {
+	service, _ := newTestService(t, func(call recordedCall) string {
+		if isStatesQuery(call) {
+			return statesPayload
+		}
+
+		return projectsPayload
+	})
+
+	_, err := service.CreateIssue(context.Background(), IssueInput{Title: "x", State: "saved", Project: "nope"})
+	if !errors.Is(err, ErrUnorganized) {
+		t.Fatalf("got %v, want ErrUnorganized", err)
+	}
+	if !strings.Contains(err.Error(), "nope") {
+		t.Fatalf("error should name the missing project: %v", err)
+	}
+}
+
+func TestProjectsAreCachedAcrossCalls(t *testing.T) {
+	var projectQueries int32
+	service, _ := newTestService(t, func(call recordedCall) string {
+		if isStatesQuery(call) {
+			return statesPayload
+		}
+		if isProjectsQuery(call) {
+			atomic.AddInt32(&projectQueries, 1)
+
+			return projectsPayload
+		}
+
+		return `{"data":{"issueCreate":{"success":true,"issue":{"id":"i","state":{"name":"Saved"}}}}}`
+	})
+
+	for range 3 {
+		_, err := service.CreateIssue(context.Background(),
+			IssueInput{Title: "x", State: "saved", Project: "agents"})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got := atomic.LoadInt32(&projectQueries); got != 1 {
+		t.Fatalf("projects fetched %d times, want 1", got)
+	}
+}
+
 // setup relies on Teams working before a team id is configured
 func TestTeamsWorksWithoutAConfiguredTeam(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -50,15 +50,25 @@ func (this *service) CreateIssue(ctx context.Context, input IssueInput) (Issue, 
 		return Issue{}, err
 	}
 
-	variables := map[string]interface{}{
-		"input": map[string]interface{}{
-			"teamId":      this.teamId,
-			"title":       input.Title,
-			"description": input.Description,
-			"stateId":     stateId,
-			"dueDate":     formatDate(input.DueDate),
-		},
+	projectId, err := this.projectId(ctx, input.Project)
+	if err != nil {
+		return Issue{}, err
 	}
+
+	create := map[string]interface{}{
+		"teamId":      this.teamId,
+		"title":       input.Title,
+		"description": input.Description,
+		"stateId":     stateId,
+		"dueDate":     formatDate(input.DueDate),
+	}
+	// Only send projectId when one was asked for — an empty string would ask
+	// Linear to move the issue out of any project rather than leave it alone.
+	if projectId != "" {
+		create["projectId"] = projectId
+	}
+
+	variables := map[string]interface{}{"input": create}
 
 	var result struct {
 		IssueCreate struct {
@@ -96,6 +106,13 @@ func (this *service) UpdateIssue(ctx context.Context, id string, patch IssuePatc
 			return Issue{}, err
 		}
 		input["stateId"] = stateId
+	}
+	if patch.Project != nil {
+		projectId, err := this.projectId(ctx, *patch.Project)
+		if err != nil {
+			return Issue{}, err
+		}
+		input["projectId"] = projectId
 	}
 
 	// an empty input would be a no-op round trip that still costs a request
@@ -427,6 +444,67 @@ func (this *service) stateId(ctx context.Context, name string) (string, error) {
 	}
 
 	return id, nil
+}
+
+// projectId maps a project name onto the team's project of the same name,
+// by name for the same reason states are: projects are created by hand in
+// Linear, so a missing one is a setup problem, not a runtime error.
+func (this *service) projectId(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", nil
+	}
+
+	projects, err := this.loadProjects(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	id, ok := projects[strings.ToLower(name)]
+	if !ok {
+		return "", fmt.Errorf("%w: no project named %q in the team", ErrUnorganized, name)
+	}
+
+	return id, nil
+}
+
+func (this *service) loadProjects(ctx context.Context) (map[string]string, error) {
+	this.mu.RLock()
+	cached := this.projects
+	this.mu.RUnlock()
+	if cached != nil {
+		return cached, nil
+	}
+
+	var result struct {
+		Team *struct {
+			Projects struct {
+				Nodes []struct {
+					Id   string `json:"id"`
+					Name string `json:"name"`
+				} `json:"nodes"`
+			} `json:"projects"`
+		} `json:"team"`
+	}
+	document := `query($teamId: String!) {
+		team(id: $teamId) { projects { nodes { id name } } }
+	}`
+	if err := this.query(ctx, document, map[string]interface{}{"teamId": this.teamId}, &result); err != nil {
+		return nil, err
+	}
+	if result.Team == nil {
+		return nil, fmt.Errorf("%w: team %s not found", ErrUnorganized, this.teamId)
+	}
+
+	projects := map[string]string{}
+	for _, node := range result.Team.Projects.Nodes {
+		projects[strings.ToLower(node.Name)] = node.Id
+	}
+
+	this.mu.Lock()
+	this.projects = projects
+	this.mu.Unlock()
+
+	return projects, nil
 }
 
 func (this *service) loadStates(ctx context.Context) (map[string]string, error) {

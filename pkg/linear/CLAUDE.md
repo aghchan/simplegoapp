@@ -16,6 +16,10 @@ cannot reshape the workspace it reads from).
   team's workflow states and caches the map for the process lifetime. A
   missing state returns `ErrUnorganized` naming it — a setup problem, not a
   runtime failure.
+- Project is addressed by name the same way (`projectId`, same cache and
+  same `ErrUnorganized` contract). Unlike state, an unset project sends no
+  `projectId` at all on create: an empty string would ask Linear to move
+  the issue *out* of its project instead of leaving it alone.
 - Dates: Linear's `dueDate` is a TimelessDate (`2006-01-02`), not RFC3339.
   `createdAt`/`updatedAt` are RFC3339. Do not conflate them.
 - `Teams` is the only call that works without a configured team id — that is

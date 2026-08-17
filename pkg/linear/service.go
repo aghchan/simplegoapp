@@ -49,6 +49,7 @@ type IssuePatch struct {
 	Description *string
 	State       *string
 	DueDate     *time.Time
+	Project     *string
 }
 
 type IssueQuery struct {
@@ -152,8 +153,9 @@ type service struct {
 	baseUrl string
 	client  *http.Client
 
-	mu     sync.RWMutex
-	states map[string]string
+	mu       sync.RWMutex
+	states   map[string]string
+	projects map[string]string
 }
 
 type graphqlRequest struct {
