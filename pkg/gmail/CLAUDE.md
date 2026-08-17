@@ -11,10 +11,11 @@ prefilter.
   threads.
 - `Message` extracts the first text/plain MIME part; HTML-only mail yields an
   empty body — headers still carry the signal.
-- `SendToSelf` is the ONLY send: it addresses the authenticated account
-  (cached from users.getProfile), and `headerSafe` truncates subject at the
-  first CR/LF so caller text cannot mint extra RFC 822 headers. A third-party
-  recipient is unrepresentable. Do not add a general Send.
+- `SendToSelf` and `SendHTMLToSelf` are the ONLY sends: both address the
+  authenticated account only (cached from users.getProfile), and share
+  `headerSafe` to truncate subject at the first CR/LF so caller text cannot
+  mint extra RFC 822 headers. A third-party recipient is unrepresentable.
+  Do not add a general Send.
 - `EnsureLabel` is create-or-get by exact name, list-then-create, and
   conflict-tolerant: the loser of a create race re-lists and adopts the
   winner's label instead of erroring (logged so races are visible). Use hyphenated names

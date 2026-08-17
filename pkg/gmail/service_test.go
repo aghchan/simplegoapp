@@ -261,6 +261,9 @@ func TestSendToSelfAddressesTheAuthenticatedUserOnly(t *testing.T) {
 	if !strings.Contains(message, "Subject: Morning brief\r\n") || !strings.Contains(message, "hello") {
 		t.Fatalf("subject/body missing:\n%s", message)
 	}
+	if !strings.Contains(message, "Content-Type: text/plain; charset=utf-8\r\n") {
+		t.Fatalf("wrong content type:\n%s", message)
+	}
 }
 
 // A subject carrying CRLF must not become extra RFC822 headers — that would
@@ -289,6 +292,58 @@ func TestSendToSelfNeutralizesHeaderInjection(t *testing.T) {
 	if !strings.Contains(headers, "Subject: Re: offer Bcc: attacker@evil.com") &&
 		!strings.Contains(headers, "Subject: Re: offer") {
 		t.Fatalf("subject lost entirely:\n%s", headers)
+	}
+}
+
+func TestSendHTMLToSelfSetsHTMLContentType(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+	fake.handle["/gmail/v1/users/me/messages/send"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"sent-1"}`
+	}
+
+	err := newTestService(t, fake).SendHTMLToSelf(context.Background(),
+		"Recruiter brief", "<div>hello</div>")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	raw, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(last["raw"].(string))
+	message := string(raw)
+	if !strings.Contains(message, "Content-Type: text/html; charset=utf-8\r\n") {
+		t.Fatalf("wrong content type:\n%s", message)
+	}
+	if !strings.Contains(message, "<div>hello</div>") {
+		t.Fatalf("body lost:\n%s", message)
+	}
+}
+
+// SendHTMLToSelf shares the send() helper with SendToSelf, so the header-
+// injection guard applies here too — this test proves the shared path, not
+// a separate implementation that could drift.
+func TestSendHTMLToSelfNeutralizesHeaderInjection(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+	fake.handle["/gmail/v1/users/me/messages/send"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"sent-1"}`
+	}
+
+	err := newTestService(t, fake).SendHTMLToSelf(context.Background(),
+		"Brief\r\nBcc: attacker@evil.com", "<div>hi</div>")
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	raw, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(last["raw"].(string))
+	headers := strings.SplitN(string(raw), "\r\n\r\n", 2)[0]
+	if strings.Contains(headers, "Bcc") {
+		t.Fatalf("injected header survived:\n%s", headers)
 	}
 }
 

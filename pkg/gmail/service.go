@@ -62,9 +62,13 @@ func classifyErr(err error) error {
 type Service interface {
 	Search(ctx context.Context, query string) ([]MessageRef, error)
 	Message(ctx context.Context, id string) (Message, error)
-	// SendToSelf is the only send that exists: the recipient is always the
-	// authenticated account, so no caller can address a third party.
+	// SendToSelf and SendHTMLToSelf are the only sends: the recipient is
+	// always the authenticated account, so no caller can address a third
+	// party.
 	SendToSelf(ctx context.Context, subject, body string) error
+	// SendHTMLToSelf is SendToSelf's HTML sibling — same authenticated-user-
+	// only guarantee, single text/html part, no plain-text fallback part.
+	SendHTMLToSelf(ctx context.Context, subject, htmlBody string) error
 	EnsureLabel(ctx context.Context, name string) (Label, error)
 	AddLabel(ctx context.Context, messageId, labelId string) error
 	RemoveLabel(ctx context.Context, messageId, labelId string) error

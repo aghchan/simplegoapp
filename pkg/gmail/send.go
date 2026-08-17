@@ -10,6 +10,14 @@ import (
 )
 
 func (this *service) SendToSelf(ctx context.Context, subject, body string) error {
+	return this.send(ctx, subject, "text/plain", body)
+}
+
+func (this *service) SendHTMLToSelf(ctx context.Context, subject, htmlBody string) error {
+	return this.send(ctx, subject, "text/html", htmlBody)
+}
+
+func (this *service) send(ctx context.Context, subject, contentType, body string) error {
 	address, err := this.selfAddress(ctx)
 	if err != nil {
 		return err
@@ -17,8 +25,8 @@ func (this *service) SendToSelf(ctx context.Context, subject, body string) error
 	address = headerSafe(address)
 	subject = headerSafe(subject)
 
-	raw := fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s",
-		address, subject, body)
+	raw := fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: %s; charset=utf-8\r\n\r\n%s",
+		address, subject, contentType, body)
 	encoded := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString([]byte(raw))
 
 	_, err = this.api.Users.Messages.Send("me", &gmailapi.Message{Raw: encoded}).Context(ctx).Do()
