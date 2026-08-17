@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"net/http/httptest"
+	"net/mail"
 	"net/url"
 	"strings"
 	"testing"
@@ -263,6 +265,47 @@ func TestSendToSelfAddressesTheAuthenticatedUserOnly(t *testing.T) {
 	}
 	if !strings.Contains(message, "Content-Type: text/plain; charset=utf-8\r\n") {
 		t.Fatalf("wrong content type:\n%s", message)
+	}
+}
+
+// A non-ASCII subject placed raw into an RFC822 header without RFC 2047
+// encoding gets its UTF-8 bytes reinterpreted as Latin-1 by mail
+// clients/servers, producing mojibake ("Recruiter brief Ã¢Â€Â” Mon Aug 17"
+// instead of "Recruiter brief — Mon Aug 17") — this was caught live in a
+// real sent email. The header must be MIME-encoded, and a standards-
+// compliant decoder must recover the exact original string.
+func TestSendToSelfMIMEEncodesNonASCIISubject(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+	fake.handle["/gmail/v1/users/me/messages/send"] = func(r *http.Request) (int, string) {
+		return 200, `{"id":"sent-1"}`
+	}
+
+	original := "Recruiter brief — Mon Aug 17"
+	if err := newTestService(t, fake).SendToSelf(context.Background(), original, "body"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	last := fake.bodies[len(fake.bodies)-1]
+	raw, _ := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(last["raw"].(string))
+	message := string(raw)
+
+	if strings.Contains(message, original) {
+		t.Fatalf("raw UTF-8 bytes must not appear unencoded in a header line:\n%s", message)
+	}
+
+	msg, err := mail.ReadMessage(strings.NewReader(message))
+	if err != nil {
+		t.Fatalf("not a parseable RFC822 message: %v\n%s", err, message)
+	}
+	decoded, err := (&mime.WordDecoder{}).DecodeHeader(msg.Header.Get("Subject"))
+	if err != nil {
+		t.Fatalf("Subject header is not valid RFC 2047: %v\nraw header: %q", err, msg.Header.Get("Subject"))
+	}
+	if decoded != original {
+		t.Fatalf("decoded subject = %q, want %q", decoded, original)
 	}
 }
 

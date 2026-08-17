@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"mime"
 	"strings"
 
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -25,8 +26,12 @@ func (this *service) send(ctx context.Context, subject, contentType, body string
 	address = headerSafe(address)
 	subject = headerSafe(subject)
 
+	// RFC822 headers are 7-bit ASCII; a raw non-ASCII subject (e.g. an em
+	// dash) gets its UTF-8 bytes reinterpreted per-byte by mail clients,
+	// producing mojibake. QEncoding no-ops on pure-ASCII input, so this is
+	// safe for every existing subject and only changes non-ASCII ones.
 	raw := fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: %s; charset=utf-8\r\n\r\n%s",
-		address, subject, contentType, body)
+		address, mime.QEncoding.Encode("UTF-8", subject), contentType, body)
 	encoded := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString([]byte(raw))
 
 	_, err = this.api.Users.Messages.Send("me", &gmailapi.Message{Raw: encoded}).Context(ctx).Do()
