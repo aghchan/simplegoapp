@@ -18,6 +18,10 @@ func (this *service) SendHTMLToSelf(ctx context.Context, subject, htmlBody strin
 	return this.send(ctx, subject, "text/html", htmlBody)
 }
 
+func (this *service) SelfAddress(ctx context.Context) (string, error) {
+	return this.selfAddress(ctx)
+}
+
 func (this *service) send(ctx context.Context, subject, contentType, body string) error {
 	address, err := this.selfAddress(ctx)
 	if err != nil {

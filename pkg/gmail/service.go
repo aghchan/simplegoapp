@@ -29,6 +29,10 @@ type Message struct {
 	To       string
 	Subject  string
 	Body     string
+	// HTMLBody is the text/html part, empty when absent. Body and HTMLBody
+	// are separate documents on multipart mail and may disagree — the
+	// sender controls both.
+	HTMLBody string
 	LabelIds []string
 	Received time.Time
 }
@@ -69,6 +73,9 @@ type Service interface {
 	// SendHTMLToSelf is SendToSelf's HTML sibling — same authenticated-user-
 	// only guarantee, single text/html part, no plain-text fallback part.
 	SendHTMLToSelf(ctx context.Context, subject, htmlBody string) error
+	// SelfAddress is the authenticated account's address — callers need it
+	// to recognise the user's own mail.
+	SelfAddress(ctx context.Context) (string, error)
 	EnsureLabel(ctx context.Context, name string) (Label, error)
 	AddLabel(ctx context.Context, messageId, labelId string) error
 	RemoveLabel(ctx context.Context, messageId, labelId string) error

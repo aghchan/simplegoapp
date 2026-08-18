@@ -127,6 +127,57 @@ func TestMessageExtractsPlainTextFromNestedMultipart(t *testing.T) {
 	}
 }
 
+// D5: the classifier must be able to read what the human reads. HTMLBody
+// exposes the text/html part so a caller can choose; Body stays text/plain
+// so existing callers are unaffected.
+func TestMessageExposesHTMLBodyAlongsidePlainText(t *testing.T) {
+	fake := newFakeGmail(t)
+	// "<b>rich</b>" and "plain version" base64url-encoded
+	fake.handle["/gmail/v1/users/me/messages/m1"] = func(r *http.Request) (int, string) {
+		return 200, `{
+			"id":"m1","threadId":"t1","internalDate":"1786745190000",
+			"payload":{
+				"mimeType":"multipart/alternative",
+				"headers":[{"name":"Subject","value":"both parts"}],
+				"parts":[
+					{"mimeType":"text/plain","body":{"data":"cGxhaW4gdmVyc2lvbg"}},
+					{"mimeType":"text/html","body":{"data":"PGI-cmljaDwvYj4"}}]}}`
+	}
+
+	message, err := newTestService(t, fake).Message(context.Background(), "m1")
+	if err != nil {
+		t.Fatalf("message: %v", err)
+	}
+	if message.Body != "plain version" {
+		t.Fatalf("Body %q, want the text/plain part unchanged", message.Body)
+	}
+	if message.HTMLBody != "<b>rich</b>" {
+		t.Fatalf("HTMLBody %q, want the text/html part", message.HTMLBody)
+	}
+}
+
+// HTML-only mail is exactly the bulk mail the classifier targets, and it
+// currently yields an empty Body — the caller needs HTMLBody to see anything.
+func TestMessageExposesHTMLBodyWhenNoPlainPartExists(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/messages/m2"] = func(r *http.Request) (int, string) {
+		return 200, `{
+			"id":"m2","threadId":"t2","internalDate":"1786745190000",
+			"payload":{"mimeType":"text/html","body":{"data":"PGI-cmljaDwvYj4"}}}`
+	}
+
+	message, err := newTestService(t, fake).Message(context.Background(), "m2")
+	if err != nil {
+		t.Fatalf("message: %v", err)
+	}
+	if message.Body != "" {
+		t.Fatalf("Body %q, want empty — there is no text/plain part", message.Body)
+	}
+	if message.HTMLBody != "<b>rich</b>" {
+		t.Fatalf("HTMLBody %q", message.HTMLBody)
+	}
+}
+
 // Search must stop at its page cap and return what it has, not loop forever.
 func TestSearchStopsAtPageCap(t *testing.T) {
 	fake := newFakeGmail(t)
@@ -387,6 +438,21 @@ func TestSendHTMLToSelfNeutralizesHeaderInjection(t *testing.T) {
 	headers := strings.SplitN(string(raw), "\r\n\r\n", 2)[0]
 	if strings.Contains(headers, "Bcc") {
 		t.Fatalf("injected header survived:\n%s", headers)
+	}
+}
+
+func TestSelfAddressReturnsTheAuthenticatedAccount(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/profile"] = func(r *http.Request) (int, string) {
+		return 200, `{"emailAddress":"alan@example.com"}`
+	}
+
+	address, err := newTestService(t, fake).SelfAddress(context.Background())
+	if err != nil {
+		t.Fatalf("self address: %v", err)
+	}
+	if address != "alan@example.com" {
+		t.Fatalf("address %q", address)
 	}
 }
 

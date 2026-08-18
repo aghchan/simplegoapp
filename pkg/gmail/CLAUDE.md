@@ -9,8 +9,14 @@ prefilter.
 
 - `Search` pages internally (cap 10 pages) and returns message refs, not
   threads.
-- `Message` extracts the first text/plain MIME part; HTML-only mail yields an
-  empty body — headers still carry the signal.
+- `Body` is the first `text/plain` part; `HTMLBody` is the first `text/html`
+  part. Either may be empty — HTML-only mail has no `Body` at all — and on
+  multipart mail they may disagree, since a sender controls each
+  independently. A caller that decides using one while showing the human the
+  other is comparing different documents.
+- `SelfAddress` exposes the authenticated account's address (the same cached
+  `users.getProfile` lookup the sends use), so callers can recognise the
+  user's own mail.
 - `SendToSelf` and `SendHTMLToSelf` are the ONLY sends: both address the
   authenticated account only (cached from users.getProfile), and share
   `headerSafe` to truncate subject at the first CR/LF so caller text cannot

@@ -65,15 +65,23 @@ func (this *service) Message(ctx context.Context, id string) (Message, error) {
 			}
 		}
 		message.Body = plainText(raw.Payload)
+		message.HTMLBody = partByMime(raw.Payload, "text/html")
 	}
 
 	return message, nil
 }
 
 // plainText walks the MIME tree for the first text/plain part; ATS mail is
-// reliably multipart/alternative with a plain variant.
+// commonly multipart/alternative nested inside multipart/mixed.
 func plainText(part *gmailapi.MessagePart) string {
-	if part.MimeType == "text/plain" && part.Body != nil && part.Body.Data != "" {
+	return partByMime(part, "text/plain")
+}
+
+func partByMime(part *gmailapi.MessagePart, mimeType string) string {
+	if part == nil {
+		return ""
+	}
+	if part.MimeType == mimeType && part.Body != nil && part.Body.Data != "" {
 		decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(part.Body.Data)
 		if err != nil {
 			return ""
@@ -82,7 +90,7 @@ func plainText(part *gmailapi.MessagePart) string {
 		return string(decoded)
 	}
 	for _, child := range part.Parts {
-		if text := plainText(child); text != "" {
+		if text := partByMime(child, mimeType); text != "" {
 			return text
 		}
 	}
