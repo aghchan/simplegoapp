@@ -4,12 +4,8 @@
 package llm
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -30,8 +26,10 @@ type Turn struct {
 
 type Request struct {
 	System string
-	// Turns are sent in order. Callers placing untrusted text in its own
-	// turn depend on that order being preserved.
+	// Turns are sent in order and must begin with a user turn. Callers
+	// placing untrusted text in its own turn depend on that order being
+	// preserved; consecutive same-role turns are preserved too, and are
+	// what a fenced-content-then-instruction prompt is built on.
 	Turns     []Turn
 	MaxTokens int
 	// Temperature is omitted entirely when nil. Current-generation models
@@ -45,28 +43,83 @@ type Service interface {
 	Complete(ctx context.Context, req Request) (string, error)
 }
 
+// provider owns everything vendor-specific. Each one wraps an Eino chat-model
+// component, which owns its transport — including retry, backoff and
+// Retry-After. Complete holds only what is common, so a new vendor is one
+// file and a case in newProvider, never a change at a call site.
+type provider interface {
+	complete(ctx context.Context, req Request) (reply, error)
+}
+
+type reply struct {
+	text string
+	// abnormalStop is empty when the reply ended normally. Vendors spell a
+	// normal finish differently ("end_turn" vs "stop"), so the provider
+	// normalises rather than leaking the vocabulary into Complete.
+	abnormalStop string
+}
+
+type providerConfig struct {
+	apiKey  string
+	model   string
+	baseUrl string
+}
+
+func newProvider(name string, config providerConfig) (provider, error) {
+	switch name {
+	case "anthropic":
+		return newAnthropic(config)
+	case "openai":
+		return newOpenAI(config)
+	case "openrouter":
+		return newOpenRouter(config)
+	case "":
+		return nil, fmt.Errorf("llm: llm_provider must be set (anthropic, openai, or openrouter)")
+	default:
+		return nil, fmt.Errorf("llm: unknown llm_provider %q (want anthropic, openai, or openrouter)", name)
+	}
+}
+
 const (
 	defaultTimeoutSeconds = 30
-	// maxErrorBodyBytes bounds what a non-200 body contributes to an error
-	// string. llm_base_url is configurable, so a proxy returning an HTML
-	// page would otherwise land verbatim in the caller's logs.
-	maxErrorBodyBytes = 8 << 10
+	// constructionMaxTokens only satisfies the components' required-at-build
+	// field. Every call overrides it from Request.MaxTokens, so this value is
+	// never the one actually sent.
+	constructionMaxTokens = 1024
+	// maxErrorChars bounds a provider error before it reaches a log line.
+	// llm_base_url is configurable, so a proxy's HTML page would otherwise
+	// land verbatim in the caller's logs.
+	maxErrorChars = 2048
 )
 
-// NewService requires llm_api_key and llm_model. llm_base_url overrides the
-// endpoint (the test seam). llm_timeout_seconds bounds a single call —
-// callers running a per-message loop inside a scheduler deadline need this
-// low enough that budget × timeout still fits the deadline.
+// NewService requires llm_api_key, llm_model and llm_provider. The provider is
+// named explicitly for the same reason the model is pinned: an implicit vendor
+// is a silent one, and a key sent to the wrong host is the failure it prevents.
+// llm_base_url overrides the provider's endpoint — the test seam, and how a
+// self-hosted OpenAI-compatible server is reached.
+//
+// llm_timeout_seconds (default 30) bounds ONE Complete call in total —
+// including every retry the underlying client makes. It is deliberately not a
+// per-HTTP-request timeout: a caller running a per-message loop inside a
+// scheduler deadline sizes budget × timeout against that deadline, and a
+// per-request bound would let backoff multiply past it.
 func NewService(config map[string]interface{}, logger logger.Logger) (Service, error) {
-	apiKey, _ := config["llm_api_key"].(string)
 	model, _ := config["llm_model"].(string)
-	baseUrl, _ := config["llm_base_url"].(string)
-
 	if model == "" {
 		return nil, fmt.Errorf("llm: llm_model must be set — the model is pinned, not defaulted")
 	}
-	if baseUrl == "" {
-		baseUrl = "https://api.anthropic.com"
+
+	apiKey, _ := config["llm_api_key"].(string)
+	baseUrl, _ := config["llm_base_url"].(string)
+	providerName, _ := config["llm_provider"].(string)
+
+	chosen, err := newProvider(providerName, providerConfig{
+		apiKey:  apiKey,
+		model:   model,
+		baseUrl: strings.TrimSuffix(baseUrl, "/"),
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	timeout := defaultTimeoutSeconds
@@ -82,96 +135,54 @@ func NewService(config map[string]interface{}, logger logger.Logger) (Service, e
 	}
 
 	return &service{
-		logger:  logger,
-		apiKey:  apiKey,
-		model:   model,
-		baseUrl: strings.TrimSuffix(baseUrl, "/"),
-		client:  &http.Client{Timeout: time.Duration(timeout) * time.Second},
+		logger:   logger,
+		provider: chosen,
+		timeout:  time.Duration(timeout) * time.Second,
 	}, nil
 }
 
 type service struct {
-	logger logger.Logger
-
-	apiKey  string
-	model   string
-	baseUrl string
-	client  *http.Client
+	logger   logger.Logger
+	provider provider
+	timeout  time.Duration
 }
 
 func (this *service) Complete(ctx context.Context, req Request) (string, error) {
-	turns := make([]map[string]string, 0, len(req.Turns))
-	for _, turn := range req.Turns {
-		turns = append(turns, map[string]string{"role": string(turn.Role), "content": turn.Content})
-	}
+	// The deadline covers the provider's internal retries, not just one HTTP
+	// request. Without it a run of 429s would back off past the caller's own
+	// scheduler deadline, and being slow but working is a failure mode here,
+	// not a success.
+	ctx, cancel := context.WithTimeout(ctx, this.timeout)
+	defer cancel()
 
-	payload := map[string]interface{}{
-		"model":      this.model,
-		"max_tokens": req.MaxTokens,
-		"messages":   turns,
-	}
-	if req.System != "" {
-		payload["system"] = req.System
-	}
-	if req.Temperature != nil {
-		payload["temperature"] = *req.Temperature
-	}
-
-	body, err := json.Marshal(payload)
+	parsed, err := this.provider.complete(ctx, req)
 	if err != nil {
-		return "", err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, this.baseUrl+"/v1/messages", bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("content-type", "application/json")
-	request.Header.Set("x-api-key", this.apiKey)
-	request.Header.Set("anthropic-version", "2023-06-01")
-
-	response, err := this.client.Do(request)
-	if err != nil {
-		this.logger.Error("llm complete", "error", err)
+		this.logger.Error("llm complete", "error", truncate(err.Error()))
 
 		return "", err
 	}
-	defer response.Body.Close()
 
-	raw, err := io.ReadAll(io.LimitReader(response.Body, maxErrorBodyBytes))
-	if err != nil {
-		return "", err
-	}
-	if response.StatusCode != http.StatusOK {
-		this.logger.Error("llm complete", "status", response.StatusCode)
-
-		return "", fmt.Errorf("llm: status %d: %s", response.StatusCode, string(raw))
+	// A truncated or refused reply arrives as an ordinary short answer. Without
+	// this the caller sees only "unparseable" and cannot tell a MaxTokens that
+	// is too small from a model that answered badly — different fixes.
+	if parsed.abnormalStop != "" {
+		this.logger.Error("llm complete: reply did not end normally", "stop_reason", parsed.abnormalStop)
 	}
 
-	var parsed struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-		StopReason string `json:"stop_reason"`
-	}
-	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return "", err
+	return parsed.text, nil
+}
+
+func truncate(text string) string {
+	if len(text) <= maxErrorChars {
+		return text
 	}
 
-	// A truncated or refused reply is a 200 carrying partial text. Without
-	// this the caller sees only "unparseable" and cannot tell a MaxTokens
-	// that is too small from a model that answered badly — different fixes.
-	if parsed.StopReason != "" && parsed.StopReason != "end_turn" {
-		this.logger.Error("llm complete: reply did not end normally", "stop_reason", parsed.StopReason)
-	}
+	return text[:maxErrorChars] + "…(truncated)"
+}
 
-	var text bytes.Buffer
-	for _, block := range parsed.Content {
-		if block.Type == "text" {
-			text.WriteString(block.Text)
-		}
-	}
-
-	return text.String(), nil
+// normalFinish spells the same outcome differently per vendor; both are
+// listed because a provider swap must not turn every healthy reply into a
+// logged anomaly.
+func normalFinish(reason string) bool {
+	return reason == "" || reason == "stop" || reason == "end_turn"
 }
