@@ -3,6 +3,7 @@ package gmail
 import (
 	"context"
 	"encoding/base64"
+	"strings"
 	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -64,36 +65,58 @@ func (this *service) Message(ctx context.Context, id string) (Message, error) {
 				message.Subject = header.Value
 			}
 		}
-		message.Body = plainText(raw.Payload)
-		message.HTMLBody = partByMime(raw.Payload, "text/html")
+		body, err := partByMime(raw.Payload, "text/plain")
+		if err != nil {
+			// Logged rather than returned: a body we cannot decode is still
+			// a message the caller should see the headers of, and callers
+			// here are built to keep going on partial data. But it must not
+			// be silent — an undecodable body is indistinguishable from
+			// blank mail at every layer above this one.
+			this.logger.Error("gmail: decoding text/plain body", "error", err, "id", raw.Id)
+		}
+		message.Body = body
+
+		htmlBody, err := partByMime(raw.Payload, "text/html")
+		if err != nil {
+			this.logger.Error("gmail: decoding text/html body", "error", err, "id", raw.Id)
+		}
+		message.HTMLBody = htmlBody
 	}
 
 	return message, nil
 }
 
-// plainText walks the MIME tree for the first text/plain part; ATS mail is
-// commonly multipart/alternative nested inside multipart/mixed.
-func plainText(part *gmailapi.MessagePart) string {
-	return partByMime(part, "text/plain")
-}
-
-func partByMime(part *gmailapi.MessagePart, mimeType string) string {
+// partByMime walks the MIME tree for the first part of the given type; ATS
+// mail is commonly multipart/alternative nested inside multipart/mixed.
+func partByMime(part *gmailapi.MessagePart, mimeType string) (string, error) {
 	if part == nil {
-		return ""
+		return "", nil
 	}
 	if part.MimeType == mimeType && part.Body != nil && part.Body.Data != "" {
-		decoded, err := base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(part.Body.Data)
-		if err != nil {
-			return ""
-		}
-
-		return string(decoded)
+		return decodeBody(part.Body.Data)
 	}
 	for _, child := range part.Parts {
-		if text := partByMime(child, mimeType); text != "" {
-			return text
+		text, err := partByMime(child, mimeType)
+		if err != nil {
+			return "", err
+		}
+		if text != "" {
+			return text, nil
 		}
 	}
 
-	return ""
+	return "", nil
+}
+
+// decodeBody accepts both base64url forms. Gmail pads whenever the decoded
+// length is not a multiple of three — true of most messages — and a decoder
+// pinned to either form yields nothing for the other. Trimming the padding
+// and decoding raw is the one path that reads both.
+func decodeBody(data string) (string, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(data, "="))
+	if err != nil {
+		return "", err
+	}
+
+	return string(decoded), nil
 }

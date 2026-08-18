@@ -45,3 +45,19 @@ re-run Authorize.
 `service_test.go` runs against a fake Gmail HTTP server via the
 `gmail_base_url` config seam (paths under `/gmail/v1/...`) — they lock in our
 request shapes and parsing, not Google's behavior.
+
+- **Body data is base64url and the padding is not optional to handle.** Gmail
+  pads whenever the decoded length is not a multiple of three, which is most
+  messages; a decoder pinned to the unpadded form returns an error for them.
+  `decodeBody` trims the padding and decodes raw, which reads both forms.
+  This was a real outage-shaped bug rather than a hypothetical: the strict
+  no-padding decoder silently produced empty bodies for roughly two thirds of
+  all mail, and because every hand-written test fixture was unpadded, the
+  suite never saw it.
+- **A decode failure is logged, never returned as an empty body.** Every layer
+  above treats an empty body as "nothing to say", so a silent decode failure
+  is indistinguishable from blank mail all the way up — which is precisely how
+  the bug above survived. The message is still returned so headers remain
+  usable; the failure goes on the record.
+- **Fixtures must include padded base64.** An unpadded-only fixture set cannot
+  catch the most common real-world shape.

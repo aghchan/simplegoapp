@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"mime"
 	"net/http"
 	"net/http/httptest"
@@ -490,5 +491,85 @@ func TestClassifyErrMapsInvalidGrant(t *testing.T) {
 	}
 	if err := classifyErr(nil); err != nil {
 		t.Fatalf("nil must stay nil, got %v", err)
+	}
+}
+
+// Gmail base64url-encodes body data WITH padding whenever the decoded length
+// is not a multiple of three — which is most messages. A decoder pinned to
+// the unpadded form fails on those and yields an empty body, so the message
+// reaches the caller looking like blank mail rather than a decode error.
+// Every other fixture here is hand-written unpadded, which is exactly why
+// this went unnoticed: the suite avoided the failing case.
+func TestMessageDecodesPaddedBase64Bodies(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/messages/m1"] = func(r *http.Request) (int, string) {
+		return 200, `{
+			"id":"m1","threadId":"t1","internalDate":"1786745190000",
+			"payload":{
+				"mimeType":"multipart/alternative",
+				"headers":[{"name":"From","value":"bianca@kinelo.com"}],
+				"parts":[
+					{"mimeType":"text/plain","body":{"data":"aGVsbG8gd29ybGQ="}},
+					{"mimeType":"text/html","body":{"data":"PGI-cmljaDwvYj4="}}]}}`
+	}
+
+	message, err := newTestService(t, fake).Message(context.Background(), "m1")
+	if err != nil {
+		t.Fatalf("message: %v", err)
+	}
+	if message.Body != "hello world" {
+		t.Fatalf("plain body %q, want %q — padded base64 failed to decode", message.Body, "hello world")
+	}
+	if message.HTMLBody != "<b>rich</b>" {
+		t.Fatalf("html body %q, want %q — padded base64 failed to decode", message.HTMLBody, "<b>rich</b>")
+	}
+}
+
+type capturingGmailLogger struct {
+	logger.Logger
+	errors []string
+}
+
+func (this *capturingGmailLogger) Error(msg string, keysAndValues ...interface{}) {
+	this.errors = append(this.errors, fmt.Sprint(append([]interface{}{msg}, keysAndValues...)...))
+}
+
+// An undecodable body must not reach the caller as blank mail. Every layer
+// above this one treats an empty body as "nothing to say" — that is exactly
+// how a decoder bug survived unnoticed and cost the classifier most of its
+// input. The message is still returned so headers stay usable, but the
+// failure is on the record.
+func TestMessageLogsUndecodableBodyInsteadOfReturningItBlank(t *testing.T) {
+	fake := newFakeGmail(t)
+	fake.handle["/gmail/v1/users/me/messages/m1"] = func(r *http.Request) (int, string) {
+		return 200, `{
+			"id":"m1","threadId":"t1","internalDate":"1786745190000",
+			"payload":{
+				"mimeType":"text/plain",
+				"headers":[{"name":"Subject","value":"still readable"}],
+				"body":{"data":"!!!not base64 at all!!!"}}}`
+	}
+
+	captured := &capturingGmailLogger{Logger: logger.NewService()}
+	service, err := NewService(map[string]interface{}{
+		"gmail_credentials_path": "", "gmail_token_path": "",
+		"gmail_base_url": fake.server.URL + "/",
+	}, captured)
+	if err != nil {
+		t.Fatalf("constructing: %v", err)
+	}
+
+	message, err := service.Message(context.Background(), "m1")
+	if err != nil {
+		t.Fatalf("an undecodable body must not fail the whole fetch: %v", err)
+	}
+	if message.Subject != "still readable" {
+		t.Fatalf("headers lost: %+v", message)
+	}
+	if len(captured.errors) == 0 {
+		t.Fatalf("a decode failure was swallowed silently")
+	}
+	if !strings.Contains(strings.Join(captured.errors, " "), "decoding") {
+		t.Fatalf("log line should name the decode failure: %v", captured.errors)
 	}
 }
