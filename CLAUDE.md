@@ -19,10 +19,11 @@ docs/BEST_PRACTICES.md. Design specs: docs/superpowers/specs/.
   `NewService` constructor whose params declare its dependencies → add the
   constructor to the service slice in main.go. See domain/CLAUDE.md.
 
-## Conventions that differ from defaults
+## Architecture rules
 
-- Method receivers are named `this` everywhere.
-- Comments only for constraints code can't show; terse.
+Go style is not restated here — `~/.claude/go-style-CLAUDE.md` owns it,
+receivers and comment policy included.
+
 - Errors to clients are always RFC 9457 problem+json via `apierror` — never
   hand-rolled JSON or `http.Error`.
 - main.go is the only composition root: routes, service constructors, config
