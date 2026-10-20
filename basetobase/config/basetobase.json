@@ -9,7 +9,12 @@
     "**/session*",
     "**/oidc*",
     "config.yml",
-    "local.yml"
+    "local.yml",
+    "**/*payment*/**",
+    "**/*billing*/**",
+    "**/*secret*/**",
+    "**/session*/**",
+    "**/oidc*/**"
   ],
   "infraGlobs": [
     ".github/**",

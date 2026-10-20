@@ -45,6 +45,21 @@ describe("rateChange", () => {
     expect(rateChange([f(".github/workflows/auth.yml")], config)).toBe("double_black"));
   it("wildcards match inside dot directories", () =>
     expect(rateChange([f(".config/secrets.json", 5)], config)).toBe("black"));
+  it.each([
+    "domain/billing/invoice.go",
+    "pkg/payments/charge.go",
+    "pkg/secrets/vault.go",
+    "pkg/session/store.go",
+    "cmd/oidc/x.go",
+  ])("risk directory %s is black", (path) => {
+    expect(rateChange([f(path, 5)], config)).toBe("black");
+  });
+  it("risk words match regardless of case", () => {
+    const files = [f("basetobase/dashboard/src/AuthProvider.tsx", 5)];
+    expect(rateChange(files, config)).toBe("black");
+  });
+  it("session inside a name is not a risk path", () =>
+    expect(rateChange([f("pkg/user_session.go", 5)], config)).toBe("green"));
 });
 
 describe("classifyPanels", () => {

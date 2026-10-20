@@ -17,7 +17,7 @@ export interface Triage {
 }
 
 function globMatcher(globs: string[]) {
-  return picomatch(globs, { dot: true });
+  return picomatch(globs, { dot: true, nocase: true });
 }
 
 function anyMatch(files: ChangedFile[], globs: string[]): boolean {
