@@ -19,6 +19,7 @@ export default defineConfig({
           environment: "jsdom",
         },
       },
+      "dispatch/vitest.config.ts",
     ],
   },
 });
