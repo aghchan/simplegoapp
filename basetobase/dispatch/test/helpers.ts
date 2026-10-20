@@ -30,6 +30,12 @@ export function prRef(over: Record<string, unknown> = {}): PullRequestRef {
   return trigger.pr;
 }
 
+// A copy of the environment with some bindings replaced or, given undefined, left unset. The
+// caller passes the environment in because this file also loads outside the Workers runtime.
+export function envWith(base: Env, over: Partial<Record<keyof Env, unknown>>): Env {
+  return { ...base, ...over } as Env;
+}
+
 export async function sign(secret: string, body: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(

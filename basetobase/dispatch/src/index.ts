@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { GITHUB_OIDC_ISSUER } from "./auth/oidc.ts";
 import { agentRoutes } from "./routes/agent.ts";
+import { apiRoutes } from "./routes/api.ts";
+import { authRoutes } from "./routes/auth.ts";
 import { githubRoutes } from "./routes/github.ts";
 import { RunDO } from "./run/do.ts";
 
@@ -14,6 +16,8 @@ export function createApp(deps: Deps): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
   app.route("/github", githubRoutes());
   app.route("/agent", agentRoutes(deps.agentKey));
+  app.route("/auth", authRoutes());
+  app.route("/api", apiRoutes());
   app.notFound((c) => c.json({ error: "not found" }, 404));
   return app;
 }
