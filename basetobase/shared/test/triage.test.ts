@@ -1,0 +1,90 @@
+import { describe, expect, it } from "vitest";
+import { config } from "../src/config.ts";
+import { classifyPanels, pickRunName, rateChange, triage } from "../src/triage.ts";
+
+const f = (path: string, add = 1, del = 0) => ({ path, additions: add, deletions: del });
+
+describe("rateChange", () => {
+  it("one small file is green", () =>
+    expect(rateChange([f("pkg/id/id.go", 10)], config)).toBe("green"));
+  it("four small files is blue", () => {
+    const files = [f("pkg/a.go"), f("pkg/b.go"), f("pkg/c.go"), f("pkg/d.go")];
+    expect(rateChange(files, config)).toBe("blue");
+  });
+  it("risk path is black", () => expect(rateChange([f("config.yml", 5)], config)).toBe("black"));
+  it("over 300 lines is black", () =>
+    expect(rateChange([f("pkg/a.go", 301)], config)).toBe("black"));
+  it("CI change is double black", () =>
+    expect(rateChange([f(".github/workflows/ci.yml")], config)).toBe("double_black"));
+  it("four top-level dirs is double black", () => {
+    const files = [f("api/a"), f("app/a"), f("domain/a"), f("pkg/a")];
+    expect(rateChange(files, config)).toBe("double_black");
+  });
+  it("over 1000 lines is double black", () =>
+    expect(rateChange([f("pkg/a.go", 1001)], config)).toBe("double_black"));
+
+  it("deletions count toward lines", () =>
+    expect(rateChange([f("pkg/a.go", 150, 151)], config)).toBe("black"));
+  it("exactly 50 lines in 3 files is green", () => {
+    const files = [f("pkg/a.go", 48), f("pkg/b.go"), f("pkg/c.go")];
+    expect(rateChange(files, config)).toBe("green");
+  });
+  it("exactly 300 lines is blue", () =>
+    expect(rateChange([f("pkg/a.go", 300)], config)).toBe("blue"));
+  it("exactly 1000 lines is black", () =>
+    expect(rateChange([f("pkg/a.go", 1000)], config)).toBe("black"));
+  it("three top-level dirs stays green", () => {
+    const files = [f("api/a"), f("app/a"), f("pkg/a")];
+    expect(rateChange(files, config)).toBe("green");
+  });
+  it("root-level files share one top-level dir", () => {
+    const files = [f("a.go"), f("b.go"), f("c.go"), f("pkg/d.go")];
+    expect(rateChange(files, config)).toBe("blue");
+  });
+  it("infra outranks risk", () =>
+    expect(rateChange([f(".github/workflows/auth.yml")], config)).toBe("double_black"));
+  it("wildcards match inside dot directories", () =>
+    expect(rateChange([f(".config/secrets.json", 5)], config)).toBe("black"));
+});
+
+describe("classifyPanels", () => {
+  it("dashboard path is frontend only", () => {
+    const files = [f("basetobase/dashboard/src/App.tsx")];
+    expect(classifyPanels(files, config)).toEqual(["frontend"]);
+  });
+  it("mixed paths get both panels in order", () => {
+    const files = [f("basetobase/dashboard/x.tsx"), f("main.go")];
+    expect(classifyPanels(files, config)).toEqual(["backend", "frontend"]);
+  });
+  it("paths outside the dashboard are backend only", () => {
+    const files = [f("basetobase/dispatch/src/index.ts"), f("main.go")];
+    expect(classifyPanels(files, config)).toEqual(["backend"]);
+  });
+});
+
+describe("pickRunName", () => {
+  it("first unused name", () =>
+    expect(pickRunName("green", ["Easy Slider"], config)).toBe("Ramp Run"));
+  it("all used gets a numbered name", () => {
+    const active = ["Easy Slider", "Ramp Run", "Bunny Hill"];
+    expect(pickRunName("green", active, config)).toBe("Easy Slider 2");
+  });
+  it("numbering continues through the list", () => {
+    const active = ["Easy Slider", "Ramp Run", "Bunny Hill", "Easy Slider 2"];
+    expect(pickRunName("green", active, config)).toBe("Ramp Run 2");
+  });
+});
+
+describe("triage", () => {
+  it("bundles panels, rating, run name and totals", () => {
+    const files = [f("basetobase/dashboard/src/auth.ts", 20, 5), f("pkg/a.go", 10, 2)];
+    expect(triage(files, ["Red Dog Face"], config)).toEqual({
+      panels: ["backend", "frontend"],
+      rating: "black",
+      runName: "Headwall Face",
+      files: 2,
+      additions: 30,
+      deletions: 7,
+    });
+  });
+});

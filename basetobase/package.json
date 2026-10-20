@@ -8,6 +8,7 @@
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "types": "wrangler types",
+    "typecheck": "tsc -p shared",
     "build": "vite build dashboard",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
