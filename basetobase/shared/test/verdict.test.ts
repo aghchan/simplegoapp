@@ -59,7 +59,12 @@ describe("parseVerdict", () => {
     expectRejected({ ...ok, status }, /status/),
   );
 
-  it.each([5, null, undefined, ["Works."]])("rejects summary %j", (summary) =>
+  it.each([
+    ["a number", 5],
+    ["null", null],
+    ["missing", undefined],
+    ["an array", ["Works."]],
+  ])("rejects a summary that is %s", (_label, summary) =>
     expectRejected({ ...ok, summary }, /summary/),
   );
 
@@ -72,7 +77,12 @@ describe("parseVerdict", () => {
     expectRejected({ ...ok, hazards }, /hazards/),
   );
 
-  it.each([null, "FUN-1", 7, []])("rejects a hazard that is %j", (entry) =>
+  it.each([
+    ["null", null],
+    ["a string", "FUN-1"],
+    ["a number", 7],
+    ["an array", []],
+  ])("rejects a hazard that is %s", (_label, entry) =>
     expectRejected({ ...raised, hazards: [entry] }, /hazards\[0\]/),
   );
 
