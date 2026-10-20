@@ -158,6 +158,7 @@ describe("RunDO", () => {
       async (_name, mangle) => {
         const { stub, nonce } = await startRun();
         const bad = mangle(nonce);
+        expect(await stub.checkNonce(AGENT, bad)).toBe(false);
         expect(await stub.brief(AGENT, bad)).toBeNull();
         expect(await stub.events(AGENT, bad, evs, JOB_URL)).toBe(false);
         expect(await stub.verdict(AGENT, bad, clearVerdict)).toMatchObject({ ok: false });
@@ -178,6 +179,7 @@ describe("RunDO", () => {
         const { stub, nonce } = await startRun();
         const inherited = String(({} as Record<string, unknown>)[agentId] ?? nonce);
         for (const attempt of [nonce, inherited]) {
+          expect(await stub.checkNonce(agentId, attempt)).toBe(false);
           expect(await stub.brief(agentId, attempt)).toBeNull();
           expect(await stub.events(agentId, attempt, evs, JOB_URL)).toBe(false);
           expect(await stub.verdict(agentId, attempt, clearVerdict)).toMatchObject({ ok: false });
@@ -187,6 +189,33 @@ describe("RunDO", () => {
         expect((await stub.view())!.log).toHaveLength(1);
       },
     );
+  });
+
+  describe("checkNonce", () => {
+    it("accepts the agent's own nonce", async () => {
+      const { stub, nonce } = await startRun();
+      expect(await stub.checkNonce(AGENT, nonce)).toBe(true);
+    });
+
+    it("answers for a run that was stopped and an agent that has reported", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await stub.stop("PR closed");
+      expect(await stub.brief(AGENT, nonce)).toBeNull();
+      expect(await stub.checkNonce(AGENT, nonce)).toBe(true);
+    });
+
+    it("changes nothing", async () => {
+      const { stub, nonce } = await startRun();
+      const before = await stub.view();
+      await stub.checkNonce(AGENT, nonce);
+      await stub.checkNonce(AGENT, "wrong");
+      expect(await stub.view()).toEqual(before);
+    });
+
+    it("rejects every nonce for a run that never started", async () => {
+      expect(await runStub(env, "never-started").checkNonce(AGENT, "anything")).toBe(false);
+    });
   });
 
   describe("brief", () => {

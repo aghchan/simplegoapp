@@ -1,3 +1,5 @@
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTVerifyGetKey } from "jose";
+import { vi } from "vitest";
 import { toTrigger, type PullRequestRef } from "../src/github/webhook.ts";
 
 const OWNER = "aghchan";
@@ -74,4 +76,85 @@ export function fakeFetch(
     return route(req.clone());
   };
   return Object.assign(fake, { calls });
+}
+
+// Replaces the global fetch with a GitHub that hands out installation tokens and accepts workflow
+// dispatches, returning the inputs of each dispatch as they arrive; `routes` adds or overrides
+// endpoints. The body is recorded inside the route because a Request made in a Durable Object
+// can't be read from the test.
+export function stubGitHub(
+  routes: Record<string, (req: Request) => Response | Promise<Response>> = {},
+): Record<string, string>[] {
+  const dispatchInputs: Record<string, string>[] = [];
+  const github = fakeFetch({
+    "POST /app/installations/7/access_tokens": () =>
+      Response.json(
+        { token: "installation-token", expires_at: new Date(Date.now() + 3_600_000).toISOString() },
+        { status: 201 },
+      ),
+    [`POST /repos/${REPO}/actions/workflows/basetobase-agent.yml/dispatches`]: async (req) => {
+      dispatchInputs.push(((await req.json()) as { inputs: Record<string, string> }).inputs);
+      return new Response(null, { status: 204 });
+    },
+    ...routes,
+  });
+  vi.spyOn(globalThis, "fetch").mockImplementation(github);
+  return dispatchInputs;
+}
+
+const AGENT_KEY_ID = "test-agent-key";
+
+// The claims of a token GitHub would issue to the agent workflow; `over` replaces or, with
+// undefined, drops one.
+export function agentClaims(audience: string, over: Record<string, unknown> = {}) {
+  return {
+    iss: "https://token.actions.githubusercontent.com",
+    aud: audience,
+    repository: REPO,
+    workflow_ref: `${REPO}/.github/workflows/basetobase-agent.yml@refs/heads/main`,
+    event_name: "workflow_dispatch",
+    run_id: "99",
+    ...over,
+  };
+}
+
+// Each of these makes an otherwise valid agent token unacceptable.
+export const REJECTED_CLAIMS: [string, Record<string, unknown>][] = [
+  ["issuer", { iss: "https://evil.example" }],
+  ["audience", { aud: "https://other.example" }],
+  ["repository", { repository: "eve/simplegoapp" }],
+  ["repository that merely starts with ours", { repository: `${REPO}-fork` }],
+  ["workflow", { workflow_ref: `${REPO}/.github/workflows/ci.yml@refs/heads/main` }],
+  [
+    "workflow of another repository",
+    { workflow_ref: "eve/simplegoapp/.github/workflows/basetobase-agent.yml@refs/heads/main" },
+  ],
+  [
+    "workflow file that merely starts with ours",
+    { workflow_ref: `${REPO}/.github/workflows/basetobase-agent.yml.evil@refs/heads/main` },
+  ],
+  ["missing workflow", { workflow_ref: undefined }],
+  ["event", { event_name: "push" }],
+  ["missing run id", { run_id: undefined }],
+  ["empty run id", { run_id: "" }],
+  ["numeric run id", { run_id: 99 }],
+  ["expiry", { exp: 1 }],
+];
+
+// A signing key plus the key set that verifies it, standing in for GitHub's.
+export async function agentIdentity(): Promise<{
+  getKey: JWTVerifyGetKey;
+  token(claims: Record<string, unknown>): Promise<string>;
+}> {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = { ...(await exportJWK(publicKey)), kid: AGENT_KEY_ID, alg: "RS256", use: "sig" };
+  return {
+    getKey: createLocalJWKSet({ keys: [jwk] }),
+    token(claims) {
+      const now = Math.floor(Date.now() / 1000);
+      return new SignJWT({ iat: now, exp: now + 300, ...claims })
+        .setProtectedHeader({ alg: "RS256", kid: AGENT_KEY_ID })
+        .sign(privateKey);
+    },
+  };
 }

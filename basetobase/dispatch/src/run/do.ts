@@ -58,6 +58,12 @@ export class RunDO extends DurableObject<Env> {
     return snapshotOf(await this.loaded());
   }
 
+  // The nonce alone, with no state change and no regard for how the run or agent is doing: unlike
+  // brief(), it still answers for a stopped run, whose agents may yet upload a transcript.
+  async checkNonce(agentId: string, nonce: string): Promise<boolean> {
+    return (await this.authorize(agentId, nonce)) !== undefined;
+  }
+
   // Null for a runner that should not start: it has the wrong nonce or the agent no longer matters.
   async brief(agentId: string, nonce: string): Promise<AgentBrief | null> {
     const state = await this.authorize(agentId, nonce);
