@@ -2,5 +2,25 @@
   "name": "basetobase",
   "main": "dispatch/src/index.ts",
   "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "RUNS", "class_name": "RunDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RunDO"] }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "basetobase",
+      "database_id": "local-placeholder",
+      "migrations_dir": "dispatch/migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "basetobase-evidence" }],
+  "vars": {
+    "OWNER_LOGIN": "aghchan",
+    "REPO": "aghchan/simplegoapp",
+    "AGENT_WORKFLOW": "basetobase-agent.yml",
+    "PUBLIC_URL": "http://localhost:8787",
+    "GITHUB_API": "https://api.github.com"
+  }
 }
