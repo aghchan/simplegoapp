@@ -3,6 +3,12 @@ import { config } from "../src/config.ts";
 import { classifyPanels, pickRunName, rateChange, triage } from "../src/triage.ts";
 
 const f = (path: string, add = 1, del = 0) => ({ path, additions: add, deletions: del });
+const renamed = (from: string, to: string) => ({
+  path: to,
+  previousPath: from,
+  additions: 0,
+  deletions: 0,
+});
 
 describe("rateChange", () => {
   it("one small file is green", () =>
@@ -60,6 +66,36 @@ describe("rateChange", () => {
   });
   it("session inside a name is not a risk path", () =>
     expect(rateChange([f("pkg/user_session.go", 5)], config)).toBe("green"));
+
+  it("a rename out of CI is double black", () => {
+    const files = [
+      {
+        path: "ci-disabled/deploy.yml",
+        previousPath: ".github/workflows/deploy.yml",
+        additions: 0,
+        deletions: 0,
+      },
+    ];
+    expect(rateChange(files, config)).toBe("double_black");
+  });
+  it("a rename into CI is double black", () =>
+    expect(
+      rateChange([renamed("ci-disabled/deploy.yml", ".github/workflows/deploy.yml")], config),
+    ).toBe("double_black"));
+  it("a rename out of a risk path is black", () =>
+    expect(rateChange([renamed("pkg/auth/login.go", "pkg/login.go")], config)).toBe("black"));
+  it("renames count the top-level dirs of both paths", () => {
+    const files = [renamed("api/a", "app/a"), renamed("domain/a", "pkg/a")];
+    expect(rateChange(files, config)).toBe("double_black");
+  });
+  it("a rename is one file", () => {
+    const files = [
+      renamed("pkg/a.go", "pkg/b.go"),
+      renamed("pkg/c.go", "pkg/d.go"),
+      renamed("pkg/e.go", "pkg/f.go"),
+    ];
+    expect(rateChange(files, config)).toBe("green");
+  });
 });
 
 describe("classifyPanels", () => {
@@ -75,6 +111,14 @@ describe("classifyPanels", () => {
     const files = [f("basetobase/dispatch/src/index.ts"), f("main.go")];
     expect(classifyPanels(files, config)).toEqual(["backend"]);
   });
+  it.each([
+    ["out of", "basetobase/dashboard/src/x.ts", "pkg/x.ts"],
+    ["into", "pkg/x.ts", "basetobase/dashboard/src/x.ts"],
+  ])("a rename %s the dashboard gets both panels", (_direction, from, to) => {
+    expect(classifyPanels([renamed(from, to)], config)).toEqual(["backend", "frontend"]);
+  });
+  it("a rename within the backend is backend only", () =>
+    expect(classifyPanels([renamed("pkg/a.go", "pkg/b.go")], config)).toEqual(["backend"]));
 });
 
 describe("pickRunName", () => {

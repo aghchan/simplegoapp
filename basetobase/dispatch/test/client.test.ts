@@ -14,6 +14,9 @@ const HOUR_MS = 60 * MINUTE_MS;
 const TOKEN_PATH = `/app/installations/${INSTALLATION_ID}/access_tokens`;
 const FILES_PATH = `/repos/${REPO}/pulls/58/files`;
 const DISPATCH_PATH = `/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`;
+const PKCS1_MESSAGE =
+  'GITHUB_APP_PRIVATE_KEY is PKCS#1 ("BEGIN RSA PRIVATE KEY"); ' +
+  "convert it with: openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem";
 
 type Routes = Parameters<typeof fakeFetch>[0];
 
@@ -65,6 +68,15 @@ async function rejection(promise: Promise<unknown>): Promise<Error> {
   return error;
 }
 
+function thrownBy(action: () => unknown): Error {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error) return error;
+  }
+  throw new Error("expected the call to throw an Error");
+}
+
 const callsTo = (f: { calls: Request[] }, path: string) =>
   f.calls.filter((req) => new URL(req.url).pathname === path);
 
@@ -112,6 +124,34 @@ describe("pull request files", () => {
     const { client } = setup({ [`GET ${FILES_PATH}`]: () => Response.json(body) });
     const error = await rejection(client.listPullFiles(REPO, 58));
     expect(error.message).toBe(`GitHub GET ${FILES_PATH} returned an unexpected response`);
+  });
+
+  it("maps a rename's previous_filename to previousPath", async () => {
+    const renamed = {
+      filename: "pkg/login.go",
+      previous_filename: "pkg/auth/login.go",
+      status: "renamed",
+      additions: 0,
+      deletions: 0,
+    };
+    const kept = { filename: "pkg/kept.go", status: "modified", additions: 2, deletions: 1 };
+    const { client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[renamed, kept]]) });
+    expect(await client.listPullFiles(REPO, 58)).toStrictEqual([
+      { path: "pkg/login.go", previousPath: "pkg/auth/login.go", additions: 0, deletions: 0 },
+      { path: "pkg/kept.go", additions: 2, deletions: 1 },
+    ]);
+  });
+
+  it.each([
+    ["an empty string", ""],
+    ["null", null],
+    ["a number", 7],
+  ])("ignores a previous_filename that is %s", async (_label, previous) => {
+    const entry = { filename: "pkg/a.go", previous_filename: previous, additions: 1, deletions: 0 };
+    const { client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[entry]]) });
+    expect(await client.listPullFiles(REPO, 58)).toStrictEqual([
+      { path: "pkg/a.go", additions: 1, deletions: 0 },
+    ]);
   });
 });
 
@@ -282,5 +322,30 @@ describe("failures", () => {
     const { client } = setup({}, { privateKeyPem });
     const error = await rejection(client.listPullFiles(REPO, 58));
     expect(error.message).not.toContain("TOPSECRETKEYMATERIAL");
+  });
+
+  it("rejects a PKCS#1 key with the conversion command, never echoing the key", () => {
+    const body = "TOPSECRETKEYMATERIAL";
+    const privateKeyPem = [
+      "-----BEGIN RSA PRIVATE KEY-----",
+      body,
+      "-----END RSA PRIVATE KEY-----",
+    ].join("\n");
+    const error = thrownBy(() => setup({}, { privateKeyPem }));
+    expect(error.message).toBe(PKCS1_MESSAGE);
+    expect(error.message).not.toContain(body);
+  });
+
+  it("reports an unset private key on the first call, before any request", async () => {
+    const f = fakeFetch({});
+    const client = createGitHubClient({
+      appId: APP_ID,
+      privateKeyPem: undefined as unknown as string,
+      installationId: INSTALLATION_ID,
+      fetch: f,
+    });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).not.toBe(PKCS1_MESSAGE);
+    expect(f.calls).toHaveLength(0);
   });
 });

@@ -16,6 +16,10 @@ const FILES_PER_PAGE = 100;
 const JWT_BACKDATE_SECONDS = 60;
 const JWT_LIFETIME_SECONDS = 540;
 const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+const PKCS1_HEADER = /BEGIN RSA PRIVATE KEY/;
+const PKCS1_MESSAGE =
+  'GITHUB_APP_PRIVATE_KEY is PKCS#1 ("BEGIN RSA PRIVATE KEY"); ' +
+  "convert it with: openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem";
 
 // Error messages carry the status and endpoint path only: tokens, keys and response bodies never
 // reach them, because these messages end up in logs and on the dashboard.
@@ -26,6 +30,8 @@ export function createGitHubClient(opts: {
   fetch: typeof fetch;
   apiBase?: string;
 }): GitHubClient {
+  // GitHub issues App keys as PKCS#1, which importPKCS8 rejects without saying how to convert.
+  if (PKCS1_HEADER.test(opts.privateKeyPem)) throw new Error(PKCS1_MESSAGE);
   const apiBase = opts.apiBase ?? DEFAULT_API_BASE;
   // Called unbound: Workers' global fetch throws "Illegal invocation" as an object's method.
   const send = opts.fetch;
@@ -118,7 +124,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function toChangedFile(entry: unknown): ChangedFile | undefined {
-  const { filename, additions, deletions } = asRecord(entry);
+  const { filename, previous_filename: previousFilename, additions, deletions } = asRecord(entry);
   if (
     typeof filename !== "string" ||
     typeof additions !== "number" ||
@@ -126,5 +132,10 @@ function toChangedFile(entry: unknown): ChangedFile | undefined {
   ) {
     return undefined;
   }
-  return { path: filename, additions, deletions };
+  const file: ChangedFile = { path: filename, additions, deletions };
+  // For a rename, filename is the new path and previous_filename the old one.
+  if (typeof previousFilename === "string" && previousFilename !== "") {
+    file.previousPath = previousFilename;
+  }
+  return file;
 }

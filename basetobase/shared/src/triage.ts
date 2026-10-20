@@ -3,6 +3,8 @@ import type { B2BConfig, Panel, Rating } from "./config.ts";
 
 export interface ChangedFile {
   path: string;
+  // A rename's old path still counts: moving a file out of a guarded path must not hide it.
+  previousPath?: string;
   additions: number;
   deletions: number;
 }
@@ -20,9 +22,15 @@ function globMatcher(globs: string[]) {
   return picomatch(globs, { dot: true, nocase: true });
 }
 
+function allPaths(files: ChangedFile[]): string[] {
+  return files.flatMap((file) =>
+    file.previousPath === undefined ? [file.path] : [file.path, file.previousPath],
+  );
+}
+
 function anyMatch(files: ChangedFile[], globs: string[]): boolean {
   const isMatch = globMatcher(globs);
-  return files.some((file) => isMatch(file.path));
+  return allPaths(files).some((path) => isMatch(path));
 }
 
 function topLevelDir(path: string): string {
@@ -42,9 +50,10 @@ function sumLines(files: ChangedFile[]): { additions: number; deletions: number 
 
 export function classifyPanels(files: ChangedFile[], cfg: B2BConfig): Panel[] {
   const isFrontend = globMatcher(cfg.frontendGlobs);
+  const paths = allPaths(files);
   const panels: Panel[] = [];
-  if (files.some((file) => !isFrontend(file.path))) panels.push("backend");
-  if (files.some((file) => isFrontend(file.path))) panels.push("frontend");
+  if (paths.some((path) => !isFrontend(path))) panels.push("backend");
+  if (paths.some((path) => isFrontend(path))) panels.push("frontend");
   return panels;
 }
 
@@ -52,7 +61,7 @@ export function rateChange(files: ChangedFile[], cfg: B2BConfig): Rating {
   const { thresholds } = cfg;
   const { additions, deletions } = sumLines(files);
   const lines = additions + deletions;
-  const topDirs = new Set(files.map((file) => topLevelDir(file.path))).size;
+  const topDirs = new Set(allPaths(files).map((path) => topLevelDir(path))).size;
 
   if (
     lines > thresholds.doubleBlackLines ||
