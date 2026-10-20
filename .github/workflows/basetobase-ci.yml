@@ -1,0 +1,21 @@
+name: basetobase-ci
+on:
+  push:
+    branches: [main]
+    paths: ['basetobase/**', '.basetobase/**', '.github/workflows/basetobase-*.yml']
+  pull_request:
+    paths: ['basetobase/**', '.basetobase/**', '.github/workflows/basetobase-*.yml']
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: basetobase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run typecheck --if-present
+      - run: npm test
