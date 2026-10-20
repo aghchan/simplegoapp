@@ -103,15 +103,29 @@ describe("/api authentication", () => {
     expect(await res.json()).toEqual({ error: "signed out" });
   });
 
-  it("401 when the session secret is empty, even for a session signed under the real one", async () => {
-    const cookie = await signedIn();
-    const res = await get("/api/me", { cookie, workerEnv: envWith(env, { SESSION_SECRET: "" }) });
-    expect(res.status).toBe(401);
+  // An unset Worker secret arrives as undefined, which is the state between the first deploy and
+  // `wrangler secret put`.
+  describe.each([
+    ["empty", ""],
+    ["unset", undefined],
+  ])("with an %s session secret", (_name, secret) => {
+    const workerEnv = () => envWith(env, { SESSION_SECRET: secret });
+
+    it.each<[string, () => Promise<string>]>([
+      ["a session signed under the real secret", () => signedIn()],
+      ["a well-formed forgery", async () => `${SESSION_COOKIE}=e30.AAAA`],
+    ])("401, not a crash, for %s", async (_cookieName, cookie) => {
+      const res = await get("/api/runs", { cookie: await cookie(), workerEnv: workerEnv() });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: "signed out" });
+    });
   });
 
-  it("401 once the owner is someone else", async () => {
-    const workerEnv = envWith(env, { OWNER_LOGIN: "someone-else" });
-    expect((await get("/api/me", { workerEnv })).status).toBe(401);
+  it.each(["someone-else", "", undefined])("401 once the owner is %j", async (owner) => {
+    const workerEnv = envWith(env, { OWNER_LOGIN: owner });
+    const res = await get("/api/me", { workerEnv });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "signed out" });
   });
 
   it("accepts the owner's login in another case", async () => {

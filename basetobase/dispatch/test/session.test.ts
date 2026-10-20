@@ -78,14 +78,23 @@ describe("session cookie", () => {
     expect(await readSession(SECRET, cookie, SESSION_TTL_MS + 1)).toBeNull();
   });
 
-  it("is null for an empty secret, whatever the cookie", async () => {
+  // A Worker secret that was never set arrives as undefined, not as an empty string.
+  const unsetSecrets: [string, string][] = [
+    ["empty", ""],
+    ["unset", undefined as unknown as string],
+  ];
+
+  it.each(unsetSecrets)("is null for an %s secret, whatever the cookie", async (_name, secret) => {
     const value = await signSession(SECRET, "aghchan", 0);
-    expect(await readSession("", cookieOf(value), 1)).toBeNull();
-    expect(await readSession("", await forgeClaims({ login: "aghchan", exp: 9e12 }), 1)).toBeNull();
+    expect(await readSession(secret, cookieOf(value), 1)).toBeNull();
+    expect(
+      await readSession(secret, await forgeClaims({ login: "aghchan", exp: 9e12 }), 1),
+    ).toBeNull();
+    expect(await readSession(secret, cookieOf("e30.AAAA"), 1)).toBeNull();
   });
 
-  it("refuses to sign with an empty secret", async () => {
-    await expect(signSession("", "aghchan", 0)).rejects.toThrow();
+  it.each(unsetSecrets)("refuses to sign with an %s secret", async (_name, secret) => {
+    await expect(signSession(secret, "aghchan", 0)).rejects.toThrow("session secret");
   });
 
   describe("malformed", () => {
@@ -128,7 +137,11 @@ describe("isOwner", () => {
     expect(isOwner("aghchan", login)).toBe(false);
   });
 
-  it("matches nobody when no owner is configured", () => {
-    expect(isOwner("", "")).toBe(false);
+  it.each<[string, string]>([
+    ["empty", ""],
+    ["unset", undefined as unknown as string],
+  ])("matches nobody when the owner is %s", (_name, owner) => {
+    expect(isOwner(owner, "")).toBe(false);
+    expect(isOwner(owner, "aghchan")).toBe(false);
   });
 });

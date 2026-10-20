@@ -25,7 +25,8 @@ export async function readSession(
   cookieHeader: string | null,
   now: number,
 ): Promise<string | null> {
-  if (secret === "" || cookieHeader === null) return null;
+  // `!secret`, not `=== ""`: a Worker secret that was never set arrives as undefined.
+  if (!secret || cookieHeader === null) return null;
   const value = parse(cookieHeader, SESSION_COOKIE)[SESSION_COOKIE];
   const [payload, signature, ...extra] = value?.split(".") ?? [];
   if (payload === undefined || signature === undefined || extra.length > 0) return null;
@@ -39,9 +40,9 @@ export async function readSession(
   return claims.login;
 }
 
-// GitHub logins are case-insensitive. A blank owner matches nobody.
+// GitHub logins are case-insensitive. A blank or unset owner matches nobody.
 export function isOwner(ownerLogin: string, login: string): boolean {
-  return ownerLogin !== "" && login.toLowerCase() === ownerLogin.toLowerCase();
+  return !!ownerLogin && login.toLowerCase() === ownerLogin.toLowerCase();
 }
 
 export function encodeBase64Url(bytes: Uint8Array): string {
@@ -62,7 +63,7 @@ function decodeBase64Url(text: string): Uint8Array | null {
 }
 
 function hmacKey(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
-  if (secret === "") throw new Error("the session secret is empty");
+  if (!secret) throw new Error("the session secret is not set");
   return crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
