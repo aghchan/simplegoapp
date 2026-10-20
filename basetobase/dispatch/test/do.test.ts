@@ -68,6 +68,40 @@ function collect(ws: WebSocket): LiveMessage[] {
   return messages;
 }
 
+type Stub = ReturnType<typeof runStub>;
+
+async function storedState(stub: Stub) {
+  return runInDurableObject(stub, async (_instance, state) => ({
+    run: (await state.storage.get<RunState>("state"))!,
+    alarm: await state.storage.getAlarm(),
+  }));
+}
+
+async function connect(stub: Stub) {
+  const res = await stub.fetch("https://do/live", { headers: { Upgrade: "websocket" } });
+  const ws = res.webSocket!;
+  ws.accept();
+  return { res, ws, messages: collect(ws) };
+}
+
+// Makes the run's next `times` D1 writes fail, as an unreachable database would.
+async function failIndexWrites(stub: Stub, times: number): Promise<void> {
+  await runInDurableObject(stub, (instance) => {
+    const real = Reflect.get(instance, "env") as Env;
+    let remaining = times;
+    const db = {
+      prepare(sql: string) {
+        if (remaining > 0) {
+          remaining--;
+          throw new Error("D1 unreachable");
+        }
+        return real.DB.prepare(sql);
+      },
+    } as unknown as D1Database;
+    Object.defineProperty(instance, "env", { value: { ...real, DB: db } });
+  });
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => (resolve = done));
@@ -367,13 +401,6 @@ describe("RunDO", () => {
   });
 
   describe("alarm", () => {
-    async function storedState(stub: ReturnType<typeof runStub>) {
-      return runInDurableObject(stub, async (_instance, state) => ({
-        run: (await state.storage.get<RunState>("state"))!,
-        alarm: await state.storage.getAlarm(),
-      }));
-    }
-
     it("is set when the run starts", async () => {
       const { stub } = await startRun();
       const { run, alarm } = await storedState(stub);
@@ -442,14 +469,92 @@ describe("RunDO", () => {
     });
   });
 
-  describe("live socket", () => {
-    async function connect(stub: ReturnType<typeof runStub>) {
-      const res = await stub.fetch("https://do/live", { headers: { Upgrade: "websocket" } });
-      const ws = res.webSocket!;
-      ws.accept();
-      return { res, ws, messages: collect(ws) };
+  describe("index retries", () => {
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    async function indexedStatus() {
+      return (await listRuns(env.DB))[0]?.status;
     }
 
+    it("retries a failed write on the next alarm", async () => {
+      const { stub, nonce } = await startRun();
+      await failIndexWrites(stub, 1);
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await indexedStatus()).toBe("on_the_hill");
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("run index write failed"));
+
+      const { alarm } = await storedState(stub);
+      expect(alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+      await runDurableObjectAlarm(stub);
+      expect(await indexedStatus()).toBe("swept");
+      expect((await storedState(stub)).alarm).toBeNull();
+    });
+
+    it("retries when the run is next called", async () => {
+      const { stub, nonce } = await startRun();
+      await failIndexWrites(stub, 1);
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      expect(await indexedStatus()).toBe("on_the_hill");
+      await stub.view();
+      expect(await indexedStatus()).toBe("swept");
+    });
+
+    it("retries when the agent repeats its report", async () => {
+      const { stub, nonce } = await startRun();
+      await failIndexWrites(stub, 1);
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await indexedStatus()).toBe("swept");
+    });
+
+    it("keeps retrying until a write succeeds", async () => {
+      const { stub, nonce } = await startRun();
+      await failIndexWrites(stub, 2);
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await runDurableObjectAlarm(stub);
+      expect(await indexedStatus()).toBe("on_the_hill");
+      expect((await storedState(stub)).alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+      await runDurableObjectAlarm(stub);
+      expect(await indexedStatus()).toBe("swept");
+    });
+
+    it("still broadcasts the transition when the write fails", async () => {
+      const { stub, nonce } = await startRun();
+      const { messages } = await connect(stub);
+      await failIndexWrites(stub, 1);
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await vi.waitFor(() =>
+        expect(messages).toContainEqual(
+          expect.objectContaining({
+            type: "run",
+            run: expect.objectContaining({ status: "swept" }),
+          }),
+        ),
+      );
+    });
+
+    it("retries a failed first write, then returns to the machine's own deadline", async () => {
+      const id = `r${++runCount}`;
+      const stub = runStub(env, id);
+      await failIndexWrites(stub, 1);
+      await stub.start(prRef(), id, triage);
+      expect(await listRuns(env.DB)).toEqual([]);
+      const pending = await storedState(stub);
+      expect(pending.alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+      expect(pending.alarm).toBeLessThan(pending.run.agents[0]!.dispatchedAt! + STALL_MS);
+
+      await stub.view();
+      expect(await indexedStatus()).toBe("on_the_hill");
+      const settled = await storedState(stub);
+      expect(settled.alarm).toBe(settled.run.agents[0]!.dispatchedAt! + STALL_MS);
+    });
+  });
+
+  describe("live socket", () => {
     it("gets a snapshot then log lines", async () => {
       const { stub, nonce } = await startRun();
       const { res, messages } = await connect(stub);
@@ -500,6 +605,23 @@ describe("RunDO", () => {
       const { ws } = await connect(stub);
       ws.close(1000, "done");
       expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe(true);
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+    });
+
+    it("a closed viewer socket fails neither the call nor the other viewers", async () => {
+      const { stub, nonce } = await startRun();
+      const viewers = [await connect(stub), await connect(stub), await connect(stub)];
+      // Called inside the run, before the runtime drops the socket it just closed: it is still
+      // listed, and send() on it throws.
+      const handled = await runInDurableObject(stub, (instance, state) => {
+        state.getWebSockets()[1]!.close(1000, "closed");
+        return instance.events(AGENT, nonce, evs, JOB_URL);
+      });
+      expect(handled).toBe(true);
+      expect((await stub.view())!.run.agents[0]?.status).toBe("running");
+      const gotLines = () =>
+        viewers.filter(({ messages }) => messages.some((message) => message.type === "log"));
+      await vi.waitFor(() => expect(gotLines()).toHaveLength(2));
       expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
     });
 

@@ -32,6 +32,8 @@ import {
 } from "./machine.ts";
 
 const STATE_KEY = "state";
+const INDEX_PENDING_KEY = "indexPending";
+const INDEX_RETRY_MS = 60_000;
 const LOG_TEXT_MAX = 2000;
 const SNAPSHOT_LOG_LINES = 500;
 
@@ -59,7 +61,9 @@ export class RunDO extends DurableObject<Env> {
   // Null for a runner that should not start: it has the wrong nonce or the agent no longer matters.
   async brief(agentId: string, nonce: string): Promise<AgentBrief | null> {
     const state = await this.authorize(agentId, nonce);
-    if (!state || !acceptsReports(state, agentId)) return null;
+    if (!state) return null;
+    await this.retryIndex();
+    if (!acceptsReports(state, agentId)) return null;
     return briefOf(state, agentId, config);
   }
 
@@ -80,8 +84,9 @@ export class RunDO extends DurableObject<Env> {
       });
       return line ? [line] : [];
     });
-    if (lines.length > 0) this.broadcast({ type: "log", lines });
+    // Ahead of the broadcast: a retry would dedupe to nothing, so this transition cannot be redone.
     await this.step((s, now) => onEvents(s, agentId, lines.length, now, jobUrl));
+    if (lines.length > 0) this.broadcast({ type: "log", lines });
     return true;
   }
 
@@ -122,6 +127,7 @@ export class RunDO extends DurableObject<Env> {
   }
 
   async view(): Promise<{ run: RunSnapshot; log: LogLine[] } | null> {
+    await this.retryIndex();
     const state = await this.load();
     return state ? { run: snapshotOf(state), log: this.recentLog() } : null;
   }
@@ -130,6 +136,7 @@ export class RunDO extends DurableObject<Env> {
     if (req.headers.get("Upgrade") !== "websocket") {
       return new Response("expected a websocket upgrade", { status: 426 });
     }
+    await this.retryIndex();
     const state = await this.load();
     if (!state) return new Response("no such run", { status: 404 });
     const { 0: client, 1: server } = new WebSocketPair();
@@ -173,6 +180,7 @@ export class RunDO extends DurableObject<Env> {
   // Applies one machine step to the stored state. It rereads first: anything that awaited I/O
   // since the caller last looked (a dispatch call, a D1 write) may have changed the run.
   private async step(next: (state: RunState, now: number) => Transition): Promise<void> {
+    await this.retryIndex();
     const state = await this.load();
     if (!state) return;
     const transition = next(state, Date.now());
@@ -182,10 +190,38 @@ export class RunDO extends DurableObject<Env> {
   private async commit({ state, effects }: Transition): Promise<void> {
     await this.ctx.storage.put(STATE_KEY, state);
     // Before the effects: one may commit a newer state, whose alarm must be the one left set.
-    const alarm = nextAlarm(state);
-    if (alarm === null) await this.ctx.storage.deleteAlarm();
-    else await this.ctx.storage.setAlarm(alarm);
+    await this.arm(state);
     for (const effect of effects) await this.execute(effect);
+  }
+
+  // The machine's next deadline, pulled in to the retry delay while an index write is outstanding.
+  private async arm(state: RunState): Promise<void> {
+    const retryAt = (await this.ctx.storage.get(INDEX_PENDING_KEY))
+      ? Date.now() + INDEX_RETRY_MS
+      : null;
+    const times = [nextAlarm(state), retryAt].filter((time) => time !== null);
+    if (times.length === 0) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(Math.min(...times));
+  }
+
+  // Once a run is over nothing else would write its index row again, so a failed write is
+  // remembered and retried by the alarm and by the next call into the run.
+  private async index(): Promise<void> {
+    const state = await this.loaded();
+    // Cleared before the write and set again if it fails: a failure overlapping another write
+    // is never forgotten.
+    await this.ctx.storage.delete(INDEX_PENDING_KEY);
+    try {
+      await upsertRun(this.env.DB, snapshotOf(state));
+    } catch (error) {
+      console.error(`run index write failed: ${error instanceof Error ? error.message : error}`);
+      await this.ctx.storage.put(INDEX_PENDING_KEY, true);
+    }
+    await this.arm(await this.loaded());
+  }
+
+  private async retryIndex(): Promise<void> {
+    if (await this.ctx.storage.get(INDEX_PENDING_KEY)) await this.index();
   }
 
   private async execute(effect: Effect): Promise<void> {
@@ -205,7 +241,7 @@ export class RunDO extends DurableObject<Env> {
         return;
       }
       case "index":
-        await upsertRun(this.env.DB, snapshotOf(await this.loaded()));
+        await this.index();
         return;
       case "broadcast":
         this.broadcast({ type: "run", run: snapshotOf(await this.loaded()) });
@@ -281,7 +317,13 @@ export class RunDO extends DurableObject<Env> {
     const sockets = this.ctx.getWebSockets();
     if (sockets.length === 0) return;
     const payload = JSON.stringify(message);
-    for (const socket of sockets) socket.send(payload);
+    for (const socket of sockets) {
+      try {
+        socket.send(payload);
+      } catch {
+        // A viewer whose socket is closing must not fail the run's own work.
+      }
+    }
   }
 }
 
