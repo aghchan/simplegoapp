@@ -638,6 +638,7 @@ would exceed them.
 | Deno Deploy | Reported deprecation |
 | Oracle Always Free | Card required, idle reclamation, halved in 2026 |
 | Lambda-style functions for agents | Time caps, no Docker |
+| Cloudflare Containers for Palisades | Needs Workers Paid ($5/month); owner chose to stay free |
 
 **Card-required upgrade paths, if wanted later:**
 
