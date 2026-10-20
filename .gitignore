@@ -1,3 +1,5 @@
 node_modules/
 basetobase/dashboard/dist/
 .wrangler/
+.dev.vars*
+.env*
