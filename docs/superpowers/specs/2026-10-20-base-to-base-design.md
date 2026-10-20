@@ -49,7 +49,12 @@ and the controls to intervene.
    repo.
 3. Summit check, merge, and deploy (§8), fully automatic.
 4. The dashboard (§9) with live logs, evidence, and debug controls.
-5. First watched repo: `aghchan/simplegoapp` (public).
+5. First watched repo: `aghchan/simplegoapp` (public), which is also where
+   Base to Base itself lives (monorepo, §3).
+6. **Parallel wherever work is independent** (owner). Every patroller on a
+   panel runs at the same time, each on its own runner; re-checks in the
+   huddle run at the same time; separate PRs run at the same time. Work is
+   serialized only where it must be (§7, §11).
 
 **Non-goals (v1)**
 
@@ -68,7 +73,7 @@ and the controls to intervene.
 - A run that silently hangs, or a dashboard that shows a state that isn't true.
 - Any paid resource appearing without the owner opting in.
 - Draining the owner's Claude subscription so they can't use Claude
-  themselves (see concurrency cap, §11).
+  themselves (see Lift closed and the global cap, §11).
 - Theme over meaning: every themed label must also show its plain meaning.
 - Agents running on code from a fork with the owner's credentials.
 
@@ -87,6 +92,10 @@ and the controls to intervene.
   disabled in `staticcheck.conf`) and anything else `docs/BEST_PRACTICES.md`
   and the repo's CLAUDE.md files prescribe. Where they conflict with Google
   style, the house rule wins.
+- **Monorepo** (owner): Base to Base lives in `aghchan/simplegoapp` under
+  `basetobase/` (layout and isolation rules in §13). The Go module stays at
+  the repo root unchanged — consumers such as the `recruiter` repo import
+  `github.com/aghchan/simplegoapp/pkg/...`, so moving it would break them.
 - **Snowboard/ski naming and visual theme** (owner), inspired by Ikon Pass
   mountains — Palisades Tahoe and Alpine Meadows are examples, not
   requirements. Lift, lodge, and run names are all fair game.
@@ -129,11 +138,19 @@ and the controls to intervene.
 |---|---|---|---|---|
 | 1 | Lift line | PR opened | Webhook `pull_request` (opened, reopened, ready_for_review). Ignored unless author is on the allowlist (the owner) and head repo == base repo (no forks). Draft PRs ignored until ready **(designer's call)**. | Run created. |
 | 2 | Trail map | Triage | Classify backend / frontend / both from path globs; rate difficulty and assign a run name (§10); take the goal from the PR title + description. | Panel dispatched. |
-| 3 | Patrol sweep | Independent review | Every patroller on the panel reviews separately on its own fresh runner. Each sees the diff, the repo, the goal, and its own criteria — **not** other patrollers' findings. | All verdicts in. Milestone **Swept**. |
+| 3 | Patrol sweep | Independent review | Every patroller on the panel reviews separately, **all at once**, each on its own fresh runner. Each sees the diff, the repo, the goal, and its own criteria — **not** other patrollers' findings. | All verdicts in. Milestone **Swept**. |
 | 4 | Patrol huddle | Quorum | The loop in §7. | Every patroller clear on the same head SHA (milestone **All clear**), or wind hold. |
 | 5 | Summit check | Final verify on Alpine | §8. | Pass (milestone **Summit**), or back to the huddle. |
 | 6 | Drop in | Merge | §8. | Merged. |
 | 7 | Send it | Deploy to Palisades | §8. | Healthy (milestone **Open**), or failed → Needs you. |
+
+**Panel classification in the monorepo** **(designer's call; globs in
+config)**:
+
+- `basetobase/dashboard/**` → frontend panel
+- everything else, including Dispatch (`basetobase/dispatch/**`, a
+  TypeScript backend) and all Go code → backend panel
+- a PR touching both → both panels, run together
 
 Run terminal states: **Open** (deployed), **Stopped** (owner stopped it or
 closed the PR), **Failed** (deploy failed — sits in Needs you). **Wind hold**
@@ -233,8 +250,12 @@ Each round:
 
 1. Dispatch hands every open hazard to Groomer in one job. For each, Groomer
    either fixes it (commits and pushes to the PR branch) or disputes it with
-   written reasoning.
-2. Every patroller on the panel re-checks the new head: confirms or keeps
+   written reasoning. Groomer is a single job because it is the only writer
+   to the branch — two writers would conflict. Inside that job it works on
+   independent hazards in parallel, using Claude Code's own subagents, then
+   pushes once for the round **(designer's call)**.
+2. Every patroller on the panel re-checks the new head, **all at once**,
+   each on its own runner: confirms or keeps
    open its own hazards (it may withdraw one if Groomer's dispute convinces
    it), and reviews the change since its last verdict for new hazards in its
    area. In the huddle — unlike the sweep — patrollers see all hazards and
@@ -291,11 +312,17 @@ summit check on the new merge ref first. Merge method: squash
   poll Render's API until the deploy is live, then `GET /health` on the
   Palisades URL (the framework registers `/health` automatically). Healthy →
   **Open**.
-- **Cloudflare** (only if Base to Base patrols its own repo; see §19):
-  `wrangler deploy` from an Actions job, then a health check on Dispatch.
-  Because a bad Dispatch deploy can break the thing that deploys it, the
-  owner keeps a manual fallback (`wrangler rollback`), and self-patrol starts
-  only after milestone 5 (§17). Until then Base to Base is deployed by hand.
+- **Cloudflare** (Base to Base itself, `basetobase/**`): `wrangler deploy`
+  from an Actions job, then a health check on Dispatch. Because a bad
+  Dispatch deploy can break the thing that deploys it, the owner keeps a
+  manual fallback (`wrangler rollback`). PRs that touch `basetobase/` are
+  not patrolled or auto-deployed until milestone 5 (§17); until then Base to
+  Base is deployed by hand.
+
+Adapters are chosen by changed paths (monorepo): Go changes deploy to
+Render, `basetobase/` changes deploy to Cloudflare, and a PR touching both
+deploys both, in parallel. The run is **Open** only when every deploy it
+needed is healthy.
 
 A failed deploy marks the run Failed in *Needs you*. Render keeps the
 previous deploy serving when a build fails; no auto-rollback in v1.
@@ -437,10 +464,18 @@ The rating is display-only in v1. It does not change the panel or models
 - **Models:** Claude Code's `sonnet` alias for patrollers, `opus` for Groomer
   **(designer's call)**. Aliases track the latest models. Configurable per
   role.
-- **Concurrency cap:** at most 2 agent jobs at once across all runs by
-  default **(designer's call)**. The subscription quota is shared with the
-  owner's own Claude use. Others queue, and the dashboard shows them as
-  queued.
+- **Parallel by default** (owner). Running agents at the same time doesn't
+  cost more quota than running them one after another — the total work is
+  the same; it just finishes sooner. So by default every patroller on a
+  panel starts at once.
+- **Global cap as a safety valve:** at most 8 agent jobs at once across all
+  runs by default — enough for the largest panel (both panels together) —
+  configurable **(designer's call)**. Beyond the cap, jobs queue, and the
+  dashboard shows them as queued. It protects against several PRs at once
+  burning the 5-hour window in minutes.
+- **Serialized only where it must be:**
+  - Groomer, the single writer to a branch (§7)
+  - the huddle's re-check round, which waits for Groomer's push
 - **Lift closed:** when Claude Code reports a usage-limit error, the
   forwarder reports the reset time. Dispatch then:
   - pauses all runs, since the quota is shared
@@ -507,6 +542,39 @@ The builder must handle these before Palisades can run:
 
   The existing CI workflow stays as it is. New directories that embody a
   pattern get a CLAUDE.md (repo rule).
+
+**Monorepo layout and isolation** (owner chose the monorepo; layout is the
+**designer's call**):
+
+```
+simplegoapp/                 Go module, unchanged (framework + template app)
+├── basetobase/
+│   ├── go.mod               empty nested module — see below
+│   ├── CLAUDE.md            pattern doc (repo rule)
+│   ├── dispatch/            Worker + Durable Objects (TS)
+│   ├── dashboard/           dashboard app (TS), served as Worker assets
+│   ├── forwarder/           agent-side wrapper run on the Actions runner
+│   ├── config/              patrol config, trail names, free-tier limits
+│   └── wrangler.toml
+├── .basetobase/patrol/      patroller criteria prompts (§6)
+└── .github/workflows/
+    ├── ci.yml               existing Go CI
+    ├── basetobase-ci.yml    TS lint/typecheck/test, paths: basetobase/**
+    └── basetobase-agent.yml workflow_dispatch-only agent runner (§11)
+```
+
+- **Keep Base to Base out of the Go module.** A placeholder `go.mod`
+  (`module github.com/aghchan/simplegoapp/basetobase`, no code) makes
+  `basetobase/` a separate module. That keeps it out of `go build ./...`,
+  `go vet ./...` and `go test ./...`, out of the Go module zip that
+  consumers and `gonew` download, and stops any `.go` files inside
+  `node_modules` from leaking into Go tooling.
+- **Fix the gofmt check.** CI's `test -z "$(gofmt -l .)"` walks every
+  directory, including `node_modules`. Change it to list tracked Go files
+  only (`gofmt -l $(git ls-files '*.go')`).
+- **Path-filter the CIs.** Go CI ignores changes only under `basetobase/`,
+  and the TS CI runs only for `basetobase/**`, so the two CIs run in
+  parallel and stay independent.
 
 ## 14. Security
 
@@ -590,6 +658,7 @@ The owner said to *start* with the always-on agent and its UI, so the first
 milestone is the skeleton, visible end to end. The plan may regroup the rest.
 
 1. **Skeleton.**
+   - the `basetobase/` scaffold and Go-module isolation (§13)
    - Dispatch on Cloudflare
    - the GitHub App receiving PR webhooks
    - the run Durable Object
@@ -615,11 +684,7 @@ milestone is the skeleton, visible end to end. The plan may regroup the rest.
 - How the end-to-end harness and compose file are laid out in simplegoapp.
 - Tuning of thresholds and timeouts marked as the designer's calls.
 
-**Open for the owner:** where Base to Base's own code lives (§19).
-
 ## 19. Open questions
 
-- Where does Base to Base's own code live — its own public repo
-  (recommended, so the Go framework template stays clean, and so Base to
-  Base can later patrol itself with a Cloudflare deploy adapter), or inside
-  simplegoapp?
+None. Everything not decided by the owner is marked as the designer's call
+or listed in §18.
