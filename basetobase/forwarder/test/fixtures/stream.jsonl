@@ -1,0 +1,7 @@
+{"type":"system","subtype":"init","session_id":"sess-1","model":"claude-sonnet","tools":["Bash","Read"]}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Starting the app."}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"go run ."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"listening on :8080"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_2","content":"curl: (7) Failed to connect to localhost port 8080","is_error":true}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":84000,"num_turns":12,"result":"All behaviours verified."}
+{nope
