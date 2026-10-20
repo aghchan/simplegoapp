@@ -136,13 +136,13 @@ and the controls to intervene.
 
 | # | Themed name | Plain name | What happens | Leaves when |
 |---|---|---|---|---|
-| 1 | Lift line | PR opened | Webhook `pull_request` (opened, reopened, ready_for_review). Ignored unless author is on the allowlist (the owner) and head repo == base repo (no forks). Draft PRs ignored until ready **(designer's call)**. | Run created. |
-| 2 | Trail map | Triage | Classify backend / frontend / both from path globs; rate difficulty and assign a run name (§10); take the goal from the PR title + description. | Panel dispatched. |
-| 3 | Patrol sweep | Independent review | Every patroller on the panel reviews separately, **all at once**, each on its own fresh runner. Each sees the diff, the repo, the goal, and its own criteria — **not** other patrollers' findings. | All verdicts in. Milestone **Swept**. |
-| 4 | Patrol huddle | Quorum | The loop in §7. | Every patroller clear on the same head SHA (milestone **All clear**), or wind hold. |
-| 5 | Summit check | Final verify on Alpine | §8. | Pass (milestone **Summit**), or back to the huddle. |
-| 6 | Drop in | Merge | §8. | Merged. |
-| 7 | Send it | Deploy to Palisades | §8. | Healthy (milestone **Open**), or failed → Needs you. |
+| 1 | Lift line | PR opened | Owner's same-repo PR opened, reopened, or marked ready. Forks and drafts ignored. | Run created |
+| 2 | Trail map | Triage | Pick panels by path. Rate. Name the run. Goal = PR title + body. | Panels dispatched |
+| 3 | Patrol sweep | Independent review | All patrollers at once, one runner each. Each sees diff, repo, goal, own criteria — not each other's findings. | All verdicts in → **Swept** |
+| 4 | Patrol huddle | Quorum | Loop in §7. | All clear on one SHA → **All clear**. 30 min → wind hold |
+| 5 | Summit check | Final verify | Full end-to-end suite, fresh env (Alpine), merge ref. §8. | Pass → **Summit**. Fail → huddle |
+| 6 | Drop in | Merge | Squash, pinned to the verified SHA. §8. | Merged |
+| 7 | Send it | Deploy | Deploy what the changed paths need; health check. §8. | Healthy → **Open**. Fail → Needs you |
 
 **Panel classification in the monorepo** **(designer's call; globs in
 config)**:
@@ -198,6 +198,18 @@ Groomer can't satisfy simply run out the clock and go to the owner.
 Each patroller's criteria live as a versioned prompt file in the watched repo
 (`.basetobase/patrol/<name>.md`), so they're reviewed like code
 **(designer's call)**.
+
+**Agent-facing templates are terse** (owner). This covers patroller
+prompts, the Groomer prompt, and the steps in the agent workflow.
+
+- One imperative rule per line.
+- No preamble, no rationale, no politeness, no restating what CLAUDE.md or
+  `docs/BEST_PRACTICES.md` already say. Point at them instead.
+- Each patroller file stays under about 40 lines **(designer's call)**.
+- Wording that adds no rule gets cut. Corduroy enforces this on changes to
+  the templates.
+
+The lists below are the *scope* each template covers, not its wording.
 
 - **Granite Chief (goal fit):** the change does what the goal says, all of it,
   and nothing unasked for. If the PR description gives no judgeable goal, that
