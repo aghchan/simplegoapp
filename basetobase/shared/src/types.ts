@@ -17,7 +17,8 @@ export type AgentStatus =
   | "stalled"
   | "clear"
   | "hazards"
-  | "error";
+  | "error"
+  | "stopped";
 export type EventKind = "system" | "say" | "tool" | "tool_result" | "done" | "error";
 
 export interface AgentEvent {

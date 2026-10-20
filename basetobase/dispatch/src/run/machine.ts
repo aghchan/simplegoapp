@@ -39,10 +39,10 @@ export interface Transition {
   effects: Effect[];
 }
 
-interface Deadlines {
-  // Null once the agent has stalled: that condition is applied and must not be scheduled again.
-  stallAt: number | null;
-  timeoutAt: number;
+interface Deadline {
+  at: number;
+  // Fails the agent with this reason. Without one, reaching `at` only marks the agent stalled.
+  failure?: string;
 }
 
 export function createRun(
@@ -160,7 +160,8 @@ export function onVerdict(s: RunState, agentId: string, v: Verdict, now: number)
 
 export function onFailure(s: RunState, agentId: string, reason: string, now: number): Transition {
   if (!liveAgent(s, agentId)) return unchanged(s);
-  return closeSweepIfDone(failed(s, agentId, reason, now), now);
+  const failure = failed(s, agentId, reason, now);
+  return closeSweepIfDone(failure.state, now, failure.effects);
 }
 
 // Unlike the other handlers this ignores the run's and the agent's status: runners upload their
@@ -178,49 +179,41 @@ export function onTick(s: RunState, now: number): Transition {
   let next = s;
   const logs: Effect[] = [];
   for (const agent of s.agents) {
-    const due = deadlinesOf(agent);
+    const due = deadlinesOf(agent, s.createdAt).find((deadline) => now >= deadline.at);
     if (!due) continue;
-    if (now >= due.timeoutAt) {
-      next = failed(next, agent.id, "timed out", now);
-    } else if (due.stallAt !== null && now >= due.stallAt) {
-      next = patchAgent(next, agent.id, { status: "stalled" }, now);
-      if (!next.stalledLogged.includes(agent.id)) {
-        next = { ...next, stalledLogged: [...next.stalledLogged, agent.id] };
-        const silence = `${STALL_MS / 60_000}m`;
-        logs.push({ type: "log", text: `${agent.id} stalled · no events for ${silence}` });
-      }
-    }
+    const change =
+      due.failure === undefined
+        ? stalled(next, agent.id, now)
+        : failed(next, agent.id, due.failure, now);
+    next = change.state;
+    logs.push(...change.effects);
   }
   if (next === s) return unchanged(s);
-  const settled = closeSweepIfDone(next, now);
-  return { state: settled.state, effects: [...logs, ...settled.effects] };
+  return closeSweepIfDone(next, now, logs);
 }
 
-// Agents keep their last status: AgentStatus has no stopped, and their jobs are still running.
+// Cancelling jobs is deferred: a stopped agent's job may keep running until its own timeout.
 export function stopRun(s: RunState, reason: string, now: number): Transition {
   if (s.status !== "on_the_hill") return unchanged(s);
+  const stopped = `stopped · ${reason}`;
   const steps = s.steps.map(
     (step): StepSnapshot =>
       step.status === "active" ? { ...step, status: "stopped", finishedAt: now } : step,
   );
+  const agents = s.agents.map((agent): AgentSnapshot => {
+    if (isTerminal(agent)) return agent;
+    return { ...agent, status: "stopped", summary: stopped, finishedAt: now };
+  });
   return {
-    state: { ...s, status: "stopped", steps, updatedAt: now },
-    effects: [
-      { type: "log", text: `stopped · ${reason}` },
-      { type: "index" },
-      { type: "broadcast" },
-    ],
+    state: { ...s, status: "stopped", steps, agents, updatedAt: now },
+    effects: [{ type: "log", text: stopped }, { type: "index" }, { type: "broadcast" }],
   };
 }
 
 // The earliest moment onTick has something to do, so an alarm set for it always makes progress.
 export function nextAlarm(s: RunState): number | null {
   if (s.status !== "on_the_hill") return null;
-  const times = s.agents.flatMap((agent) => {
-    const due = deadlinesOf(agent);
-    if (!due) return [];
-    return due.stallAt === null ? [due.timeoutAt] : [due.stallAt, due.timeoutAt];
-  });
+  const times = s.agents.flatMap((agent) => deadlinesOf(agent, s.createdAt).map((d) => d.at));
   return times.length === 0 ? null : Math.min(...times);
 }
 
@@ -267,7 +260,8 @@ function agentIdFor(role: RoleId, step: StepId, round: number): string {
 }
 
 function isTerminal(agent: AgentSnapshot): boolean {
-  return agent.status === "clear" || agent.status === "hazards" || agent.status === "error";
+  const { status } = agent;
+  return status === "clear" || status === "hazards" || status === "error" || status === "stopped";
 }
 
 // The agent, if the run is still on the hill and the agent has not yet reported.
@@ -277,13 +271,17 @@ function liveAgent(s: RunState, id: string): AgentSnapshot | undefined {
   return agent && !isTerminal(agent) ? agent : undefined;
 }
 
-function deadlinesOf(agent: AgentSnapshot): Deadlines | null {
-  if (agent.dispatchedAt === undefined || isTerminal(agent)) return null;
-  const silentSince = agent.lastEventAt ?? agent.dispatchedAt;
-  return {
-    stallAt: agent.status === "stalled" ? null : silentSince + STALL_MS,
-    timeoutAt: agent.dispatchedAt + AGENT_TIMEOUT_MS,
-  };
+// When onTick must act on the agent, most severe first.
+function deadlinesOf(agent: AgentSnapshot, createdAt: number): Deadline[] {
+  if (isTerminal(agent)) return [];
+  // A lost dispatch result (the Durable Object can reset mid-call) would leave it queued forever.
+  if (agent.dispatchedAt === undefined) {
+    return [{ at: createdAt + STALL_MS, failure: "never dispatched" }];
+  }
+  const timeout = { at: agent.dispatchedAt + AGENT_TIMEOUT_MS, failure: "timed out" };
+  // A stall already applied must not be scheduled again, or its alarm would re-fire forever.
+  if (agent.status === "stalled") return [timeout];
+  return [timeout, { at: (agent.lastEventAt ?? agent.dispatchedAt) + STALL_MS }];
 }
 
 function unchanged(s: RunState): Transition {
@@ -308,8 +306,20 @@ function patchStep(s: RunState, id: StepId, patch: Partial<StepSnapshot>): RunSt
   return { ...s, steps: s.steps.map((step) => (step.id === id ? { ...step, ...patch } : step)) };
 }
 
-function failed(s: RunState, id: string, reason: string, now: number): RunState {
-  return patchAgent(s, id, { status: "error", summary: reason, finishedAt: now }, now);
+function failed(s: RunState, id: string, reason: string, now: number): Transition {
+  return {
+    state: patchAgent(s, id, { status: "error", summary: reason, finishedAt: now }, now),
+    effects: [{ type: "log", text: `${id} failed · ${reason}` }],
+  };
+}
+
+function stalled(s: RunState, id: string, now: number): Transition {
+  const state = patchAgent(s, id, { status: "stalled" }, now);
+  if (s.stalledLogged.includes(id)) return { state, effects: [] };
+  return {
+    state: { ...state, stalledLogged: [...s.stalledLogged, id] },
+    effects: [{ type: "log", text: `${id} stalled · no events for ${STALL_MS / 60_000}m` }],
+  };
 }
 
 // The run with its sweep closed, or undefined while any sweep agent has yet to report.
@@ -319,15 +329,20 @@ function sweptState(s: RunState, now: number): RunState | undefined {
   return { ...sweepDone, status: "swept", updatedAt: now };
 }
 
-function closeSweepIfDone(s: RunState, now: number): Transition {
+// `earned` are the effects the caller's own change produced; they come first.
+function closeSweepIfDone(s: RunState, now: number, earned: Effect[] = []): Transition {
   const swept = sweptState(s, now);
-  if (!swept) return broadcast(s);
+  if (!swept) return { state: s, effects: [...earned, { type: "broadcast" }] };
   const sweeps = swept.agents.filter((agent) => agent.step === "sweep");
   const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  // A sweep with errors must not read as clean: an agent that never reported found no hazards.
+  const errors = sweeps.filter((agent) => agent.status === "error").length;
+  const failures = errors > 0 ? ` · ${errors} failed` : "";
   return {
     state: swept,
     effects: [
-      { type: "log", text: `all ${sweeps.length} sweeps in · ${hazards} hazards` },
+      ...earned,
+      { type: "log", text: `all ${sweeps.length} sweeps in · ${hazards} hazards${failures}` },
       { type: "index" },
       { type: "broadcast" },
     ],
