@@ -105,17 +105,18 @@ async function main(): Promise<void> {
   console.log("Commit basetobase/wrangler.jsonc (ids and URL; no secrets).");
 }
 
-// Captured output makes wrangler non-interactive, so it cannot offer to register a subdomain itself.
+// Captured output makes wrangler non-interactive, so it won't offer to register a workers.dev
+// subdomain. An uncaptured deploy lets it ask; the captured one then finds the URL.
 async function deploy(): Promise<string> {
+  const captured = () => sh("npm", ["run", "deploy"], { capture: true, echo: true, teeStderr: true });
   try {
-    return await sh("npm", ["run", "deploy"], { capture: true, echo: true, teeStderr: true });
+    return await captured();
   } catch (error) {
     const output = error instanceof CommandError ? error.output : "";
     if (!/register a workers\.dev subdomain/.test(output)) throw error;
-    const link = /https:\/\/dash\.cloudflare\.com\/\S+\/workers\/onboarding/.exec(output)?.[0];
-    throw new Error(
-      `this Cloudflare account has no workers.dev subdomain. Pick one at ${link ?? "Cloudflare dashboard → Workers & Pages"}, then rerun`,
-    );
+    console.log("\nNo workers.dev subdomain yet. Answer y and pick one.");
+    await sh("npx", ["wrangler", "deploy"]);
+    return captured();
   }
 }
 
