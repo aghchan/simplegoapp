@@ -14,10 +14,15 @@ import type {
   StepSnapshot,
   Verdict,
 } from "../../../shared/src/types.ts";
+import type { CheckRunBody } from "../github/client.ts";
 import type { PullRequestRef } from "../github/webhook.ts";
 
 export const STALL_MS = 600_000;
 export const AGENT_TIMEOUT_MS = 1_800_000;
+// Branch protection on main requires a check of this name.
+export const CHECK_NAME = "Base to Base";
+// GitHub refuses a summary over 65 535 characters.
+const CHECK_SUMMARY_MAX = 60_000;
 
 export interface RunState extends RunSnapshot {
   installationId: number;
@@ -28,13 +33,18 @@ export interface RunState extends RunSnapshot {
   agentNames: Record<string, string>;
   // Agents whose stall has been logged. A repeat stall flips the card but is not logged again.
   stalledLogged: string[];
+  // The run's check run on the PR head, once GitHub has created it.
+  checkRunId?: number;
 }
 
+// "check" mirrors the run's current state onto its check run. It comes last, so GitHub never
+// holds up the run's own work or the dashboard.
 export type Effect =
   | { type: "dispatch"; agentId: string }
   | { type: "log"; text: string }
   | { type: "index" }
-  | { type: "broadcast" };
+  | { type: "broadcast" }
+  | { type: "check" };
 
 export interface Transition {
   state: RunState;
@@ -123,6 +133,7 @@ export function createRun(
       { type: "index" },
       ...agents.map((agent): Effect => ({ type: "dispatch", agentId: agent.id })),
       { type: "broadcast" },
+      { type: "check" },
     ],
   };
 }
@@ -214,8 +225,37 @@ export function stopRun(s: RunState, reason: string, now: number): Transition {
   });
   return {
     state: { ...s, status: "stopped", steps, agents, updatedAt: now },
-    effects: [{ type: "log", text: stopped }, { type: "index" }, { type: "broadcast" }],
+    effects: [
+      { type: "log", text: stopped },
+      { type: "index" },
+      { type: "broadcast" },
+      { type: "check" },
+    ],
   };
+}
+
+// Takes no clock: storing the id changes nothing a viewer sees.
+export function onCheckCreated(s: RunState, id: number): Transition {
+  if (s.checkRunId !== undefined) return unchanged(s);
+  return { state: { ...s, checkRunId: id }, effects: [] };
+}
+
+// The check run for the run's current state, without the commit (creating it adds head_sha).
+export function checkRunOf(s: RunState, publicUrl: string): CheckRunBody {
+  const details = `${publicUrl}/runs/${s.id}`;
+  const base = { name: CHECK_NAME, details_url: details };
+  const output = (title: string) => ({ title, summary: checkSummary(s, details) });
+  if (s.status === "on_the_hill") {
+    return { ...base, status: "in_progress", output: output(`${s.runName} · patrol sweep`) };
+  }
+  if (s.status === "stopped") {
+    return { ...base, status: "completed", conclusion: "cancelled", output: output("Stopped") };
+  }
+  const failure = failureTitle(s);
+  if (failure !== undefined) {
+    return { ...base, status: "completed", conclusion: "failure", output: output(failure) };
+  }
+  return { ...base, status: "completed", conclusion: "success", output: output("All clear") };
 }
 
 // The earliest moment onTick has something to do, so an alarm set for it always makes progress.
@@ -349,9 +389,36 @@ function conditionsReport(s: RunState): string[] {
     `${reported} of ${counted(sweeps.length, "patroller")} in · ` +
     `${counted(hazards, "hazard")} · ${failed} failed`;
   const summaries = sweeps.flatMap((agent) =>
-    agent.summary ? [`${s.agentNames[agent.id] ?? agent.role}: ${agent.summary}`] : [],
+    agent.summary ? [`${nameOf(s, agent)}: ${agent.summary}`] : [],
   );
   return [tally, ...summaries];
+}
+
+function nameOf(s: RunState, agent: AgentSnapshot): string {
+  return s.agentNames[agent.id] ?? agent.role;
+}
+
+// Why an ended run fails its check, or undefined when it passes. Hazards are named before a failed
+// agent: they are what the author has to answer.
+function failureTitle(s: RunState): string | undefined {
+  const hazards = s.agents.reduce((total, agent) => total + agent.hazards.length, 0);
+  if (hazards > 0) return `${counted(hazards, "hazard")} flagged`;
+  // An agent that never reported found no hazards; its silence must not pass the check.
+  const failed = s.agents.find((agent) => agent.status === "error" || agent.status === "stopped");
+  if (failed) return `${nameOf(s, failed)} failed: ${failed.summary ?? failed.status}`;
+  return s.status === "failed" ? "Run failed" : undefined;
+}
+
+// The Conditions report, each hazard, and the dashboard link, which a cut never drops.
+function checkSummary(s: RunState, details: string): string {
+  const hazards = s.agents.flatMap((agent) =>
+    agent.hazards.map((hazard) => `**${hazard.id}** ${hazard.title} — ${nameOf(s, agent)}`),
+  );
+  const link = `[Open ${s.runName} on the dashboard](${details})`;
+  const body = [...conditionsReport(s), ...hazards].join("\n\n");
+  const room = CHECK_SUMMARY_MAX - link.length - 2;
+  const kept = body.length > room ? `${body.slice(0, room - 1)}…` : body;
+  return `${kept}\n\n${link}`;
 }
 
 function counted(count: number, noun: string): string {
@@ -374,6 +441,7 @@ function closeSweepIfDone(s: RunState, now: number, earned: Effect[] = []): Tran
       { type: "log", text: `all ${sweeps.length} sweeps in · ${hazards} hazards${failures}` },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ],
   };
 }

@@ -25,7 +25,8 @@ interface Identity {
 type Fields = Record<string, unknown>;
 
 const SIGNATURE_HEADER = /^sha256=([0-9a-fA-F]{64})$/;
-const STARTING_ACTIONS = ["opened", "reopened", "ready_for_review"];
+// synchronize is a push to the PR: it starts a sweep on the new head.
+const STARTING_ACTIONS = ["opened", "reopened", "ready_for_review", "synchronize"];
 
 export async function verifyWebhookSignature(
   secret: string,

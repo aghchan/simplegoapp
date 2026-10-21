@@ -2,8 +2,9 @@ import { Hono, type Context } from "hono";
 import picomatch from "picomatch";
 import { config } from "../../../shared/src/config.ts";
 import { rateChange, triage, type ChangedFile } from "../../../shared/src/triage.ts";
-import { createGitHubClient } from "../github/client.ts";
+import { createGitHubClient, type CheckRunCreate, type GitHubClient } from "../github/client.ts";
 import { toTrigger, verifyWebhookSignature, type PullRequestRef } from "../github/webhook.ts";
+import { CHECK_NAME } from "../run/machine.ts";
 import { activeRunNames, findActiveRuns, runStub } from "../runs/index.ts";
 import { parseJson, readBody, reject } from "./request.ts";
 
@@ -58,11 +59,15 @@ function isUnpatrolled(file: ChangedFile): boolean {
 async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response> {
   const active = await findActiveRuns(c.env.DB, pr.repo, pr.number);
   if (active.some((run) => run.headSha === pr.headSha)) return c.json({ ignored: "duplicate" });
+  // Their head is no longer what would merge. Until the huddle (M3), a push means a fresh sweep.
+  const superseded = `superseded by ${pr.headSha.slice(0, 7)}`;
+  await Promise.all(active.map((run) => runStub(c.env, run.id).stop(superseded)));
 
+  let github: GitHubClient;
   let files: ChangedFile[];
   try {
     // Built here because the factory throws on a key it cannot use.
-    const github = createGitHubClient({
+    github = createGitHubClient({
       appId: c.env.GITHUB_APP_ID,
       privateKeyPem: c.env.GITHUB_APP_PRIVATE_KEY,
       installationId: pr.installationId,
@@ -76,10 +81,36 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
     console.error(`webhook: reading ${pr.repo}#${pr.number} from GitHub failed: ${why}`);
     return c.json({ error: "could not read the pull request from GitHub" }, 502);
   }
-  if (files.some(isUnpatrolled)) return c.json({ ignored: "unpatrolled" });
+  if (files.some(isUnpatrolled)) {
+    // Neutral passes the required check, so an unpatrolled PR can still merge.
+    try {
+      await github.createCheckRun(pr.repo, unpatrolledCheck(pr.headSha));
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      console.error(`webhook: posting the check on ${pr.repo}#${pr.number} failed: ${why}`);
+      return c.json({ error: "could not post the check run to GitHub" }, 502);
+    }
+    return c.json({ ignored: "unpatrolled" });
+  }
 
   const runId = crypto.randomUUID();
   const names = await activeRunNames(c.env.DB, rateChange(files, config));
   await runStub(c.env, runId).start(pr, runId, triage(files, names, config));
   return c.json({ runId }, 202);
+}
+
+function unpatrolledCheck(headSha: string): CheckRunCreate {
+  const globs = config.unpatrolledGlobs.map((glob) => `\`${glob}\``).join(", ");
+  return {
+    name: CHECK_NAME,
+    head_sha: headSha,
+    status: "completed",
+    conclusion: "neutral",
+    output: {
+      title: "Not patrolled until M5",
+      summary:
+        `This PR touches Base to Base's own files (${globs}), ` +
+        "which it does not patrol until it can deploy itself (M5).",
+    },
+  };
 }

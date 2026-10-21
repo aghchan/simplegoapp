@@ -2,6 +2,7 @@ import { createExecutionContext } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { createLocalJWKSet } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { config } from "../../shared/src/config.ts";
 import { createApp } from "../src/index.ts";
 import { listRuns, runStub } from "../src/runs/index.ts";
 import { prPayload, sign, stubGitHub } from "./helpers.ts";
@@ -10,6 +11,7 @@ const app = createApp({ agentKey: createLocalJWKSet({ keys: [] }) });
 const FILES_PATH = "GET /repos/aghchan/simplegoapp/pulls/58/files";
 const DISPATCH_PATH =
   "POST /repos/aghchan/simplegoapp/actions/workflows/basetobase-agent.yml/dispatches";
+const CHECKS_PATH = "POST /repos/aghchan/simplegoapp/check-runs";
 const docsOnly = () =>
   Response.json([{ filename: "docs/BEST_PRACTICES.md", additions: 1, deletions: 1 }]);
 const PKCS1_KEY = "-----BEGIN RSA PRIVATE KEY-----\nQUJD\n-----END RSA PRIVATE KEY-----\n";
@@ -146,6 +148,40 @@ describe("POST /github/webhook", () => {
       expect(await listRuns(env.DB)).toHaveLength(1);
     });
 
+    describe("a push", () => {
+      const NEW_HEAD = "9f8e7d6c5b4a39281706f5e4d3c2b1a098765432";
+      const pushed = (sha: string) => {
+        const payload = prPayload({ action: "synchronize" });
+        (payload.pull_request as { head: { sha: string } }).head.sha = sha;
+        return payload;
+      };
+
+      it("stops the PR's run and starts a fresh sweep on the new head", async () => {
+        const first = ((await (await deliver(opened())).json()) as { runId: string }).runId;
+        const res = await deliver(pushed(NEW_HEAD));
+        expect(res.status).toBe(202);
+        const { runId } = (await res.json()) as { runId: string };
+        const runs = await listRuns(env.DB);
+        expect(Object.fromEntries(runs.map((run) => [run.id, run.status]))).toEqual({
+          [first]: "stopped",
+          [runId]: "on_the_hill",
+        });
+        expect((await runStub(env, first).view())!.log.map((line) => line.text)).toContain(
+          "stopped · superseded by 9f8e7d6",
+        );
+        expect(dispatches).toMatchObject([{ sha: "head58" }, { sha: NEW_HEAD }]);
+      });
+
+      it("to a head that already has a run is ignored, leaving the run alone", async () => {
+        await deliver(opened());
+        const res = await deliver(pushed("head58"));
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ ignored: "duplicate" });
+        expect(await listRuns(env.DB)).toMatchObject([{ status: "on_the_hill" }]);
+        expect(dispatches).toHaveLength(1);
+      });
+    });
+
     it("starts a new run when the PR is reopened after its run was stopped", async () => {
       await deliver(opened());
       await deliver(closed());
@@ -187,6 +223,43 @@ describe("POST /github/webhook", () => {
       };
       dispatches = stubGitHub({ [FILES_PATH]: listing(renamed) });
       expect(await (await deliver(opened())).json()).toEqual({ ignored: "unpatrolled" });
+      expect(await listRuns(env.DB)).toEqual([]);
+    });
+
+    // Neutral passes a required check, so branch protection lets such a PR merge.
+    it("posts one neutral check on the head, naming the unpatrolled globs", async () => {
+      const posted: Record<string, unknown>[] = [];
+      dispatches = stubGitHub({
+        [FILES_PATH]: listing(docs, { filename: "basetobase/CLAUDE.md" }),
+        [CHECKS_PATH]: async (req) => {
+          posted.push(await req.json());
+          return Response.json({ id: 9 }, { status: 201 });
+        },
+      });
+      expect(await (await deliver(opened())).json()).toEqual({ ignored: "unpatrolled" });
+      expect(posted).toEqual([
+        {
+          name: "Base to Base",
+          head_sha: "head58",
+          status: "completed",
+          conclusion: "neutral",
+          output: { title: "Not patrolled until M5", summary: expect.any(String) },
+        },
+      ]);
+      const { summary } = posted[0]!.output as { summary: string };
+      for (const glob of config.unpatrolledGlobs) expect(summary).toContain(`\`${glob}\``);
+    });
+
+    it("502 when the neutral check cannot be posted", async () => {
+      dispatches = stubGitHub({
+        [FILES_PATH]: listing({ filename: "basetobase/CLAUDE.md" }),
+        [CHECKS_PATH]: () => new Response("secret body", { status: 500 }),
+      });
+      const res = await deliver(opened());
+      expect(res.status).toBe(502);
+      expect(await res.text()).not.toContain("secret body");
+      expect(errors).toHaveBeenCalledOnce();
+      expect(String(errors.mock.calls[0]![0])).toContain("failed with status 500");
       expect(await listRuns(env.DB)).toEqual([]);
     });
 

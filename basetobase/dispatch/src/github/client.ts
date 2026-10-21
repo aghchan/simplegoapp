@@ -1,6 +1,17 @@
 import { importPKCS8, SignJWT } from "jose";
 import type { ChangedFile } from "../../../shared/src/triage.ts";
 
+// A check run as Dispatch writes it. Creating one also needs the commit: CheckRunCreate.
+export interface CheckRunBody {
+  name: string;
+  details_url?: string;
+  status: "in_progress" | "completed";
+  conclusion?: "success" | "failure" | "neutral" | "cancelled";
+  output: { title: string; summary: string };
+}
+
+export type CheckRunCreate = CheckRunBody & { head_sha: string };
+
 export interface GitHubClient {
   listPullFiles(repo: string, prNumber: number): Promise<ChangedFile[]>;
   dispatchWorkflow(
@@ -9,6 +20,9 @@ export interface GitHubClient {
     ref: string,
     inputs: Record<string, string>,
   ): Promise<void>;
+  // The new check run's id.
+  createCheckRun(repo: string, body: CheckRunCreate): Promise<number>;
+  updateCheckRun(repo: string, id: number, body: CheckRunBody): Promise<void>;
 }
 
 const DEFAULT_API_BASE = "https://api.github.com";
@@ -111,6 +125,22 @@ export function createGitHubClient(opts: {
     async dispatchWorkflow(repo, workflow, ref, inputs) {
       const path = `/repos/${repo}/actions/workflows/${workflow}/dispatches`;
       await call("POST", path, await installationToken(), { json: { ref, inputs } });
+    },
+
+    async createCheckRun(repo, body) {
+      const path = `/repos/${repo}/check-runs`;
+      const response = await call("POST", path, await installationToken(), { json: body });
+      const { id } = asRecord(await response.json().catch(() => undefined));
+      if (typeof id !== "number" || !Number.isSafeInteger(id)) {
+        throw unexpectedResponse("POST", path);
+      }
+      return id;
+    },
+
+    async updateCheckRun(repo, id, body) {
+      const path = `/repos/${repo}/check-runs/${id}`;
+      const response = await call("PATCH", path, await installationToken(), { json: body });
+      await response.body?.cancel();
     },
   };
 }

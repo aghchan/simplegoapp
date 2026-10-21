@@ -9,6 +9,8 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import {
   appManifest,
+  branchProtection,
+  CHECK_NAME,
   d1Id,
   D1_NAME,
   kvId,
@@ -81,10 +83,16 @@ async function main(): Promise<void> {
     console.log(`Install it on ${REPO} only: ${install}`);
     openBrowser(install);
     await ask("Press Enter once it is installed.");
+  } else {
+    // Setup cannot change an existing App's permissions; one made before check runs lacks this.
+    console.log(
+      "Existing App: add Checks · Read and write (App settings → Permissions), then accept it on the installation.",
+    );
   }
 
+  const gh = await has("gh", ["auth", "status"]);
   step("Repo secret and variable");
-  if (await has("gh", ["auth", "status"])) {
+  if (gh) {
     await sh("gh", ["variable", "set", "BASETOBASE_URL", "--repo", REPO, "--body", url]);
     const repoSecrets = await sh("gh", ["secret", "list", "--repo", REPO], { capture: true });
     if (!repoSecrets.includes("CLAUDE_CODE_OAUTH_TOKEN") || (await yes("Claude token is set. Replace it?"))) {
@@ -99,6 +107,14 @@ async function main(): Promise<void> {
     console.log(`gh is not signed in. At https://github.com/${REPO}/settings/secrets/actions:`);
     console.log("- secret CLAUDE_CODE_OAUTH_TOKEN = the output of `claude setup-token`");
     console.log(`- variable BASETOBASE_URL = ${url}`);
+    console.log(`At https://github.com/${REPO}/settings/branches: main requires "${CHECK_NAME}", admins too.`);
+  }
+
+  if (gh) {
+    step("Branch protection");
+    const protect = ["api", "-X", "PUT", `repos/${REPO}/branches/main/protection`, "--input", "-"];
+    await sh("gh", protect, { input: JSON.stringify(branchProtection()), capture: true });
+    console.log(`main merges only once the "${CHECK_NAME}" check passes.`);
   }
 
   step("Check");

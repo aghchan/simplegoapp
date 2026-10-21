@@ -149,8 +149,16 @@ describe("toTrigger", () => {
       prNumber: 58,
     });
   });
-  it("synchronize is ignored", () =>
-    expect(toTrigger("pull_request", prPayload({ action: "synchronize" }), ID)).toEqual({
+  it("synchronize starts, like opened", () =>
+    expect(toTrigger("pull_request", prPayload({ action: "synchronize" }), ID)).toEqual(
+      toTrigger("pull_request", prPayload(), ID),
+    ));
+  it("synchronize on a draft is ignored", () =>
+    expect(
+      toTrigger("pull_request", prPayload({ action: "synchronize", draft: true }), ID),
+    ).toEqual({ kind: "ignore", reason: "draft" }));
+  it("edited is ignored", () =>
+    expect(toTrigger("pull_request", prPayload({ action: "edited" }), ID)).toEqual({
       kind: "ignore",
       reason: "action",
     }));

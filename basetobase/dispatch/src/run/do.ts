@@ -17,8 +17,10 @@ import { announce } from "../lobby/do.ts";
 import { summaryOf, upsertRun } from "../runs/index.ts";
 import {
   briefOf,
+  checkRunOf,
   createRun,
   nextAlarm,
+  onCheckCreated,
   onDispatched,
   onEvents,
   onFailure,
@@ -47,6 +49,9 @@ export type Report = "accepted" | "forbidden" | "gone";
 
 // Owns one run: persists the machine's state, executes the effects it returns, and keeps the log.
 export class RunDO extends DurableObject<Env> {
+  // Check syncs run one at a time: two creates in flight together would post two check runs.
+  private checkSyncs: Promise<void> = Promise.resolve();
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -270,6 +275,36 @@ export class RunDO extends DurableObject<Env> {
       case "broadcast":
         this.broadcast({ type: "run", run: snapshotOf(await this.loaded()) });
         return;
+      case "check":
+        this.checkSyncs = this.checkSyncs.then(() => this.syncCheck());
+        await this.checkSyncs;
+        return;
+    }
+  }
+
+  // Sends the run's current state to its check run, creating it the first time. A failure is
+  // logged and dropped: the run goes on, and the next check effect sends the newer state.
+  private async syncCheck(): Promise<void> {
+    const state = await this.loaded();
+    const body = checkRunOf(state, this.env.PUBLIC_URL);
+    try {
+      // Built here because the factory throws on a key it cannot use.
+      const github = createGitHubClient({
+        appId: this.env.GITHUB_APP_ID,
+        privateKeyPem: this.env.GITHUB_APP_PRIVATE_KEY,
+        installationId: state.installationId,
+        fetch: (input, init) => fetch(input, init),
+        apiBase: this.env.GITHUB_API,
+      });
+      if (state.checkRunId !== undefined) {
+        await github.updateCheckRun(state.repo, state.checkRunId, body);
+        return;
+      }
+      const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
+      await this.step((s) => onCheckCreated(s, id));
+    } catch (error) {
+      // The client's messages carry a status and path only, never a token or key.
+      console.error(`check run: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

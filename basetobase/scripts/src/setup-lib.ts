@@ -5,6 +5,8 @@ export const APP_NAME = "Base to Base (aghchan)";
 export const D1_NAME = "basetobase";
 export const KV_TITLE = "basetobase-transcripts";
 export const KV_BINDING = "TRANSCRIPTS";
+// The check run Dispatch posts on every PR head (CHECK_NAME in dispatch/src/run/machine.ts).
+export const CHECK_NAME = "Base to Base";
 
 // What GitHub's manifest conversion returns (POST /app-manifests/{code}/conversions), as used here.
 export interface AppConversion {
@@ -27,11 +29,23 @@ export function appManifest(publicUrl: string, redirectUrl: string) {
     public: false,
     default_permissions: {
       actions: "write",
+      checks: "write",
       contents: "read",
       pull_requests: "read",
       metadata: "read",
     },
     default_events: ["pull_request"],
+  };
+}
+
+// The body for PUT /repos/{repo}/branches/main/protection: nothing merges into main, admins
+// included, until the Base to Base check passes. GitHub needs all four keys, null or not.
+export function branchProtection() {
+  return {
+    required_status_checks: { strict: false, checks: [{ context: CHECK_NAME }] },
+    enforce_admins: true,
+    required_pull_request_reviews: null,
+    restrictions: null,
   };
 }
 

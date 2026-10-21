@@ -316,7 +316,8 @@ the run to *Needs you*, and comments on the PR listing open hazards and
 Other events during a run **(designer's call)**:
 
 - The owner pushes to the PR → a new huddle round on the new head with the
-  30-minute clock reset.
+  30-minute clock reset. Until then (M1–M2), a push stops the run and starts
+  a fresh sweep on the new head; the huddle replaces this in M3.
 - The PR is closed → run Stopped, in-flight jobs cancelled.
 - Base branch moves → nothing during the huddle; the summit check uses the
   merge ref (§8). If the PR no longer merges cleanly (GitHub produces no
@@ -565,7 +566,9 @@ The rating is display-only in v1. It does not change the panel or models
   - installation tokens minted in the Worker, signing the JWT with WebCrypto
 - **Check run:** Dispatch posts a *Base to Base* check run on the PR head
   that mirrors the run state, so GitHub's own UI shows it
-  **(designer's call)**. It doesn't change branch protection.
+  **(designer's call)**. Branch protection on main requires it **(owner)**:
+  a failed or errored review blocks merge. An unpatrolled PR (§8) gets a
+  neutral check, which passes.
 - **Idempotency:** dedupe webhook deliveries by delivery id, and agent posts
   by (job, sequence).
 
@@ -695,6 +698,9 @@ with exact click-paths, at the milestone that first needs each one:
   - its private key and webhook secret stored as Worker secrets
   - a GitHub OAuth app (or the GitHub App's own user auth) for dashboard
     sign-in
+  - Checks · Read and write, and branch protection on main requiring the
+    *Base to Base* check: `npm run setup` sets both (an existing App gets
+    the permission by hand, accepted on the installation)
 - **Claude token:** `claude setup-token`, stored as the
   `CLAUDE_CODE_OAUTH_TOKEN` secret in each watched repo.
 - **Render and Neon:**

@@ -2,6 +2,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   appManifest,
+  branchProtection,
   d1Id,
   KV_BINDING,
   kvId,
@@ -73,6 +74,7 @@ describe("appManifest", () => {
     expect(m.redirect_url).toBe("http://127.0.0.1:5000/callback");
     expect(m.default_permissions).toEqual({
       actions: "write",
+      checks: "write",
       contents: "read",
       pull_requests: "read",
       metadata: "read",
@@ -80,6 +82,14 @@ describe("appManifest", () => {
     expect(m.default_events).toEqual(["pull_request"]);
     expect(m.public).toBe(false);
   });
+});
+
+describe("branchProtection", () => {
+  it("requires the Base to Base check on main, for admins too", () =>
+    expect(JSON.stringify(branchProtection())).toBe(
+      '{"required_status_checks":{"strict":false,"checks":[{"context":"Base to Base"}]},' +
+        '"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null}',
+    ));
 });
 
 describe("manifestPage", () => {

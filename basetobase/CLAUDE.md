@@ -12,6 +12,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 - Dependency changes: `npx -y npm@11 install …`. npm 10 crashes on vitest 4.1 and churns lockfile libc entries.
 - Transcripts: Workers KV (`TRANSCRIPTS`, 30-day TTL), key `runs/{run}/{agent}.jsonl`. Eventually consistent: a fresh upload can 404 elsewhere for ~60 s.
 - `unpatrolledGlobs` (config/basetobase.json): PRs touching Base to Base's own files aren't patrolled until M5. The webhook answers `{"ignored":"unpatrolled"}`.
+- Review gate: main requires check run *Base to Base* on the PR head (`checkRunOf`, machine.ts). Hazards or a failed agent fail it; unpatrolled PRs get neutral; a push supersedes the PR's active run.
 - `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`), mounted by `createApp(deps)` in `dispatch/src/index.ts`.
 - Bodies via `readBody`/`readJsonObject` (size-bounded). Refusals via `reject` (`routes/request.ts`).
 - Credentials: `agent` (OIDC) and `api` (session cookie) in sub-app middleware; `github` checks the HMAC in its handler; `auth` is sign-in.

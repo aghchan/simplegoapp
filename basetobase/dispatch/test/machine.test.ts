@@ -13,8 +13,10 @@ import {
   AGENT_TIMEOUT_MS,
   STALL_MS,
   briefOf,
+  checkRunOf,
   createRun,
   nextAlarm,
+  onCheckCreated,
   onDispatched,
   onEvents,
   onFailure,
@@ -155,6 +157,7 @@ describe("createRun", () => {
       { type: "index" },
       { type: "dispatch", agentId: "mainline-sweep-0" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -285,6 +288,7 @@ describe("createRun", () => {
       { type: "dispatch", agentId: GRANITE },
       { type: "dispatch", agentId: KT },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -326,6 +330,7 @@ describe("createRun", () => {
       { type: "log", text: "run created · Red Dog Face" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -335,7 +340,7 @@ describe("createRun", () => {
     const { state, effects } = createRun(pr, "r1", t, cfg, CREATED_AT, counter());
     expect(state.status).toBe("swept");
     expect(stepOf(state, "sweep").status).toBe("done");
-    expect(effectTypes(effects)).toEqual(["log", "index", "broadcast"]);
+    expect(effectTypes(effects)).toEqual(["log", "index", "broadcast", "check"]);
   });
 });
 
@@ -417,11 +422,12 @@ describe("onVerdict", () => {
     expect(effects).toContainEqual({ type: "log", text: "all 1 sweeps in · 0 hazards" });
   });
 
-  it("logs, indexes and broadcasts the sweep, in that order", () =>
+  it("logs, indexes and broadcasts the sweep, then mirrors it to the check run", () =>
     expect(onVerdict(runningRun(), ID, clearVerdict, 2000).effects).toEqual([
       { type: "log", text: "all 1 sweeps in · 0 hazards" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]));
 
   it("records a clear verdict on the agent", () => {
@@ -469,6 +475,7 @@ describe("onVerdict", () => {
       { type: "log", text: "all 2 sweeps in · 3 hazards" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -492,6 +499,7 @@ describe("onFailure", () => {
       { type: "log", text: "all 1 sweeps in · 0 hazards · 1 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -504,6 +512,7 @@ describe("onFailure", () => {
       { type: "log", text: "all 1 sweeps in · 0 hazards · 1 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -525,6 +534,7 @@ describe("onFailure", () => {
       { type: "log", text: "all 2 sweeps in · 1 hazards · 1 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -640,6 +650,7 @@ describe("watchdog", () => {
       { type: "log", text: "all 1 sweeps in · 0 hazards · 1 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -679,6 +690,7 @@ describe("watchdog", () => {
       { type: "log", text: "all 1 sweeps in · 0 hazards · 1 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -720,6 +732,7 @@ describe("watchdog", () => {
       { type: "log", text: "all 2 sweeps in · 0 hazards · 2 failed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -754,11 +767,12 @@ describe("stopRun", () => {
     expect(state.updatedAt).toBe(1500);
   });
 
-  it("logs the reason, then indexes and broadcasts", () =>
+  it("logs the reason, then indexes, broadcasts and mirrors it to the check run", () =>
     expect(stopRun(runningRun(), "PR closed", 1500).effects).toEqual([
       { type: "log", text: "stopped · PR closed" },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ]));
 
   it("leaves finished and upcoming steps as they were", () => {
@@ -1064,10 +1078,18 @@ describe("snapshotOf", () => {
     "nonces",
     "agentNames",
     "stalledLogged",
+    "checkRunId",
   ];
 
   it("snapshot hides nonces", () =>
     expect(snapshotOf(created().state)).not.toHaveProperty("nonces"));
+
+  it("hides the check run id", () => {
+    const s = onCheckCreated(runningRun(), 501).state;
+    expect(snapshotOf(s)).not.toHaveProperty("checkRunId");
+    const publicFields = Object.entries(s).filter(([key]) => !PRIVATE_FIELDS.includes(key));
+    expect(snapshotOf(s)).toEqual(Object.fromEntries(publicFields));
+  });
 
   it("carries exactly the run snapshot fields", () =>
     expect(Object.keys(snapshotOf(created().state)).sort()).toEqual([
@@ -1099,6 +1121,142 @@ describe("snapshotOf", () => {
     const sentinel = "nonce-sentinel-9f2c";
     const s = createRun(pr, "r1", t, config, CREATED_AT, () => sentinel).state;
     expect(JSON.stringify(snapshotOf(s))).not.toContain(sentinel);
+  });
+});
+
+describe("the check run", () => {
+  const PUBLIC = "https://b2b.example";
+  const DETAILS = `${PUBLIC}/runs/r1`;
+  const LINK = `[Open Red Dog Face on the dashboard](${DETAILS})`;
+  const checkOf = (s: RunState) => checkRunOf(s, PUBLIC);
+  const swept = (granite: Outcome, kt: Outcome): RunState =>
+    report(report(patrolRun(), "granite-chief", granite, 2000).state, "kt-22", kt, 2500).state;
+
+  it("is in progress while the run is on the hill", () =>
+    expect(checkOf(patrolRun())).toEqual({
+      name: "Base to Base",
+      details_url: DETAILS,
+      status: "in_progress",
+      output: {
+        title: "Red Dog Face · patrol sweep",
+        summary: `0 of 2 patrollers in · 0 hazards · 0 failed\n\n${LINK}`,
+      },
+    }));
+
+  it.each<[Outcome, Outcome, "success" | "failure", string]>([
+    ["clear", "clear", "success", "All clear"],
+    ["hazards", "clear", "failure", "2 hazards flagged"],
+    ["hazards", "hazards", "failure", "4 hazards flagged"],
+    ["failed", "clear", "failure", "Granite Chief failed: boom"],
+    ["clear", "failed", "failure", "KT-22 failed: boom"],
+    ["failed", "failed", "failure", "Granite Chief failed: boom"],
+    ["failed", "hazards", "failure", "2 hazards flagged"],
+  ])("a sweep that ends %s, %s concludes %s: %s", (granite, kt, conclusion, title) => {
+    const check = checkOf(swept(granite, kt));
+    expect(check).toMatchObject({ status: "completed", conclusion, output: { title } });
+    expect(check.details_url).toBe(DETAILS);
+  });
+
+  it("counts a single hazard in the singular", () => {
+    const s = onVerdict(runningRun(), ID, verdictFor("mainline", 1), 2000).state;
+    expect(checkOf(s).output.title).toBe("1 hazard flagged");
+  });
+
+  it("names a patroller that timed out", () => {
+    const s = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS).state;
+    expect(checkOf(s)).toMatchObject({
+      conclusion: "failure",
+      output: { title: "Mainline failed: timed out" },
+    });
+  });
+
+  // Hand-built, as in "an agent that is stopped": a sweep closed around a stopped agent.
+  it("fails a sweep that closed around a stopped patroller", () => {
+    const s = patrolRun();
+    const agents = s.agents.map((a) =>
+      a.id === GRANITE ? { ...a, status: "stopped" as const, summary: "stopped · lost" } : a,
+    );
+    const closed = onVerdict({ ...s, agents }, KT, verdictFor("kt-22"), 2000).state;
+    expect(closed.status).toBe("swept");
+    expect(checkOf(closed)).toMatchObject({
+      conclusion: "failure",
+      output: { title: "Granite Chief failed: stopped · lost" },
+    });
+  });
+
+  it("is cancelled when the run is stopped", () =>
+    expect(checkOf(stopRun(runningRun(), "PR closed", 1500).state)).toMatchObject({
+      status: "completed",
+      conclusion: "cancelled",
+      output: { title: "Stopped" },
+    }));
+
+  it("passes a run with no patroller to wait for", () => {
+    const { state } = createRun(pr, "r1", { ...t, panels: [] }, config, CREATED_AT, counter());
+    expect(checkOf(state)).toMatchObject({ conclusion: "success", output: { title: "All clear" } });
+  });
+
+  it("fails a failed run", () =>
+    expect(checkOf({ ...swept("clear", "clear"), status: "failed" })).toMatchObject({
+      status: "completed",
+      conclusion: "failure",
+    }));
+
+  it("summarizes the Conditions report, then each hazard, then links the dashboard", () =>
+    expect(checkOf(swept("hazards", "failed")).output.summary).toBe(
+      [
+        "2 of 2 patrollers in · 2 hazards · 1 failed",
+        "Granite Chief: 2 found.",
+        "KT-22: boom",
+        "**GOAL-1** Hazard 1 — Granite Chief",
+        "**GOAL-2** Hazard 2 — Granite Chief",
+        LINK,
+      ].join("\n\n"),
+    ));
+
+  it("caps the summary at 60 000 characters, keeping the link", () => {
+    const verdict = verdictFor("mainline", 1);
+    const long = { ...verdict, hazards: [{ ...verdict.hazards[0]!, title: "x".repeat(70_000) }] };
+    const { summary } = checkOf(onVerdict(runningRun(), ID, long, 2000).state).output;
+    expect(summary.length).toBeLessThanOrEqual(60_000);
+    expect(summary.endsWith(`…\n\n${LINK}`)).toBe(true);
+  });
+
+  it("is mirrored on every change of run status, and only then", () => {
+    const mirrored = (transition: Transition) => effectTypes(transition.effects).includes("check");
+    expect(mirrored(created())).toBe(true);
+    expect(mirrored(onVerdict(runningRun(), ID, clearVerdict, 2000))).toBe(true);
+    expect(mirrored(onFailure(runningRun(), ID, "boom", 2000))).toBe(true);
+    expect(mirrored(onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS))).toBe(true);
+    expect(mirrored(stopRun(runningRun(), "PR closed", 1500))).toBe(true);
+
+    expect(mirrored(onDispatched(created().state, ID, DISPATCHED_AT))).toBe(false);
+    expect(mirrored(onEvents(dispatchedRun(), ID, 2, 1500, URL_1))).toBe(false);
+    expect(mirrored(onTick(dispatchedRun(), DISPATCHED_AT + STALL_MS))).toBe(false);
+    expect(mirrored(onTranscript(runningRun(), ID))).toBe(false);
+    expect(mirrored(onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000))).toBe(
+      false,
+    );
+    expect(mirrored(onFailure(patrolRun(), GRANITE, "boom", 2000))).toBe(false);
+  });
+
+  describe("onCheckCreated", () => {
+    it("keeps the id on the run, changing nothing else", () => {
+      const before = runningRun();
+      const { state, effects } = onCheckCreated(before, 501);
+      expect(state).toEqual({ ...before, checkRunId: 501 });
+      expect(effects).toEqual([]);
+    });
+
+    it("keeps the first id", () => {
+      const s = onCheckCreated(runningRun(), 501).state;
+      expectUnchanged(s, onCheckCreated(s, 502));
+    });
+
+    it("keeps the id of a run that has ended", () => {
+      const stopped = stopRun(runningRun(), "PR closed", 1500).state;
+      expect(onCheckCreated(stopped, 501).state.checkRunId).toBe(501);
+    });
   });
 });
 
@@ -1200,6 +1358,7 @@ describe("purity", () => {
       s = onVerdict(s, GRANITE, verdictFor("granite-chief", 1), 2000).state;
       nextAlarm(s);
       briefOf(s, KT, PATROL);
+      checkRunOf(s, "https://b2b.example");
       const stopped = stopRun(s, "PR closed", 2200).state;
       s = onFailure(s, KT, "boom", 2500).state;
       return [snapshotOf(s), snapshotOf(stopped)];
