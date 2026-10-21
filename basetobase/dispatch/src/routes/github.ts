@@ -59,9 +59,6 @@ function isUnpatrolled(file: ChangedFile): boolean {
 async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response> {
   const active = await findActiveRuns(c.env.DB, pr.repo, pr.number);
   if (active.some((run) => run.headSha === pr.headSha)) return c.json({ ignored: "duplicate" });
-  // Their head is no longer what would merge. Until the huddle (M3), a push means a fresh sweep.
-  const superseded = `superseded by ${pr.headSha.slice(0, 7)}`;
-  await Promise.all(active.map((run) => runStub(c.env, run.id).stop(superseded)));
 
   let github: GitHubClient;
   let files: ChangedFile[];
@@ -74,6 +71,11 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
       fetch: (input, init) => fetch(input, init),
       apiBase: c.env.GITHUB_API,
     });
+    // GitHub does not deliver in order: a late event's head may be one the PR has moved past.
+    // Read before anything is stopped, so a stale event changes nothing.
+    if ((await github.pullHeadSha(pr.repo, pr.number)) !== pr.headSha) {
+      return c.json({ ignored: "stale" });
+    }
     files = await github.listPullFiles(pr.repo, pr.number);
   } catch (error) {
     // The client's messages carry a status and path only, never a token or key.
@@ -81,6 +83,9 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
     console.error(`webhook: reading ${pr.repo}#${pr.number} from GitHub failed: ${why}`);
     return c.json({ error: "could not read the pull request from GitHub" }, 502);
   }
+  // Their head is no longer what would merge. Until the huddle (M3), a push means a fresh sweep.
+  const superseded = `superseded by ${pr.headSha.slice(0, 7)}`;
+  await Promise.all(active.map((run) => runStub(c.env, run.id).stop(superseded)));
   if (files.some(isUnpatrolled)) {
     // Neutral passes the required check, so an unpatrolled PR can still merge.
     try {

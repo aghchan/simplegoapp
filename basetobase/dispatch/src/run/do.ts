@@ -36,7 +36,8 @@ import {
 
 const STATE_KEY = "state";
 const INDEX_PENDING_KEY = "indexPending";
-const INDEX_RETRY_MS = 60_000;
+const CHECK_PENDING_KEY = "checkPending";
+const RETRY_MS = 60_000;
 const LOG_TEXT_MAX = 2000;
 const SNAPSHOT_LOG_LINES = 500;
 
@@ -143,7 +144,7 @@ export class RunDO extends DurableObject<Env> {
   }
 
   async view(): Promise<{ run: RunSnapshot; log: LogLine[] } | null> {
-    await this.retryIndex();
+    await this.retryPending();
     const state = await this.load();
     return state ? { run: snapshotOf(state), log: this.recentLog() } : null;
   }
@@ -152,7 +153,7 @@ export class RunDO extends DurableObject<Env> {
     if (req.headers.get("Upgrade") !== "websocket") {
       return new Response("expected a websocket upgrade", { status: 426 });
     }
-    await this.retryIndex();
+    await this.retryPending();
     const state = await this.load();
     if (!state) return new Response("no such run", { status: 404 });
     const { 0: client, 1: server } = new WebSocketPair();
@@ -196,7 +197,7 @@ export class RunDO extends DurableObject<Env> {
   // The run, if the caller is the agent and the run still wants its reports.
   private async admit(agentId: string, nonce: string): Promise<RunState | "forbidden" | "gone"> {
     if (!(await this.authorize(agentId, nonce))) return "forbidden";
-    await this.retryIndex();
+    await this.retryPending();
     // Reread: a stop may have landed while the nonce check or the index write awaited.
     const state = await this.loaded();
     return acceptsReports(state, agentId) ? state : "gone";
@@ -205,7 +206,7 @@ export class RunDO extends DurableObject<Env> {
   // Applies one machine step to the stored state. It rereads first: anything that awaited I/O
   // since the caller last looked (a dispatch call, a D1 write) may have changed the run.
   private async step(next: (state: RunState, now: number) => Transition): Promise<void> {
-    await this.retryIndex();
+    await this.retryPending();
     const state = await this.load();
     if (!state) return;
     const transition = next(state, Date.now());
@@ -219,11 +220,13 @@ export class RunDO extends DurableObject<Env> {
     for (const effect of effects) await this.execute(effect);
   }
 
-  // The machine's next deadline, pulled in to the retry delay while an index write is outstanding.
+  // The machine's next deadline, pulled in to the retry delay while an index or check write is
+  // outstanding.
   private async arm(state: RunState): Promise<void> {
-    const retryAt = (await this.ctx.storage.get(INDEX_PENDING_KEY))
-      ? Date.now() + INDEX_RETRY_MS
-      : null;
+    const pending =
+      (await this.ctx.storage.get(INDEX_PENDING_KEY)) ||
+      (await this.ctx.storage.get(CHECK_PENDING_KEY));
+    const retryAt = pending ? Date.now() + RETRY_MS : null;
     const times = [nextAlarm(state), retryAt].filter((time) => time !== null);
     if (times.length === 0) await this.ctx.storage.deleteAlarm();
     else await this.ctx.storage.setAlarm(Math.min(...times));
@@ -253,6 +256,26 @@ export class RunDO extends DurableObject<Env> {
     if (await this.ctx.storage.get(INDEX_PENDING_KEY)) await this.index();
   }
 
+  private async retryPending(): Promise<void> {
+    await this.retryIndex();
+    await this.retryCheck();
+  }
+
+  // Rechecked when its turn comes: a sync queued ahead of it may already have sent the state.
+  private async retryCheck(): Promise<void> {
+    if (!(await this.ctx.storage.get(CHECK_PENDING_KEY))) return;
+    await this.queueCheck(async () => {
+      if (await this.ctx.storage.get(CHECK_PENDING_KEY)) await this.syncCheck();
+    });
+  }
+
+  private queueCheck(task: () => Promise<void>): Promise<void> {
+    const done = this.checkSyncs.then(task);
+    // A task that throws must not stall the ones queued behind it.
+    this.checkSyncs = done.catch(() => {});
+    return done;
+  }
+
   private async execute(effect: Effect): Promise<void> {
     switch (effect.type) {
       case "dispatch":
@@ -276,18 +299,19 @@ export class RunDO extends DurableObject<Env> {
         this.broadcast({ type: "run", run: snapshotOf(await this.loaded()) });
         return;
       case "check":
-        this.checkSyncs = this.checkSyncs.then(() => this.syncCheck());
-        await this.checkSyncs;
+        await this.queueCheck(() => this.syncCheck());
         return;
     }
   }
 
-  // Sends the run's current state to its check run, creating it the first time. A failure is
-  // logged and dropped: the run goes on, and the next check effect sends the newer state.
+  // Sends the run's current state to its check run, creating it the first time. Like the index, a
+  // failed write is logged and remembered, and the alarm or the next call into the run retries it:
+  // the last change of a run has no later check effect to send it.
   private async syncCheck(): Promise<void> {
-    const state = await this.loaded();
-    const body = checkRunOf(state, this.env.PUBLIC_URL);
+    await this.ctx.storage.delete(CHECK_PENDING_KEY);
     try {
+      const state = await this.loaded();
+      const body = checkRunOf(state, this.env.PUBLIC_URL);
       // Built here because the factory throws on a key it cannot use.
       const github = createGitHubClient({
         appId: this.env.GITHUB_APP_ID,
@@ -298,14 +322,17 @@ export class RunDO extends DurableObject<Env> {
       });
       if (state.checkRunId !== undefined) {
         await github.updateCheckRun(state.repo, state.checkRunId, body);
-        return;
+      } else {
+        const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
+        // Not through step(): it retries a pending check, which would wait on this queue.
+        await this.ctx.storage.put(STATE_KEY, onCheckCreated(await this.loaded(), id).state);
       }
-      const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
-      await this.step((s) => onCheckCreated(s, id));
     } catch (error) {
       // The client's messages carry a status and path only, never a token or key.
       console.error(`check run: ${error instanceof Error ? error.message : String(error)}`);
+      await this.ctx.storage.put(CHECK_PENDING_KEY, true);
     }
+    await this.arm(await this.loaded());
   }
 
   private async dispatch(agentId: string): Promise<void> {

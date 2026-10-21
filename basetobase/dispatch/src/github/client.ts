@@ -14,6 +14,7 @@ export type CheckRunCreate = CheckRunBody & { head_sha: string };
 
 export interface GitHubClient {
   listPullFiles(repo: string, prNumber: number): Promise<ChangedFile[]>;
+  pullHeadSha(repo: string, prNumber: number): Promise<string>;
   dispatchWorkflow(
     repo: string,
     workflow: string,
@@ -120,6 +121,14 @@ export function createGitHubClient(opts: {
         }
         if (entries.length < FILES_PER_PAGE) return files;
       }
+    },
+
+    async pullHeadSha(repo, prNumber) {
+      const path = `/repos/${repo}/pulls/${prNumber}`;
+      const response = await call("GET", path, await installationToken());
+      const { sha } = asRecord(asRecord(await response.json().catch(() => undefined)).head);
+      if (typeof sha !== "string" || sha === "") throw unexpectedResponse("GET", path);
+      return sha;
     },
 
     async dispatchWorkflow(repo, workflow, ref, inputs) {

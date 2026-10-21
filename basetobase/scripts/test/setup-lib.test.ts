@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  appIdFrom,
   appManifest,
   branchProtection,
   d1Id,
@@ -85,11 +86,24 @@ describe("appManifest", () => {
 });
 
 describe("branchProtection", () => {
-  it("requires the Base to Base check on main, for admins too", () =>
-    expect(JSON.stringify(branchProtection())).toBe(
-      '{"required_status_checks":{"strict":false,"checks":[{"context":"Base to Base"}]},' +
+  it("requires the Base to Base check from the App on main, for admins too", () =>
+    expect(JSON.stringify(branchProtection(123))).toBe(
+      '{"required_status_checks":{"strict":false,' +
+        '"checks":[{"context":"Base to Base","app_id":123}]},' +
         '"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null}',
     ));
+});
+
+describe("appIdFrom", () => {
+  it.each([
+    ["123", 123],
+    [" 4567 \n", 4567],
+  ])("reads %j as %i", (input, id) => expect(appIdFrom(input)).toBe(id));
+
+  it.each(["", "abc", "12a", "-5", "1.5", "1e3", "0", "9".repeat(20)])(
+    "refuses %j",
+    (input) => expect(appIdFrom(input)).toBeUndefined(),
+  );
 });
 
 describe("manifestPage", () => {

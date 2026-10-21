@@ -628,8 +628,8 @@ describe("RunDO", () => {
     it("keeps retrying a failing first write, then returns to the machine's deadline", async () => {
       const id = `r${++runCount}`;
       const stub = runStub(env, id);
-      // The first write, then its retries when the dispatch result and the check run's id come in.
-      await failIndexWrites(stub, 3);
+      // The first write, then its retry when the dispatch result comes in.
+      await failIndexWrites(stub, 2);
       await stub.start(prRef(), id, triage);
       expect(await listRuns(env.DB)).toEqual([]);
       const pending = await storedState(stub);
@@ -706,9 +706,9 @@ describe("RunDO", () => {
       expect((await stub.view())!.run).not.toHaveProperty("checkRunId");
     });
 
-    it("logs a refused create, carries on, and creates it with the next change", async () => {
+    it("logs a refused create, carries on, and retries it with the next call", async () => {
       checkReply = () => new Response("leaky response body", { status: 500 });
-      const { stub, nonce, snapshot } = await startRun();
+      const { stub, snapshot } = await startRun();
       expect(snapshot.agents[0]?.status).toBe("dispatched");
       expect(await storedCheckId(stub)).toBeUndefined();
       expect(consoleError).toHaveBeenCalledOnce();
@@ -718,12 +718,51 @@ describe("RunDO", () => {
       expect(logged).not.toContain("installation-token");
 
       checkReply = acceptCheck;
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("accepted");
-      expect(checks.at(-1)).toMatchObject({
+      await stub.view();
+      expect(checks).toHaveLength(2);
+      expect(checks[1]).toMatchObject({
         method: "POST",
-        body: { head_sha: "head58", status: "completed", conclusion: "success" },
+        body: { head_sha: "head58", status: "in_progress" },
       });
       expect(await storedCheckId(stub)).toBe(CHECK_ID);
+    });
+
+    it("retries a refused final update on the alarm, so the check completes", async () => {
+      const { stub, nonce } = await startRun();
+      let refusals = 1;
+      checkReply = (method) => {
+        if (method === "PATCH" && refusals-- > 0) return new Response(null, { status: 502 });
+        return acceptCheck(method);
+      };
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH"]);
+      const { alarm } = await storedState(stub);
+      expect(alarm).not.toBeNull();
+      expect(alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+
+      expect(await runDurableObjectAlarm(stub)).toBe(true);
+      expect(checks).toHaveLength(3);
+      expect(checks[2]).toMatchObject({
+        method: "PATCH",
+        body: { status: "completed", conclusion: "success" },
+      });
+      expect((await storedState(stub)).alarm).toBeNull();
+    });
+
+    it("keeps retrying a refused update until GitHub takes it", async () => {
+      const { stub, nonce } = await startRun();
+      let refusals = 2;
+      checkReply = (method) => {
+        if (method === "PATCH" && refusals-- > 0) return new Response(null, { status: 502 });
+        return acceptCheck(method);
+      };
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await runDurableObjectAlarm(stub);
+      expect((await storedState(stub)).alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+      await runDurableObjectAlarm(stub);
+      expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH", "PATCH", "PATCH"]);
+      expect(checks.at(-1)).toMatchObject({ body: { conclusion: "success" } });
+      expect((await storedState(stub)).alarm).toBeNull();
     });
 
     it("logs a refused update and carries on", async () => {

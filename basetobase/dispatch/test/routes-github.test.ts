@@ -12,6 +12,7 @@ const FILES_PATH = "GET /repos/aghchan/simplegoapp/pulls/58/files";
 const DISPATCH_PATH =
   "POST /repos/aghchan/simplegoapp/actions/workflows/basetobase-agent.yml/dispatches";
 const CHECKS_PATH = "POST /repos/aghchan/simplegoapp/check-runs";
+const PULL_PATH = "GET /repos/aghchan/simplegoapp/pulls/58";
 const docsOnly = () =>
   Response.json([{ filename: "docs/BEST_PRACTICES.md", additions: 1, deletions: 1 }]);
 const PKCS1_KEY = "-----BEGIN RSA PRIVATE KEY-----\nQUJD\n-----END RSA PRIVATE KEY-----\n";
@@ -127,7 +128,10 @@ describe("POST /github/webhook", () => {
       await deliver(opened());
       const other = prPayload();
       (other.pull_request as { number: number }).number = 59;
-      dispatches = stubGitHub({ "GET /repos/aghchan/simplegoapp/pulls/59/files": docsOnly });
+      dispatches = stubGitHub({
+        "GET /repos/aghchan/simplegoapp/pulls/59": () => Response.json({ head: { sha: "head58" } }),
+        "GET /repos/aghchan/simplegoapp/pulls/59/files": docsOnly,
+      });
       await deliver(other);
       const names = (await listRuns(env.DB)).map((run) => run.runName).sort();
       expect(names).toEqual(["Easy Slider", "Ramp Run"]);
@@ -150,14 +154,26 @@ describe("POST /github/webhook", () => {
 
     describe("a push", () => {
       const NEW_HEAD = "9f8e7d6c5b4a39281706f5e4d3c2b1a098765432";
+      const NEWER_HEAD = "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d";
       const pushed = (sha: string) => {
         const payload = prPayload({ action: "synchronize" });
         (payload.pull_request as { head: { sha: string } }).head.sha = sha;
         return payload;
       };
+      // GitHub's view of the PR: its head when the webhook reads it.
+      let current: string;
+
+      beforeEach(() => {
+        current = "head58";
+        dispatches = stubGitHub({
+          [FILES_PATH]: docsOnly,
+          [PULL_PATH]: () => Response.json({ head: { sha: current } }),
+        });
+      });
 
       it("stops the PR's run and starts a fresh sweep on the new head", async () => {
         const first = ((await (await deliver(opened())).json()) as { runId: string }).runId;
+        current = NEW_HEAD;
         const res = await deliver(pushed(NEW_HEAD));
         expect(res.status).toBe(202);
         const { runId } = (await res.json()) as { runId: string };
@@ -179,6 +195,27 @@ describe("POST /github/webhook", () => {
         expect(await res.json()).toEqual({ ignored: "duplicate" });
         expect(await listRuns(env.DB)).toMatchObject([{ status: "on_the_hill" }]);
         expect(dispatches).toHaveLength(1);
+      });
+
+      it("delivered after a newer one starts nothing and stops nothing", async () => {
+        await deliver(opened());
+        current = NEWER_HEAD;
+        const newer = (await (await deliver(pushed(NEWER_HEAD))).json()) as { runId: string };
+        const before = await listRuns(env.DB);
+
+        const res = await deliver(pushed(NEW_HEAD));
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ ignored: "stale" });
+        expect(await listRuns(env.DB)).toEqual(before);
+        expect(before.find((run) => run.id === newer.runId)?.status).toBe("on_the_hill");
+        expect(dispatches.map((inputs) => inputs.sha)).toEqual(["head58", NEWER_HEAD]);
+      });
+
+      it("ignores an opened whose head the PR has already moved past", async () => {
+        current = NEW_HEAD;
+        expect(await (await deliver(opened())).json()).toEqual({ ignored: "stale" });
+        expect(await listRuns(env.DB)).toEqual([]);
+        expect(dispatches).toEqual([]);
       });
     });
 
@@ -361,6 +398,22 @@ describe("POST /github/webhook", () => {
       const text = await res.text();
       expect(text).not.toContain("secret body");
       expect(errors).toHaveBeenCalledOnce();
+    });
+
+    it("502 for a push whose PR cannot be read, leaving the run alone", async () => {
+      await deliver(opened());
+      dispatches = stubGitHub({
+        [FILES_PATH]: docsOnly,
+        [PULL_PATH]: () => new Response("secret body", { status: 500 }),
+      });
+      const push = prPayload({ action: "synchronize" });
+      (push.pull_request as { head: { sha: string } }).head.sha = "head59";
+      const res = await deliver(push);
+      expect(res.status).toBe(502);
+      expect(await res.text()).not.toContain("secret body");
+      expect(errors).toHaveBeenCalledOnce();
+      expect(await listRuns(env.DB)).toMatchObject([{ status: "on_the_hill" }]);
+      expect(dispatches).toEqual([]);
     });
 
     it("502 without a run when the app key cannot be used", async () => {

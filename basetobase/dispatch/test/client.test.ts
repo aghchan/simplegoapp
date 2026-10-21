@@ -155,6 +155,36 @@ describe("pull request files", () => {
   });
 });
 
+describe("pull request head", () => {
+  const PULL_PATH = `/repos/${REPO}/pulls/58`;
+
+  it("pullHeadSha reads the PR's current head", async () => {
+    const { f, client } = setup({
+      [`GET ${PULL_PATH}`]: () => Response.json({ number: 58, head: { sha: "head59" } }),
+    });
+    expect(await client.pullHeadSha(REPO, 58)).toBe("head59");
+    expect(callsTo(f, PULL_PATH)[0]!.headers.get("authorization")).toBe(
+      `Bearer ${INSTALLATION_TOKEN}`,
+    );
+  });
+
+  it.each([
+    ["no head", { number: 58 }],
+    ["a head without a sha", { head: {} }],
+    ["an empty sha", { head: { sha: "" } }],
+  ])("throws on a response with %s", async (_label, reply) => {
+    const { client } = setup({ [`GET ${PULL_PATH}`]: () => Response.json(reply) });
+    const error = await rejection(client.pullHeadSha(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${PULL_PATH} returned an unexpected response`);
+  });
+
+  it("throws with the status when GitHub refuses", async () => {
+    const { client } = setup({ [`GET ${PULL_PATH}`]: () => new Response("nope", { status: 404 }) });
+    const error = await rejection(client.pullHeadSha(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${PULL_PATH} failed with status 404`);
+  });
+});
+
 describe("workflow dispatch", () => {
   it("dispatchWorkflow posts ref and inputs", async () => {
     const { f, client } = setup({ [`POST ${DISPATCH_PATH}`]: noContent });
