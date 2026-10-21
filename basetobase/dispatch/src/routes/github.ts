@@ -81,7 +81,7 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
     // The client's messages carry a status and path only, never a token or key.
     const why = error instanceof Error ? error.message : String(error);
     console.error(`webhook: reading ${pr.repo}#${pr.number} from GitHub failed: ${why}`);
-    return c.json({ error: "could not read the pull request from GitHub" }, 502);
+    return c.json({ error: "could not read the pull request from GitHub", ...githubStatus(why) }, 502);
   }
   // Their head is no longer what would merge. Until the huddle (M3), a push means a fresh sweep.
   const superseded = `superseded by ${pr.headSha.slice(0, 7)}`;
@@ -93,7 +93,7 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
     } catch (error) {
       const why = error instanceof Error ? error.message : String(error);
       console.error(`webhook: posting the check on ${pr.repo}#${pr.number} failed: ${why}`);
-      return c.json({ error: "could not post the check run to GitHub" }, 502);
+      return c.json({ error: "could not post the check run to GitHub", ...githubStatus(why) }, 502);
     }
     return c.json({ ignored: "unpatrolled" });
   }
@@ -102,6 +102,13 @@ async function startRun(c: WebhookContext, pr: PullRequestRef): Promise<Response
   const names = await activeRunNames(c.env.DB, rateChange(files, config));
   await runStub(c.env, runId).start(pr, runId, triage(files, names, config));
   return c.json({ runId }, 202);
+}
+
+// GitHub's answer, for the delivery log: 403 means a permission the App lacks. The status alone,
+// never the message, which could quote more than the client's status-and-path rule allows.
+function githubStatus(why: string): { github_status?: number } {
+  const status = /failed with status (\d{3})\b/.exec(why)?.[1];
+  return status ? { github_status: Number(status) } : {};
 }
 
 function unpatrolledCheck(headSha: string): CheckRunCreate {
