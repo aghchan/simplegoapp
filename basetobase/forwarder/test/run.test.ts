@@ -237,6 +237,22 @@ describe("runAgent", () => {
     );
   });
 
+  it("writes the brief, claude's stderr and the outcome to the job log", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
+    await run("valid", { FAKE_STDERR: "Invalid API key", FAKE_EXIT: "1" });
+    expect(logs[0]).toMatch(/^brief: Mainline reviewing \S+$/);
+    expect(errors).toContain("claude: Invalid API key");
+    expect(logs).toContain("reported: failure · claude exited 1");
+  });
+
+  it("logs the verdict status once reported", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
+    await run("valid");
+    expect(logs.at(-1)).toMatch(/^reported: verdict (clear|hazards)$/);
+  });
+
   it("parses a JSON line that arrives in two chunks", async () => {
     const whole = await run("valid");
     const split = await run("valid", { FAKE_SPLIT: "1" });

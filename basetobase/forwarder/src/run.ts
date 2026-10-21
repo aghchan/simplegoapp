@@ -69,6 +69,7 @@ export async function runAgent(o: {
     warn("fetching the brief failed", error);
     return 1;
   }
+  console.log(`brief: ${brief.name} reviewing ${brief.headSha.slice(0, 7)}`);
 
   let failure: string | undefined;
   try {
@@ -120,11 +121,17 @@ export async function runAgent(o: {
       const line = redact(raw);
       // A cancel closes the transcript while a stopped claude may still be printing.
       if (!transcript.writableEnded) transcript.write(`${line}\n`);
-      for (const event of mapStreamLine(line)) push(event.kind, event.text);
+      for (const event of mapStreamLine(line)) {
+        push(event.kind, event.text);
+        // The job log shows how claude ended, so a failed run is readable from GitHub alone.
+        if (event.kind === "done" || event.kind === "error") console.log(`claude: ${event.text}`);
+      }
     },
     stderr(raw) {
       const text = redact(raw).trim();
-      if (text) push("system", text.slice(0, EVENT_TEXT_MAX));
+      if (!text) return;
+      push("system", text.slice(0, EVENT_TEXT_MAX));
+      console.error(`claude: ${text}`);
     },
   };
 
@@ -349,6 +356,7 @@ async function report(
       await withRetries("reporting the failure", retryDelaysMs, () =>
         client.failure(outcome.failure),
       );
+      console.log(`reported: failure · ${outcome.failure}`);
       return true;
     } catch (error) {
       warn("reporting the failure failed", error);
@@ -359,6 +367,7 @@ async function report(
     await withRetries("reporting the verdict", retryDelaysMs, () =>
       client.verdict(outcome.verdict),
     );
+    console.log(`reported: verdict ${verdictStatus(outcome.verdict)}`);
     return true;
   } catch (error) {
     // Dispatch has already marked the agent as errored, so there is nothing left to report.
@@ -413,6 +422,11 @@ async function readVerdict(path: string): Promise<{ verdict: unknown } | { failu
   } catch {
     return { failure: "verdict is not JSON" };
   }
+}
+
+function verdictStatus(verdict: unknown): string {
+  const status = typeof verdict === "object" && verdict !== null ? (verdict as { status?: unknown }).status : undefined;
+  return typeof status === "string" ? status : "(no status)";
 }
 
 function warn(what: string, error: unknown): void {
