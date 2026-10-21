@@ -450,8 +450,8 @@ The rating is display-only in v1. It does not change the panel or models
 
 - **One workflow in each watched repo,** e.g.
   `.github/workflows/basetobase-agent.yml`, triggered **only** by
-  `workflow_dispatch` from Dispatch. Its inputs are run id, role, step,
-  round, and SHA. It is never triggered by `pull_request`, and Dispatch never
+  `workflow_dispatch` from Dispatch. Its inputs are `run_id`, `agent_id`,
+  `nonce`, and `sha`. It is never triggered by `pull_request`, and Dispatch never
   dispatches for fork PRs, so the Claude token never meets fork code.
 - **Each job:**
   1. Check out the templates and the forwarder from the default branch,
