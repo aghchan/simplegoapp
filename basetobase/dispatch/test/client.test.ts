@@ -1,0 +1,351 @@
+import { jwtVerify } from "jose";
+import { beforeAll, describe, expect, it } from "vitest";
+import { createGitHubClient } from "../src/github/client.ts";
+import { fakeFetch, rsaKeyPair } from "./helpers.ts";
+
+const REPO = "aghchan/simplegoapp";
+const WORKFLOW = "basetobase-agent.yml";
+const APP_ID = "123";
+const INSTALLATION_ID = 7;
+const INSTALLATION_TOKEN = "ghs_installation_token";
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+
+const TOKEN_PATH = `/app/installations/${INSTALLATION_ID}/access_tokens`;
+const FILES_PATH = `/repos/${REPO}/pulls/58/files`;
+const DISPATCH_PATH = `/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`;
+const PKCS1_MESSAGE =
+  'GITHUB_APP_PRIVATE_KEY is PKCS#1 ("BEGIN RSA PRIVATE KEY"); ' +
+  "convert it with: openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem";
+
+type Routes = Parameters<typeof fakeFetch>[0];
+
+let keys: Awaited<ReturnType<typeof rsaKeyPair>>;
+beforeAll(async () => {
+  keys = await rsaKeyPair();
+});
+
+function tokenRoute(expiresInMs = HOUR_MS) {
+  return () =>
+    Response.json(
+      { token: INSTALLATION_TOKEN, expires_at: new Date(Date.now() + expiresInMs).toISOString() },
+      { status: 201 },
+    );
+}
+
+const noContent = () => new Response(null, { status: 204 });
+
+const changedFiles = (count: number, offset = 0) =>
+  Array.from({ length: count }, (_, index) => ({
+    filename: `src/file${offset + index}.ts`,
+    status: "modified",
+    additions: 3,
+    deletions: 1,
+  }));
+
+// Serves one page per request, as GitHub does; pages past the end are empty.
+const pagedFiles = (pages: unknown[][]) => (req: Request) =>
+  Response.json(pages[Number(new URL(req.url).searchParams.get("page")) - 1] ?? []);
+
+function setup(routes: Routes = {}, opts: { apiBase?: string; privateKeyPem?: string } = {}) {
+  const f = fakeFetch({ [`POST ${TOKEN_PATH}`]: tokenRoute(), ...routes });
+  const client = createGitHubClient({
+    appId: APP_ID,
+    privateKeyPem: opts.privateKeyPem ?? keys.privatePem,
+    installationId: INSTALLATION_ID,
+    fetch: f,
+    apiBase: opts.apiBase,
+  });
+  return { f, client };
+}
+
+async function rejection(promise: Promise<unknown>): Promise<Error> {
+  const error = await promise.then(
+    () => undefined,
+    (thrown: unknown) => thrown,
+  );
+  if (!(error instanceof Error)) throw new Error("expected the call to reject with an Error");
+  return error;
+}
+
+function thrownBy(action: () => unknown): Error {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error) return error;
+  }
+  throw new Error("expected the call to throw an Error");
+}
+
+const callsTo = (f: { calls: Request[] }, path: string) =>
+  f.calls.filter((req) => new URL(req.url).pathname === path);
+
+describe("pull request files", () => {
+  it("listPullFiles follows pagination", async () => {
+    const { f, client } = setup({
+      [`GET ${FILES_PATH}`]: pagedFiles([changedFiles(100), changedFiles(3, 100)]),
+    });
+    const files = await client.listPullFiles(REPO, 58);
+    expect(files).toHaveLength(103);
+    expect(files[0]).toEqual({ path: "src/file0.ts", additions: 3, deletions: 1 });
+    expect(files[102]).toEqual({ path: "src/file102.ts", additions: 3, deletions: 1 });
+    const queries = callsTo(f, FILES_PATH).map((req) => new URL(req.url).search);
+    expect(queries).toEqual(["?per_page=100&page=1", "?per_page=100&page=2"]);
+  });
+
+  it("asks for one more page after exactly 100 files", async () => {
+    const { f, client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([changedFiles(100)]) });
+    expect(await client.listPullFiles(REPO, 58)).toHaveLength(100);
+    expect(callsTo(f, FILES_PATH)).toHaveLength(2);
+  });
+
+  it("makes a single request for a short first page", async () => {
+    const { f, client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([changedFiles(2)]) });
+    expect(await client.listPullFiles(REPO, 58)).toHaveLength(2);
+    expect(callsTo(f, FILES_PATH)).toHaveLength(1);
+  });
+
+  it("throws with the status when a later page fails", async () => {
+    const { client } = setup({
+      [`GET ${FILES_PATH}`]: (req) =>
+        new URL(req.url).searchParams.get("page") === "1"
+          ? Response.json(changedFiles(100))
+          : new Response("", { status: 502 }),
+    });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${FILES_PATH} failed with status 502`);
+  });
+
+  it.each([
+    ["an object", { files: [] }],
+    ["entries without a filename", [{ additions: 1, deletions: 1 }]],
+    ["entries with non-numeric counts", [{ filename: "a.ts", additions: "1", deletions: 1 }]],
+  ])("throws on a response that is %s", async (_label, body) => {
+    const { client } = setup({ [`GET ${FILES_PATH}`]: () => Response.json(body) });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${FILES_PATH} returned an unexpected response`);
+  });
+
+  it("maps a rename's previous_filename to previousPath", async () => {
+    const renamed = {
+      filename: "pkg/login.go",
+      previous_filename: "pkg/auth/login.go",
+      status: "renamed",
+      additions: 0,
+      deletions: 0,
+    };
+    const kept = { filename: "pkg/kept.go", status: "modified", additions: 2, deletions: 1 };
+    const { client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[renamed, kept]]) });
+    expect(await client.listPullFiles(REPO, 58)).toStrictEqual([
+      { path: "pkg/login.go", previousPath: "pkg/auth/login.go", additions: 0, deletions: 0 },
+      { path: "pkg/kept.go", additions: 2, deletions: 1 },
+    ]);
+  });
+
+  it.each([
+    ["an empty string", ""],
+    ["null", null],
+    ["a number", 7],
+  ])("ignores a previous_filename that is %s", async (_label, previous) => {
+    const entry = { filename: "pkg/a.go", previous_filename: previous, additions: 1, deletions: 0 };
+    const { client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[entry]]) });
+    expect(await client.listPullFiles(REPO, 58)).toStrictEqual([
+      { path: "pkg/a.go", additions: 1, deletions: 0 },
+    ]);
+  });
+});
+
+describe("workflow dispatch", () => {
+  it("dispatchWorkflow posts ref and inputs", async () => {
+    const { f, client } = setup({ [`POST ${DISPATCH_PATH}`]: noContent });
+    await client.dispatchWorkflow(REPO, WORKFLOW, "main", { run_id: "r" });
+    const req = f.calls.find((r) => r.url.endsWith(DISPATCH_PATH))!;
+    expect(req.method).toBe("POST");
+    expect(req.headers.get("content-type")).toBe("application/json");
+    expect(await req.json()).toEqual({ ref: "main", inputs: { run_id: "r" } });
+  });
+
+  it("dispatchWorkflow throws with status on failure", async () => {
+    const { client } = setup({
+      [`POST ${DISPATCH_PATH}`]: () => new Response("", { status: 422 }),
+    });
+    const p = client.dispatchWorkflow(REPO, WORKFLOW, "main", { run_id: "r" });
+    await expect(p).rejects.toThrow(/422/);
+  });
+});
+
+describe("authentication", () => {
+  it("reuses the installation token", async () => {
+    const { f, client } = setup({
+      [`GET ${FILES_PATH}`]: pagedFiles([[]]),
+      [`POST ${DISPATCH_PATH}`]: noContent,
+    });
+    await client.listPullFiles(REPO, 58);
+    await client.dispatchWorkflow(REPO, WORKFLOW, "main", {});
+    expect(f.calls.filter((r) => r.url.includes("/access_tokens"))).toHaveLength(1);
+  });
+
+  it.each([
+    { expiresIn: "an hour", ttl: HOUR_MS, tokenRequests: 1 },
+    { expiresIn: "six minutes", ttl: 6 * MINUTE_MS, tokenRequests: 1 },
+    { expiresIn: "four minutes", ttl: 4 * MINUTE_MS, tokenRequests: 2 },
+  ])(
+    "makes $tokenRequests token request(s) for two calls when the token expires in $expiresIn",
+    async ({ ttl, tokenRequests }) => {
+      const { f, client } = setup({
+        [`POST ${TOKEN_PATH}`]: tokenRoute(ttl),
+        [`GET ${FILES_PATH}`]: pagedFiles([[]]),
+      });
+      await client.listPullFiles(REPO, 58);
+      await client.listPullFiles(REPO, 58);
+      expect(callsTo(f, TOKEN_PATH)).toHaveLength(tokenRequests);
+    },
+  );
+
+  it("signs the app JWT with iss = appId", async () => {
+    const { f, client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[]]) });
+    const before = Math.floor(Date.now() / 1000);
+    await client.listPullFiles(REPO, 58);
+    const after = Math.floor(Date.now() / 1000);
+
+    const bearer = callsTo(f, TOKEN_PATH)[0]!.headers.get("authorization")!.replace("Bearer ", "");
+    const { payload, protectedHeader } = await jwtVerify(bearer, keys.publicKey, {
+      algorithms: ["RS256"],
+    });
+    expect(payload.iss).toBe("123");
+    expect(protectedHeader.alg).toBe("RS256");
+    expect(payload.iat).toBeGreaterThanOrEqual(before - 60);
+    expect(payload.iat).toBeLessThanOrEqual(after - 60);
+    expect(payload.exp).toBe(payload.iat! + 600);
+  });
+
+  it("authenticates API calls with the installation token", async () => {
+    const { f, client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[]]) });
+    await client.listPullFiles(REPO, 58);
+    expect(callsTo(f, FILES_PATH)[0]!.headers.get("authorization")).toBe(
+      `Bearer ${INSTALLATION_TOKEN}`,
+    );
+  });
+
+});
+
+describe("requests", () => {
+  it("sends the GitHub API headers on every request", async () => {
+    const { f, client } = setup({
+      [`GET ${FILES_PATH}`]: pagedFiles([[]]),
+      [`POST ${DISPATCH_PATH}`]: noContent,
+    });
+    await client.listPullFiles(REPO, 58);
+    await client.dispatchWorkflow(REPO, WORKFLOW, "main", {});
+    expect(f.calls).toHaveLength(3);
+    for (const req of f.calls) {
+      expect(req.headers.get("accept")).toBe("application/vnd.github+json");
+      expect(req.headers.get("x-github-api-version")).toBe("2022-11-28");
+      expect(req.headers.get("user-agent")).toBe("basetobase");
+    }
+  });
+
+  it("calls the supplied fetch unbound", async () => {
+    const f = fakeFetch({
+      [`POST ${TOKEN_PATH}`]: tokenRoute(),
+      [`GET ${FILES_PATH}`]: pagedFiles([[]]),
+    });
+    // Workers' global fetch throws this when it is called as a method of another object.
+    const strictFetch = function (this: unknown, ...args: Parameters<typeof fetch>) {
+      if (this !== undefined) throw new TypeError("Illegal invocation");
+      return f(...args);
+    };
+    const client = createGitHubClient({
+      appId: APP_ID,
+      privateKeyPem: keys.privatePem,
+      installationId: INSTALLATION_ID,
+      fetch: strictFetch,
+    });
+    expect(await client.listPullFiles(REPO, 58)).toEqual([]);
+  });
+
+  it("targets api.github.com by default", async () => {
+    const { f, client } = setup({ [`GET ${FILES_PATH}`]: pagedFiles([[]]) });
+    await client.listPullFiles(REPO, 58);
+    expect(f.calls.map((req) => req.url.startsWith("https://api.github.com/"))).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it("targets the configured base, path prefix included", async () => {
+    const apiBase = "https://github.example.test/api/v3";
+    const { f, client } = setup(
+      {
+        [`POST /api/v3${TOKEN_PATH}`]: tokenRoute(),
+        [`GET /api/v3${FILES_PATH}`]: pagedFiles([[]]),
+      },
+      { apiBase },
+    );
+    await client.listPullFiles(REPO, 58);
+    expect(f.calls.map((req) => req.url.startsWith(`${apiBase}/`))).toEqual([true, true]);
+  });
+});
+
+describe("failures", () => {
+  it("carries the status and path of a failed dispatch, nothing else", async () => {
+    const { client } = setup({
+      [`POST ${DISPATCH_PATH}`]: () => new Response("leaky response body", { status: 422 }),
+    });
+    const error = await rejection(client.dispatchWorkflow(REPO, WORKFLOW, "main", {}));
+    expect(error.message).toBe(`GitHub POST ${DISPATCH_PATH} failed with status 422`);
+  });
+
+  it("stops at a failed token request without revealing the credentials", async () => {
+    const { f, client } = setup({
+      [`POST ${TOKEN_PATH}`]: () => new Response("Bad credentials", { status: 401 }),
+      [`GET ${FILES_PATH}`]: pagedFiles([[]]),
+    });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).toBe(`GitHub POST ${TOKEN_PATH} failed with status 401`);
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it.each([
+    ["without a token", { expires_at: new Date(Date.now() + HOUR_MS).toISOString() }],
+    ["without an expiry", { token: INSTALLATION_TOKEN }],
+    ["with an unreadable expiry", { token: INSTALLATION_TOKEN, expires_at: "soon" }],
+  ])("throws on a token response %s", async (_label, body) => {
+    const { client } = setup({ [`POST ${TOKEN_PATH}`]: () => Response.json(body) });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).toBe(`GitHub POST ${TOKEN_PATH} returned an unexpected response`);
+  });
+
+  it("does not echo a malformed private key", async () => {
+    const privateKeyPem =
+      "-----BEGIN PRIVATE KEY-----\nTOPSECRETKEYMATERIAL\n-----END PRIVATE KEY-----";
+    const { client } = setup({}, { privateKeyPem });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).not.toContain("TOPSECRETKEYMATERIAL");
+  });
+
+  it("rejects a PKCS#1 key with the conversion command, never echoing the key", () => {
+    const body = "TOPSECRETKEYMATERIAL";
+    const privateKeyPem = [
+      "-----BEGIN RSA PRIVATE KEY-----",
+      body,
+      "-----END RSA PRIVATE KEY-----",
+    ].join("\n");
+    const error = thrownBy(() => setup({}, { privateKeyPem }));
+    expect(error.message).toBe(PKCS1_MESSAGE);
+    expect(error.message).not.toContain(body);
+  });
+
+  it("reports an unset private key on the first call, before any request", async () => {
+    const f = fakeFetch({});
+    const client = createGitHubClient({
+      appId: APP_ID,
+      privateKeyPem: undefined as unknown as string,
+      installationId: INSTALLATION_ID,
+      fetch: f,
+    });
+    const error = await rejection(client.listPullFiles(REPO, 58));
+    expect(error.message).not.toBe(PKCS1_MESSAGE);
+    expect(f.calls).toHaveLength(0);
+  });
+});

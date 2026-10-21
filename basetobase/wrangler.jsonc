@@ -1,0 +1,42 @@
+{
+  "name": "basetobase",
+  "main": "dispatch/src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Workers Logs: console output, readable later in the Cloudflare dashboard.
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "RUNS", "class_name": "RunDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RunDO"] }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "basetobase",
+      // Replace with the id printed by `wrangler d1 create basetobase`.
+      "database_id": "local-placeholder",
+      "migrations_dir": "dispatch/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TRANSCRIPTS",
+      // Replace with the id printed by `npx wrangler kv namespace create basetobase-transcripts`.
+      "id": "local-placeholder"
+    }
+  ],
+  "assets": {
+    "directory": "dashboard/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*", "/github/*", "/agent/*"]
+  },
+  "vars": {
+    "OWNER_LOGIN": "aghchan",
+    "REPO": "aghchan/simplegoapp",
+    "AGENT_WORKFLOW": "basetobase-agent.yml",
+    // Replace with the deployed origin, https://basetobase.<subdomain>.workers.dev.
+    "PUBLIC_URL": "http://localhost:8787",
+    "GITHUB_API": "https://api.github.com"
+  }
+}

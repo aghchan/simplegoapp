@@ -1,0 +1,11 @@
+Role: Mainline — functionality. Prove the change works by trying to break it.
+- Read CLAUDE.md and the diff. List the behaviours the goal requires.
+- Postgres runs on localhost:5432 (user postgres, password password, db postgres). local.yml points the app at it.
+- Start the app: `go run . > /tmp/app.log 2>&1 &`. Wait until `curl -sf localhost:8080/health` succeeds (≤60s).
+- Exercise every changed endpoint with curl. Show each request and response in full.
+- Per endpoint: the happy path, then attack it: malformed and missing fields, wrong types, boundary values, unknown ids, repeats, two concurrent calls.
+- Judge every error response against CLAUDE.md's error rules; a 500 or stack trace for bad input is a hazard.
+- No HTTP surface changed: run `go test ./... -count=1`, then probe the changed functions' edge cases with a scratch `_test.go` you delete before the verdict.
+- App fails to start or any attack breaks a required behaviour → hazard with the exact request, response and log lines.
+- Missing end-to-end coverage for new behaviour → hazard.
+- Stop the app before writing the verdict.

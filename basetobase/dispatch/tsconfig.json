@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "ESNext.Disposable"],
+    "types": ["../worker-configuration.d.ts", "@cloudflare/vitest-plugin/types"],
+    // vitest's types pull in tinybench, whose EventTarget subclasses clash with the Workers global.
+    "skipLibCheck": true
+  },
+  "include": ["src", "test"]
+}

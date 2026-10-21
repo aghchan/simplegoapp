@@ -1,0 +1,40 @@
+{
+  "name": "basetobase",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "npm run build && vitest run --passWithNoTests",
+    "types": "wrangler types",
+    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard",
+    "build": "vite build dashboard",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.13.13",
+    "jose": "^6.2.13",
+    "picomatch": "^4.0.7",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.5",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.19.2",
+    "@types/picomatch": "^4.0.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "jsdom": "^29.1.1",
+    "typescript": "~5.9",
+    "vite": "^8.3.4",
+    "vitest": "~4.1",
+    "wrangler": "^4.151.2"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "frontendGlobs": ["basetobase/dashboard/**"],
+  "riskGlobs": [
+    "**/*auth*",
+    "**/*auth*/**",
+    "**/*payment*",
+    "**/*billing*",
+    "**/*secret*",
+    "**/session*",
+    "**/oidc*",
+    "config.yml",
+    "local.yml",
+    "**/*payment*/**",
+    "**/*billing*/**",
+    "**/*secret*/**",
+    "**/session*/**",
+    "**/oidc*/**"
+  ],
+  "infraGlobs": [
+    ".github/**",
+    "**/migrations/**",
+    "**/wrangler.jsonc",
+    "Makefile",
+    "go.mod",
+    "basetobase/package.json"
+  ],
+  "unpatrolledGlobs": ["basetobase/**", ".basetobase/**", ".github/workflows/basetobase-*.yml"],
+  "thresholds": {
+    "greenLines": 50,
+    "greenFiles": 3,
+    "blueLines": 300,
+    "doubleBlackLines": 1000,
+    "doubleBlackTopDirs": 4
+  },
+  "trailNames": {
+    "green": ["Easy Slider", "Ramp Run", "Bunny Hill"],
+    "blue": ["Home Run", "Tomlinson's", "Shirley Bowl", "Champs Elysees"],
+    "black": ["Red Dog Face", "Headwall Face"],
+    "double_black": ["Our Father", "Fingers", "Chimney", "Clear Gully"]
+  },
+  "roster": [
+    {
+      "id": "granite-chief",
+      "name": "Granite Chief",
+      "role": "Goal fit",
+      "prefix": "GOAL",
+      "panels": ["backend", "frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "gold-coast",
+      "name": "Gold Coast",
+      "role": "Infra & cost",
+      "prefix": "INF",
+      "panels": ["backend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "summit-six",
+      "name": "Summit Six",
+      "role": "Scalability",
+      "prefix": "SCL",
+      "panels": ["backend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "kt-22",
+      "name": "KT-22",
+      "role": "Security",
+      "prefix": "SEC",
+      "panels": ["backend", "frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "mainline",
+      "name": "Mainline",
+      "role": "Functionality",
+      "prefix": "FUN",
+      "panels": ["backend", "frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "corduroy",
+      "name": "Corduroy",
+      "role": "Code quality",
+      "prefix": "QLT",
+      "panels": ["backend", "frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "magic-carpet",
+      "name": "Magic Carpet",
+      "role": "UX",
+      "prefix": "UX",
+      "panels": ["frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "bluebird",
+      "name": "Bluebird",
+      "role": "Design",
+      "prefix": "DSN",
+      "panels": ["frontend"],
+      "model": "sonnet"
+    },
+    {
+      "id": "groomer",
+      "name": "Groomer",
+      "role": "Implementer",
+      "prefix": "",
+      "panels": [],
+      "model": "opus"
+    }
+  ],
+  "enabledRoles": ["mainline"]
+}
