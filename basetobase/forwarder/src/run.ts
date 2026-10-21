@@ -126,13 +126,14 @@ export async function runAgent(o: {
       const line = redact(raw);
       // A cancel closes the transcript while a stopped claude may still be printing.
       if (!transcript.writableEnded) transcript.write(`${line}\n`);
+      const ended = isResultLine(line);
       for (const event of mapStreamLine(line)) {
         push(event.kind, event.text);
         // Tool output can quote any text, so only claude's own messages count.
         const own = event.kind !== "tool" && event.kind !== "tool_result";
         if (own && TOKEN_REJECTED_TEXT.test(event.text)) tokenRejected = true;
         // The job log shows how claude ended, so a failed run is readable from GitHub alone.
-        if (event.kind === "done" || event.kind === "error") console.log(`claude: ${event.text}`);
+        if (ended) console.log(`claude: ${event.text}`);
       }
     },
     stderr(raw) {
@@ -379,7 +380,7 @@ async function report(
     await withRetries("reporting the verdict", retryDelaysMs, () =>
       client.verdict(outcome.verdict),
     );
-    console.log(`reported: verdict ${verdictStatus(outcome.verdict)}`);
+    for (const line of verdictLines(outcome.verdict)) console.log(line);
     return "verdict";
   } catch (error) {
     // Dispatch has already marked the agent as errored, so there is nothing left to report.
@@ -436,9 +437,27 @@ async function readVerdict(path: string): Promise<{ verdict: unknown } | { failu
   }
 }
 
-function verdictStatus(verdict: unknown): string {
-  const status = typeof verdict === "object" && verdict !== null ? (verdict as { status?: unknown }).status : undefined;
-  return typeof status === "string" ? status : "(no status)";
+// The job log's copy of the verdict: status, then each hazard, then the summary. Dispatch already
+// accepted the verdict, so its fields are read loosely here.
+function verdictLines(verdict: unknown): string[] {
+  const v = (typeof verdict === "object" && verdict !== null ? verdict : {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const hazards = Array.isArray(v.hazards) ? (v.hazards as Record<string, unknown>[]) : [];
+  return [
+    `reported: verdict ${text(v.status) || "(no status)"}`,
+    ...hazards.map((h) => `  ${text(h?.id)} ${text(h?.title)}`),
+    ...(text(v.summary) ? [`  summary: ${text(v.summary)}`] : []),
+  ];
+}
+
+// The stream's last line, which says how the session ended. Tool errors are mapped as errors too,
+// but they are claude's working steps, not its outcome.
+function isResultLine(line: string): boolean {
+  try {
+    return (JSON.parse(line) as { type?: unknown }).type === "result";
+  } catch {
+    return false;
+  }
 }
 
 function warn(what: string, error: unknown): void {

@@ -1,6 +1,6 @@
 // Stands in for the claude binary: reads the prompt from stdin, replays stream.jsonl, writes a verdict,
 // exits.
-// FAKE_VERDICT_DIR + FAKE_VERDICT (valid | none | broken) control the verdict file; FAKE_EXIT the exit code.
+// FAKE_VERDICT_DIR + FAKE_VERDICT (valid | hazards | none | broken) control the verdict file; FAKE_EXIT the exit code.
 // FAKE_SPLIT writes every line in two chunks, FAKE_STDERR adds a stderr line, FAKE_LEAK echoes the
 // secrets a real agent could echo, FAKE_ARGS_FILE records argv, cwd and the stdin it was given.
 // FAKE_HANG keeps running after the verdict until killed, FAKE_IGNORE_TERM ignores SIGTERM,
@@ -56,6 +56,13 @@ const verdicts = {
     status: "clear",
     hazards: [],
     summary: "Works.",
+  }),
+  hazards: JSON.stringify({
+    role: "mainline",
+    headSha: "head58",
+    status: "hazards",
+    hazards: [{ id: "FUN-1", title: "README omits the database the app needs", detail: "go run . exits" }],
+    summary: "Breaks without Postgres credentials.",
   }),
   broken: "{not json",
 };
