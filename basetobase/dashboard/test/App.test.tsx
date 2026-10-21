@@ -108,14 +108,14 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" });
-    const first = await FakeWebSocket.opened();
+    const first = await FakeWebSocket.opened(1, /\/api\/runs\/r1\/live$/);
 
     await userEvent.click(screen.getByRole("link", { name: /Home Run/ }));
     expect(
       await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" }),
     ).toBeVisible();
     expect(first.closed).toBe(true);
-    expect((await FakeWebSocket.opened(2)).url).toMatch(/\/api\/runs\/r2\/live$/);
+    await FakeWebSocket.opened(1, /\/api\/runs\/r2\/live$/);
   });
 
   it("leaves a modified click to the browser", async () => {
@@ -137,6 +137,7 @@ describe("App", () => {
 
   describe("keeping the runs list live", () => {
     const POLL_MS = 5000;
+    const LOBBY = /\/api\/live$/;
     const OTHER: RunSummary = { ...RUNS[0]!, id: "r2", prNumber: 59, runName: "Home Run" };
     let runs: () => Response;
     const runsCalls = () =>
@@ -158,6 +159,17 @@ describe("App", () => {
         document.dispatchEvent(new Event("visibilitychange"));
       });
     };
+    // waitFor cannot poll while intervals are faked, so the effect that opens the socket is
+    // flushed first.
+    const lobby = async () => {
+      await settle();
+      return FakeWebSocket.opened(1, LOBBY);
+    };
+    const loaded = async () => {
+      render(<App />);
+      await screen.findByRole("link", { name: /Red Dog Face/ });
+      return lobby();
+    };
 
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
@@ -172,114 +184,152 @@ describe("App", () => {
       Reflect.deleteProperty(document, "visibilityState");
     });
 
-    it("shows a pull request opened after the page loaded", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      runs = () => Response.json([...RUNS, OTHER]);
-      await tick(POLL_MS);
+    it("opens the lobby socket once the list has loaded", async () => {
+      const socket = await loaded();
+      expect(socket.url).toBe(`ws://${window.location.host}/api/live`);
+      expect(runsCalls()).toBe(1);
+    });
+
+    it("shows a pull request the lobby announces", async () => {
+      const socket = await loaded();
+      act(() => socket.open());
+      await settle();
+      act(() => socket.send({ type: "summary", run: { ...OTHER, updatedAt: 2 } }));
       expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
       expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
     });
 
-    it("reflects a run that changed status", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      expect(screen.getByRole("heading", { name: "On the hill · running" })).toBeVisible();
-      runs = () => Response.json([{ ...RUNS[0]!, status: "swept" }]);
-      await tick(POLL_MS);
-      expect(await screen.findByRole("heading", { name: "Swept · patrol done" })).toBeVisible();
+    it("moves a run the lobby says was stopped to Closed", async () => {
+      const socket = await loaded();
+      act(() => socket.open());
+      await settle();
+      act(() =>
+        socket.send({ type: "summary", run: { ...RUNS[0]!, status: "stopped", updatedAt: 2 } }),
+      );
+      expect(await screen.findByRole("heading", { name: "Closed" })).toBeVisible();
       expect(screen.queryByRole("heading", { name: "On the hill · running" })).toBeNull();
     });
 
-    it("keeps polling every five seconds", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      expect(runsCalls()).toBe(1);
-      await tick(POLL_MS - 1);
-      expect(runsCalls()).toBe(1);
-      await tick(1);
-      expect(runsCalls()).toBe(2);
-      await tick(POLL_MS * 2);
-      expect(runsCalls()).toBe(4);
-    });
-
-    it("does not fetch while the tab is hidden", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      showTab("hidden");
-      await tick(POLL_MS * 6);
-      expect(runsCalls()).toBe(1);
-    });
-
-    it("fetches at once when the tab becomes visible, then resumes the cadence", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      showTab("hidden");
-      await tick(POLL_MS * 3);
+    it("refetches when the socket opens, then does not poll while it is up", async () => {
+      const socket = await loaded();
       runs = () => Response.json([...RUNS, OTHER]);
-
-      showTab("visible");
-      await settle();
-      expect(runsCalls()).toBe(2);
+      act(() => socket.open());
       expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
-
-      await tick(POLL_MS);
-      expect(runsCalls()).toBe(3);
-    });
-
-    it("does not poll when the page opens in a hidden tab, until it is shown", async () => {
-      Object.defineProperty(document, "visibilityState", {
-        configurable: true,
-        get: () => "hidden",
-      });
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
+      expect(runsCalls()).toBe(2);
       await tick(POLL_MS * 3);
-      expect(runsCalls()).toBe(1);
-      showTab("visible");
-      await settle();
       expect(runsCalls()).toBe(2);
     });
 
-    it("keeps the last list when a refresh fails", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      runs = () => new Response(null, { status: 500 });
-      await tick(POLL_MS);
-      expect(runsCalls()).toBe(2);
-      expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
-      expect(screen.queryByRole("alert")).toBeNull();
-      expect(api.navigateTo).not.toHaveBeenCalled();
-
-      runs = () => Response.json([...RUNS, OTHER]);
-      await tick(POLL_MS);
-      expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
-    });
-
-    it("keeps the last list when the network drops", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      runs = () => {
-        throw new TypeError("network down");
+    // The socket's retry waits on a real timer and then only connects, so it stays down.
+    describe("while the lobby socket is down", () => {
+      const down = async () => {
+        const socket = await loaded();
+        act(() => socket.close());
       };
-      await tick(POLL_MS);
-      expect(runsCalls()).toBe(2);
-      expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
-      expect(api.navigateTo).not.toHaveBeenCalled();
-    });
 
-    it("sends a viewer whose session ended to sign in", async () => {
-      render(<App />);
-      await screen.findByRole("link", { name: /Red Dog Face/ });
-      runs = () => Response.json({ error: "signed out" }, { status: 401 });
-      await tick(POLL_MS);
-      await waitFor(() => expect(api.navigateTo).toHaveBeenCalledWith("/auth/login"));
+      it("shows a pull request opened after the page loaded", async () => {
+        await down();
+        runs = () => Response.json([...RUNS, OTHER]);
+        await tick(POLL_MS);
+        expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
+        expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
+      });
+
+      it("reflects a run that changed status", async () => {
+        await down();
+        expect(screen.getByRole("heading", { name: "On the hill · running" })).toBeVisible();
+        runs = () => Response.json([{ ...RUNS[0]!, status: "swept" }]);
+        await tick(POLL_MS);
+        expect(await screen.findByRole("heading", { name: "Swept · patrol done" })).toBeVisible();
+        expect(screen.queryByRole("heading", { name: "On the hill · running" })).toBeNull();
+      });
+
+      it("polls every five seconds", async () => {
+        await down();
+        expect(runsCalls()).toBe(1);
+        await tick(POLL_MS - 1);
+        expect(runsCalls()).toBe(1);
+        await tick(1);
+        expect(runsCalls()).toBe(2);
+        await tick(POLL_MS * 2);
+        expect(runsCalls()).toBe(4);
+      });
+
+      it("does not fetch while the tab is hidden", async () => {
+        await down();
+        showTab("hidden");
+        await tick(POLL_MS * 6);
+        expect(runsCalls()).toBe(1);
+      });
+
+      it("fetches at once when the tab becomes visible, then resumes the cadence", async () => {
+        await down();
+        showTab("hidden");
+        await tick(POLL_MS * 3);
+        runs = () => Response.json([...RUNS, OTHER]);
+
+        showTab("visible");
+        await settle();
+        expect(runsCalls()).toBe(2);
+        expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
+
+        await tick(POLL_MS);
+        expect(runsCalls()).toBe(3);
+      });
+
+      it("does not poll when the page opens in a hidden tab, until it is shown", async () => {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          get: () => "hidden",
+        });
+        await down();
+        await tick(POLL_MS * 3);
+        expect(runsCalls()).toBe(1);
+        showTab("visible");
+        await settle();
+        expect(runsCalls()).toBe(2);
+      });
+
+      it("keeps the last list when a refresh fails", async () => {
+        await down();
+        runs = () => new Response(null, { status: 500 });
+        await tick(POLL_MS);
+        expect(runsCalls()).toBe(2);
+        expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(api.navigateTo).not.toHaveBeenCalled();
+
+        runs = () => Response.json([...RUNS, OTHER]);
+        await tick(POLL_MS);
+        expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
+      });
+
+      it("keeps the last list when the network drops", async () => {
+        await down();
+        runs = () => {
+          throw new TypeError("network down");
+        };
+        await tick(POLL_MS);
+        expect(runsCalls()).toBe(2);
+        expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
+        expect(api.navigateTo).not.toHaveBeenCalled();
+      });
+
+      it("sends a viewer whose session ended to sign in", async () => {
+        await down();
+        runs = () => Response.json({ error: "signed out" }, { status: 401 });
+        await tick(POLL_MS);
+        await waitFor(() => expect(api.navigateTo).toHaveBeenCalledWith("/auth/login"));
+      });
     });
 
     it("stops polling and listening when the page is closed", async () => {
       const { unmount } = render(<App />);
       await screen.findByRole("link", { name: /Red Dog Face/ });
+      const socket = await lobby();
+      act(() => socket.close());
       unmount();
+      expect(FakeWebSocket.instances.every((each) => each.closed)).toBe(true);
       await tick(POLL_MS * 3);
       showTab("visible");
       await settle();

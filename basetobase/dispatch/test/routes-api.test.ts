@@ -6,7 +6,7 @@ import { SESSION_COOKIE, SESSION_TTL_MS, signSession } from "../src/auth/session
 import { createApp } from "../src/index.ts";
 import { runStub } from "../src/runs/index.ts";
 import type { Triage } from "../../shared/src/triage.ts";
-import type { LiveMessage } from "../../shared/src/types.ts";
+import type { LiveMessage, LobbyMessage } from "../../shared/src/types.ts";
 import { envWith, prRef, stubGitHub } from "./helpers.ts";
 
 const app = createApp({ agentKey: createLocalJWKSet({ keys: [] }) });
@@ -68,6 +68,7 @@ describe("/api authentication", () => {
     "/api/runs/r1",
     "/api/runs/r1/live",
     "/api/runs/r1/agents/mainline-sweep-0/transcript",
+    "/api/live",
     "/api/anything-else",
   ];
 
@@ -78,14 +79,14 @@ describe("/api authentication", () => {
     expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
   });
 
-  it("401 on a websocket upgrade without a session", async () => {
-    const res = await get("/api/runs/r1/live", {
-      cookie: null,
-      headers: { Upgrade: "websocket" },
-    });
-    expect(res.status).toBe(401);
-    expect(res.webSocket).toBeNull();
-  });
+  it.each(["/api/runs/r1/live", "/api/live"])(
+    "401 on a websocket upgrade without a session on %s",
+    async (path) => {
+      const res = await get(path, { cookie: null, headers: { Upgrade: "websocket" } });
+      expect(res.status).toBe(401);
+      expect(res.webSocket).toBeNull();
+    },
+  );
 
   it.each<[string, () => Promise<string>]>([
     ["garbage", async () => `${SESSION_COOKIE}=garbage`],
@@ -276,5 +277,33 @@ describe("GET /api/runs/:id/live", () => {
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "not found" });
     expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
+  });
+});
+
+describe("GET /api/live", () => {
+  it("426 for a request that is not a websocket upgrade", async () => {
+    const res = await get("/api/live");
+    expect(res.status).toBe(426);
+    expect(await res.json()).toEqual({ error: "expected a websocket upgrade" });
+    expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
+  });
+
+  it("upgrades a signed-in owner into the lobby, which sends each run's summary", async () => {
+    const res = await get("/api/live", { headers: { Upgrade: "websocket" } });
+    expect(res.status).toBe(101);
+    const socket = res.webSocket!;
+    const messages: LobbyMessage[] = [];
+    socket.addEventListener("message", (event) => {
+      messages.push(JSON.parse(event.data as string) as LobbyMessage);
+    });
+    socket.accept();
+    const runId = await startRun();
+    await vi.waitFor(() =>
+      expect(messages).toContainEqual({
+        type: "summary",
+        run: expect.objectContaining({ id: runId, status: "on_the_hill" }),
+      }),
+    );
+    socket.close();
   });
 });

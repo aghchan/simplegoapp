@@ -13,7 +13,8 @@ import type {
 import { parseVerdict, VerdictError } from "../../../shared/src/verdict.ts";
 import { createGitHubClient } from "../github/client.ts";
 import type { PullRequestRef } from "../github/webhook.ts";
-import { upsertRun } from "../runs/index.ts";
+import { announce } from "../lobby/do.ts";
+import { summaryOf, upsertRun } from "../runs/index.ts";
 import {
   briefOf,
   createRun,
@@ -230,13 +231,17 @@ export class RunDO extends DurableObject<Env> {
     // Cleared before the write and set again if it fails: a failure overlapping another write
     // is never forgotten.
     await this.ctx.storage.delete(INDEX_PENDING_KEY);
+    const snapshot = snapshotOf(state);
+    let written = true;
     try {
-      await upsertRun(this.env.DB, snapshotOf(state));
+      await upsertRun(this.env.DB, snapshot);
     } catch (error) {
+      written = false;
       console.error(`run index write failed: ${error instanceof Error ? error.message : error}`);
       await this.ctx.storage.put(INDEX_PENDING_KEY, true);
     }
     await this.arm(await this.loaded());
+    if (written) await announce(this.env, summaryOf(snapshot));
   }
 
   private async retryIndex(): Promise<void> {

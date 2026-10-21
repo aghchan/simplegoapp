@@ -31,6 +31,20 @@ export async function upsertRun(db: D1Database, s: RunSnapshot): Promise<void> {
     .run();
 }
 
+// The run as listRuns reads it back once upsertRun has written it.
+export function summaryOf(s: RunSnapshot): RunSummary {
+  return {
+    id: s.id,
+    prNumber: s.prNumber,
+    prTitle: s.prTitle,
+    runName: s.runName,
+    rating: s.rating,
+    status: s.status,
+    currentStep: currentStep(s.steps),
+    updatedAt: s.updatedAt,
+  };
+}
+
 export async function listRuns(
   db: D1Database,
   limit: number = DEFAULT_LIST_LIMIT,

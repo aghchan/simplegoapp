@@ -413,6 +413,10 @@ every mutating action require it **(designer's call)**.
 **Quality bar:** WCAG AA contrast, real buttons and links, works at phone
 width, live updates without reload.
 
+**Live updates (built):** the run view over its run's socket; the runs list
+over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while
+that is down. `npm run e2e` proves both in a real browser.
+
 **Look:** night-navy header with a ridgeline, snow-white panels, condensed
 uppercase headings like trail signage, monospace logs on dark. Trail-rating
 symbols are standard: green circle, blue square, black diamond, double black
@@ -546,6 +550,9 @@ The rating is display-only in v1. It does not change the panel or models
   Confirm that WebSocket hibernation is available on the Workers Free plan
   before building on it. If it isn't, the fallback is the dashboard polling
   the run every few seconds — the UI must not depend on which one is used.
+- **Lobby Durable Object (built):** a singleton holding the runs lists'
+  hibernating sockets; each run sends it its summary after every index
+  write, and a lobby failure never fails the run.
 - **D1:** the runs index and per-step durations (for "usual").
 - **Workers KV:** transcripts, kept 30 days by TTL **(designer's call)**.
   R2 asks for a payment method on file, so evidence storage (screenshots,

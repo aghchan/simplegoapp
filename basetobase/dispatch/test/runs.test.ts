@@ -2,7 +2,13 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Rating } from "../../shared/src/config.ts";
 import type { RunSnapshot, RunStatus, StepSnapshot } from "../../shared/src/types.ts";
-import { activeRunNames, findActiveRuns, listRuns, upsertRun } from "../src/runs/index.ts";
+import {
+  activeRunNames,
+  findActiveRuns,
+  listRuns,
+  summaryOf,
+  upsertRun,
+} from "../src/runs/index.ts";
 
 function snapshot(over: Partial<RunSnapshot> & { id: string }): RunSnapshot {
   return {
@@ -62,6 +68,16 @@ describe("run index", () => {
         updatedAt: 5,
       },
     ]);
+  });
+
+  it.each<[string, Partial<RunSnapshot>]>([
+    ["on the hill", {}],
+    ["stopped", { status: "stopped", steps: steps("sweep", "stopped") }],
+    ["swept", { status: "swept", steps: steps("sweep", "done") }],
+  ])("summarizes a run %s as the list reads it back", async (_name, over) => {
+    const run = snapshot({ id: "a", ...over });
+    await upsertRun(env.DB, run);
+    expect(await listRuns(env.DB)).toEqual([summaryOf(run)]);
   });
 
   it("updates a run in place", async () => {

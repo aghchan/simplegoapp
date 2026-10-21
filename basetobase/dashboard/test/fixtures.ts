@@ -94,9 +94,12 @@ export class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
 
   // The socket opens in an effect after the first paint, which findBy* can see before it runs.
-  static async opened(count = 1): Promise<FakeWebSocket> {
-    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(count));
-    return FakeWebSocket.last;
+  // With `url`, only sockets to a matching URL count; the last of them is returned.
+  static async opened(count = 1, url?: RegExp): Promise<FakeWebSocket> {
+    const matching = () =>
+      FakeWebSocket.instances.filter((socket) => url?.test(socket.url) ?? true);
+    await waitFor(() => expect(matching()).toHaveLength(count));
+    return matching().at(-1)!;
   }
 
   static get last(): FakeWebSocket {

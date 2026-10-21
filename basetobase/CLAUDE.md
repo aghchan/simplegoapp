@@ -7,6 +7,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 - Relative imports with `.ts` extensions. Erasable TS only.
 - Run logic: pure transitions returning effects in dispatch/src/run/machine.ts. RunDO only persists and executes effects.
 - Commands: `npm test` (builds the dashboard first; `dashboard/dist` is the Worker's assets) · `npm run typecheck` · `npm run dev` · `npm run deploy`.
+- `npm run e2e`: Playwright against `wrangler dev` and a fake GitHub; not part of `npm test`. See e2e/CLAUDE.md.
 - `npm run dev` needs `basetobase/.dev.vars` (git-ignored) with the six secrets in `dispatch/src/env.ts`.
 - Dependency changes: `npx -y npm@11 install …`. npm 10 crashes on vitest 4.1 and churns lockfile libc entries.
 - Transcripts: Workers KV (`TRANSCRIPTS`, 30-day TTL), key `runs/{run}/{agent}.jsonl`. Eventually consistent: a fresh upload can 404 elsewhere for ~60 s.

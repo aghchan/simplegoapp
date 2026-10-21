@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { GITHUB_OIDC_ISSUER } from "./auth/oidc.ts";
+import { LobbyDO } from "./lobby/do.ts";
 import { agentRoutes } from "./routes/agent.ts";
 import { apiRoutes } from "./routes/api.ts";
 import { authRoutes } from "./routes/auth.ts";
@@ -28,4 +29,4 @@ export default {
   }).fetch,
 };
 
-export { RunDO };
+export { LobbyDO, RunDO };

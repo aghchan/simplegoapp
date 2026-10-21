@@ -118,3 +118,6 @@ export type LiveMessage =
   | { type: "snapshot"; run: RunSnapshot; log: LogLine[] }
   | { type: "log"; lines: LogLine[] }
   | { type: "run"; run: RunSnapshot };
+
+// The runs list's socket: one frame each time a run's index row is written.
+export type LobbyMessage = { type: "summary"; run: RunSummary };
