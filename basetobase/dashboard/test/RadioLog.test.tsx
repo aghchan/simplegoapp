@@ -102,7 +102,7 @@ describe("RadioLog", () => {
 
   describe("following the newest line", () => {
     function box() {
-      return screen.getByRole("region", { name: "Radio log" });
+      return screen.getByRole("region", { name: "Radio log · logs" });
     }
 
     // jsdom has no layout, so the box's geometry is set by hand: 100px tall, 1000px of lines.

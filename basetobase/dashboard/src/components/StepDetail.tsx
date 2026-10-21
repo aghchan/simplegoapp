@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { formatDuration } from "../../../shared/src/format.ts";
 import { STEP_LABELS, STEP_ORDER } from "../../../shared/src/labels.ts";
-import type { LogLine, RunSnapshot, StepId, StepSnapshot } from "../../../shared/src/types.ts";
+import type {
+  AgentSnapshot,
+  LogLine,
+  RunSnapshot,
+  StepId,
+  StepSnapshot,
+} from "../../../shared/src/types.ts";
 import { GithubLink } from "./GithubLink.tsx";
 import { PatrolCards, patroller } from "./PatrolCards.tsx";
 import { timeOnStep } from "./PipelineRow.tsx";
@@ -41,6 +47,42 @@ function TimeOnStep({ step, now }: { step: StepSnapshot; now: number }) {
   }
 }
 
+// Keyed by the agent it is about, so picking another patroller starts it closed.
+function DebugPanel(p: { runId: string; agent: AgentSnapshot; canChoose: boolean }) {
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const { agent } = p;
+  return (
+    <div className="detail-block debug">
+      <h3 className="section-title">Debug</h3>
+      <p className="debug-target">
+        <strong>{patroller(agent.role).name}</strong>
+        {p.canChoose && " · select a patrol card to choose another"}
+      </p>
+      <div className="debug-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={!agent.hasTranscript}
+          aria-expanded={transcriptOpen}
+          aria-controls="transcript"
+          onClick={() => setTranscriptOpen(!transcriptOpen)}
+        >
+          Full transcript
+        </button>
+        <GithubLink className="btn" href={agent.jobUrl}>
+          GitHub Actions job
+        </GithubLink>
+      </div>
+      {!agent.hasTranscript && <p className="hint">No transcript uploaded yet.</p>}
+      <div id="transcript">
+        {transcriptOpen && agent.hasTranscript && (
+          <Transcript runId={p.runId} agentId={agent.id} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StepDetail(p: {
   run: RunSnapshot;
   log: LogLine[];
@@ -49,7 +91,6 @@ export function StepDetail(p: {
 }) {
   const { run, step } = p;
   const [pickedId, setPickedId] = useState<string | null>(null);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const label = STEP_LABELS[step.id];
   const agents = run.agents.filter((agent) => agent.step === step.id);
   const picked = agents.find((agent) => agent.id === pickedId);
@@ -76,7 +117,9 @@ export function StepDetail(p: {
       </div>
 
       <div className="detail-block">
-        <h3 className="section-title">Conditions report</h3>
+        <h3 className="section-title">
+          Conditions report <span className="section-plain">· step notes</span>
+        </h3>
         {step.notes.length === 0 ? (
           <p className="hint">Nothing to report yet.</p>
         ) : (
@@ -91,7 +134,9 @@ export function StepDetail(p: {
       {agents.length > 0 && (
         <div className="detail-block">
           <div className="section-head">
-            <h3 className="section-title">Patrol on this step</h3>
+            <h3 className="section-title">
+              Patrol on this step <span className="section-plain">· reviewers</span>
+            </h3>
             <span className="hint">Select one to filter the radio log</span>
           </div>
           <PatrolCards agents={agents} selected={pickedId} onSelect={setPickedId} />
@@ -101,7 +146,8 @@ export function StepDetail(p: {
       <div className="detail-block">
         <div className="section-head">
           <h3 className="section-title">
-            Radio log <span className="section-scope">· {scope}</span>
+            Radio log <span className="section-plain">· logs</span>{" "}
+            <span className="section-plain">· {scope}</span>
           </h3>
           {picked && (
             <button type="button" className="btn btn-small" onClick={() => setPickedId(null)}>
@@ -114,34 +160,12 @@ export function StepDetail(p: {
       </div>
 
       {debugAgent && (
-        <div className="detail-block debug">
-          <h3 className="section-title">Debug</h3>
-          <p className="debug-target">
-            <strong>{patroller(debugAgent.role).name}</strong>
-            {agents.length > 1 && !picked && " · select a patrol card to choose another"}
-          </p>
-          <div className="debug-actions">
-            <button
-              type="button"
-              className="btn"
-              disabled={!debugAgent.hasTranscript}
-              aria-expanded={transcriptOpen}
-              aria-controls="transcript"
-              onClick={() => setTranscriptOpen(!transcriptOpen)}
-            >
-              Full transcript
-            </button>
-            <GithubLink className="btn" href={debugAgent.jobUrl}>
-              GitHub Actions job
-            </GithubLink>
-          </div>
-          {!debugAgent.hasTranscript && <p className="hint">No transcript uploaded yet.</p>}
-          <div id="transcript">
-            {transcriptOpen && debugAgent.hasTranscript && (
-              <Transcript key={debugAgent.id} runId={run.id} agentId={debugAgent.id} />
-            )}
-          </div>
-        </div>
+        <DebugPanel
+          key={debugAgent.id}
+          runId={run.id}
+          agent={debugAgent}
+          canChoose={agents.length > 1 && !picked}
+        />
       )}
     </section>
   );

@@ -334,7 +334,7 @@ button:focus-visible,
   color: var(--muted);
 }
 
-.section-scope {
+.section-plain {
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 400;
@@ -870,6 +870,13 @@ button:focus-visible,
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.6;
+}
+
+.transcript-missing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 /* Debug */

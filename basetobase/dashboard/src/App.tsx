@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { RunSummary } from "../../shared/src/types.ts";
 import { getJson, navigateTo, SIGN_IN_URL, SignedOutError } from "./api.ts";
 import { RunPage } from "./pages/RunView.tsx";
@@ -9,6 +9,52 @@ type Dashboard =
   | { phase: "loading" }
   | { phase: "failed" }
   | { phase: "ready"; login: string; runs: RunSummary[] };
+
+const RUNS_POLL_MS = 5000;
+
+// Keeps the list current while the tab is in view: a hidden tab fetches nothing, and showing it
+// again refreshes at once. A refresh that fails leaves the last list on screen.
+function useRunsPolling(on: boolean, setDashboard: Dispatch<SetStateAction<Dashboard>>): void {
+  useEffect(() => {
+    if (!on) return;
+    let mounted = true;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let issued = 0;
+    let applied = 0;
+
+    const refresh = () => {
+      const id = ++issued;
+      getJson<RunSummary[]>("/api/runs").then(
+        (runs) => {
+          if (!mounted || id < applied) return;
+          applied = id;
+          setDashboard((current) => (current.phase === "ready" ? { ...current, runs } : current));
+        },
+        (error: unknown) => {
+          if (mounted && error instanceof SignedOutError) navigateTo(SIGN_IN_URL);
+        },
+      );
+    };
+    const stop = () => {
+      clearInterval(timer);
+      timer = undefined;
+    };
+    const onVisibility = () => {
+      stop();
+      if (document.visibilityState !== "visible") return;
+      refresh();
+      timer = setInterval(refresh, RUNS_POLL_MS);
+    };
+
+    if (document.visibilityState === "visible") timer = setInterval(refresh, RUNS_POLL_MS);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      mounted = false;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [on, setDashboard]);
+}
 
 function Header({ login }: { login?: string }) {
   return (
@@ -85,6 +131,8 @@ export function App() {
       current = false;
     };
   }, []);
+
+  useRunsPolling(dashboard.phase === "ready", setDashboard);
 
   return (
     <div onClick={(event) => followInternalLink(event, navigate)}>

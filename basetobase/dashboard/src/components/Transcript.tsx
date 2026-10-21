@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { mapStreamLine } from "../../../shared/src/stream.ts";
 import type { EventKind } from "../../../shared/src/types.ts";
 import { getText, navigateTo, NotFoundError, SIGN_IN_URL, SignedOutError } from "../api.ts";
@@ -10,8 +10,16 @@ type State =
   | { phase: "failed" }
   | { phase: "ready"; entries: Entry[] };
 
-export function Transcript({ runId, agentId }: { runId: string; agentId: string }) {
+// Memoized because the run view ticks every second and a long transcript is costly to render.
+export const Transcript = memo(function Transcript({
+  runId,
+  agentId,
+}: {
+  runId: string;
+  agentId: string;
+}) {
   const [state, setState] = useState<State>({ phase: "loading" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let current = true;
@@ -30,7 +38,12 @@ export function Transcript({ runId, agentId }: { runId: string; agentId: string 
     return () => {
       current = false;
     };
-  }, [runId, agentId]);
+  }, [runId, agentId, attempt]);
+
+  const tryAgain = () => {
+    setState({ phase: "loading" });
+    setAttempt((count) => count + 1);
+  };
 
   switch (state.phase) {
     case "loading":
@@ -40,7 +53,14 @@ export function Transcript({ runId, agentId }: { runId: string; agentId: string 
         </p>
       );
     case "missing":
-      return <p className="hint">There is no transcript for this patroller.</p>;
+      return (
+        <div className="transcript-missing">
+          <p className="hint">Transcript not available yet — it can take a minute to appear.</p>
+          <button type="button" className="btn btn-small" onClick={tryAgain}>
+            Try again
+          </button>
+        </div>
+      );
     case "failed":
       return (
         <p className="hint" role="alert">
@@ -65,4 +85,4 @@ export function Transcript({ runId, agentId }: { runId: string; agentId: string 
         </div>
       );
   }
-}
+});

@@ -25,11 +25,13 @@ describe("RunsList", () => {
           run("r1", "on_the_hill", { runName: "Red Dog Face", rating: "black" }),
           run("r2", "stopped"),
           run("r3", "failed"),
+          run("r4", "swept"),
         ]}
       />,
     );
     expect(screen.getByRole("heading", { name: "Wind hold · needs you" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "On the hill" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "On the hill · running" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Swept · patrol done" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Closed" })).toBeVisible();
     expect(screen.getByRole("link", { name: /Red Dog Face/ })).toHaveAttribute("href", "/runs/r1");
     expect(screen.getByRole("img", { name: "Black diamond" })).toBeVisible();
@@ -39,6 +41,7 @@ describe("RunsList", () => {
     render(<RunsList runs={[run("r1", "on_the_hill")]} />);
     expect(screen.queryByRole("heading", { name: /needs you/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Closed" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Swept/ })).toBeNull();
   });
 
   it("puts each run under the heading for its status", () => {
@@ -55,11 +58,30 @@ describe("RunsList", () => {
     const group = (name: string) =>
       within(screen.getByRole("heading", { name }).closest("section")!).getAllByRole("link");
     expect(group("Wind hold · needs you").map((l) => l.getAttribute("href"))).toEqual(["/runs/r1"]);
-    expect(group("On the hill").map((l) => l.getAttribute("href"))).toEqual([
-      "/runs/r2",
+    expect(group("On the hill · running").map((l) => l.getAttribute("href"))).toEqual([
       "/runs/r3",
     ]);
+    expect(group("Swept · patrol done").map((l) => l.getAttribute("href"))).toEqual(["/runs/r2"]);
     expect(group("Closed").map((l) => l.getAttribute("href"))).toEqual(["/runs/r4"]);
+  });
+
+  it("lists the groups in order: needs you, on the hill, swept, closed", () => {
+    render(
+      <RunsList
+        runs={[
+          run("r1", "stopped"),
+          run("r2", "swept"),
+          run("r3", "on_the_hill"),
+          run("r4", "failed"),
+        ]}
+      />,
+    );
+    expect(screen.getAllByRole("heading").map((heading) => heading.textContent)).toEqual([
+      "Wind hold · needs you",
+      "On the hill · running",
+      "Swept · patrol done",
+      "Closed",
+    ]);
   });
 
   it("shows the number, title and rating name beside the run name", () => {
@@ -78,10 +100,10 @@ describe("RunsList", () => {
   it.each<[RunStatus, string]>([
     ["failed", "Needs you"],
     ["stopped", "Stopped"],
-    ["swept", "Swept · huddle arrives in M3"],
+    ["swept", "Swept · patrol done"],
   ])("labels a %s run %s", (status, label) => {
     render(<RunsList runs={[run("r1", status)]} />);
-    expect(screen.getByText(label)).toBeVisible();
+    expect(within(screen.getByRole("link")).getByText(label)).toBeVisible();
   });
 
   it("marks the open run as the current page", () => {

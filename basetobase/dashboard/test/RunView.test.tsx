@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../shared/src/config.ts";
 import type { AgentSnapshot, LogLine, RunSnapshot } from "../../shared/src/types.ts";
 import * as api from "../src/api.ts";
+import { Transcript } from "../src/components/Transcript.tsx";
 import { defaultStep, RunPage, RunView } from "../src/pages/RunView.tsx";
 import type { RunLive } from "../src/useRunLive.ts";
 import { agent, FakeWebSocket, JOB_URL, line, makeRun, START, step } from "./fixtures.ts";
@@ -90,7 +91,7 @@ describe("RunView", () => {
       "aria-pressed",
       "true",
     );
-    const items = within(screen.getByRole("region", { name: "Radio log" })).getAllByRole(
+    const items = within(screen.getByRole("region", { name: "Radio log · logs" })).getAllByRole(
       "listitem",
     );
     expect(items).toHaveLength(1);
@@ -142,7 +143,7 @@ describe("RunView", () => {
 
   it("says Dispatch is live, connecting or reconnecting", () => {
     const { rerender } = render(<RunView live={live()} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Dispatch live");
+    expect(screen.getByRole("status")).toHaveTextContent("Dispatch live · connected");
     rerender(<RunView live={live({ connection: "reconnecting" })} />);
     expect(screen.getByRole("status")).toHaveTextContent("Reconnecting…");
     rerender(<RunView live={live({ connection: "connecting" })} />);
@@ -187,9 +188,9 @@ describe("RunView", () => {
     render(<RunView live={live()} />);
     await user.click(screen.getByRole("button", { name: /Drop in/ }));
     expect(screen.getByText("Not started yet")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Conditions report" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Conditions report · step notes" })).toBeVisible();
     expect(screen.getByText("Nothing to report yet.")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Patrol on this step" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Patrol on this step · reviewers" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Debug" })).toBeNull();
   });
 
@@ -212,6 +213,13 @@ describe("RunView", () => {
     });
   });
 
+  it("pairs each themed heading with its plain meaning", () => {
+    render(<RunView live={live()} />);
+    expect(screen.getByRole("heading", { name: "Conditions report · step notes" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Patrol on this step · reviewers" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /^Radio log · logs/ })).toBeVisible();
+  });
+
   describe("patrol cards", () => {
     it("show name, role, status and summary, with every status in words", () => {
       const statuses = [
@@ -219,7 +227,7 @@ describe("RunView", () => {
         ["dispatched", "Dispatched"],
         ["running", "Running"],
         ["stalled", "Stalled"],
-        ["clear", "All clear"],
+        ["clear", "Clear"],
         ["hazards", "Hazards flagged"],
         ["error", "Failed"],
         ["stopped", "Stopped"],
@@ -282,7 +290,7 @@ describe("RunView", () => {
       ];
       render(<RunView live={live({ run: stepped, log: lines })} />);
       const shown = () =>
-        within(screen.getByRole("region", { name: "Radio log" }))
+        within(screen.getByRole("region", { name: "Radio log · logs" }))
           .queryAllByRole("listitem")
           .map((item) => item.textContent ?? "");
 
@@ -315,9 +323,13 @@ describe("RunView", () => {
     it("labels the log by its scope", async () => {
       const user = userEvent.setup();
       render(<RunView live={live()} />);
-      expect(screen.getByRole("heading", { name: /Radio log/ })).toHaveTextContent("all patrol");
+      expect(screen.getByRole("heading", { name: /Radio log/ })).toHaveTextContent(
+        "Radio log · logs · all patrol",
+      );
       await user.click(screen.getByRole("button", { name: /Trail map/ }));
-      expect(screen.getByRole("heading", { name: /Radio log/ })).toHaveTextContent("dispatch");
+      expect(screen.getByRole("heading", { name: /Radio log/ })).toHaveTextContent(
+        "Radio log · logs · dispatch",
+      );
     });
   });
 
@@ -328,15 +340,15 @@ describe("RunView", () => {
         jobUrl: "https://github.com/aghchan/simplegoapp/actions/runs/9/job/7",
       });
       render(<RunView live={live({ run: withAgents(run.agents[0]!, kt) })} />);
-      const debug = screen.getByRole("heading", { name: "Debug" }).parentElement!;
-      expect(within(debug).getByText("Mainline")).toBeVisible();
+      const debug = () => screen.getByRole("heading", { name: "Debug" }).parentElement!;
+      expect(within(debug()).getByText("Mainline")).toBeVisible();
       expect(screen.getByRole("link", { name: "GitHub Actions job" })).toHaveAttribute(
         "href",
         JOB_URL,
       );
 
       await user.click(screen.getByRole("button", { name: /KT-22/ }));
-      expect(within(debug).getByText("KT-22")).toBeVisible();
+      expect(within(debug()).getByText("KT-22")).toBeVisible();
       expect(screen.getByRole("link", { name: "GitHub Actions job" })).toHaveAttribute(
         "href",
         kt.jobUrl,
@@ -427,6 +439,36 @@ describe("RunView", () => {
       expect(screen.queryByText("success · 4 turns · 12s")).toBeNull();
     });
 
+    it("closes when another patroller is picked, and stays closed on the way back", async () => {
+      const user = userEvent.setup();
+      const kt = agent("kt-22", { hasTranscript: true, status: "clear" });
+      const fetchMock = vi.fn(async () => new Response(ndjson));
+      vi.stubGlobal("fetch", fetchMock);
+      render(<RunView live={live({ run: withAgents(run.agents[0]!, kt) })} />);
+      const button = () => screen.getByRole("button", { name: "Full transcript" });
+
+      await user.click(button());
+      await screen.findByText("success · 4 turns · 12s");
+      expect(button()).toHaveAttribute("aria-expanded", "true");
+
+      await user.click(screen.getByRole("button", { name: /KT-22/ }));
+      expect(button()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByText("success · 4 turns · 12s")).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      await user.click(button());
+      await screen.findByText("success · 4 turns · 12s");
+      await user.click(screen.getByRole("button", { name: /KT-22/ }));
+      expect(button()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByText("success · 4 turns · 12s")).toBeNull();
+    });
+
+    it("is memoized, so the clock tick does not render it again", () => {
+      expect((Transcript as unknown as { $$typeof: symbol }).$$typeof).toBe(
+        Symbol.for("react.memo"),
+      );
+    });
+
     it("renders transcript text as text, never as markup", async () => {
       const user = userEvent.setup();
       const text = '<img src="x" onerror="alert(1)">';
@@ -444,15 +486,55 @@ describe("RunView", () => {
       expect(container.querySelector("img")).toBeNull();
     });
 
-    it("says so when the transcript is gone", async () => {
-      const user = userEvent.setup();
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => new Response(null, { status: 404 })),
-      );
-      render(<RunView live={live()} />);
-      await user.click(screen.getByRole("button", { name: "Full transcript" }));
-      expect(await screen.findByText("There is no transcript for this patroller.")).toBeVisible();
+    describe("when it is not there yet", () => {
+      const NOT_YET = "Transcript not available yet — it can take a minute to appear.";
+
+      it("says it can take a minute, and fetches again on Try again", async () => {
+        const user = userEvent.setup();
+        const fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce(new Response(null, { status: 404 }))
+          .mockResolvedValueOnce(new Response(ndjson));
+        vi.stubGlobal("fetch", fetchMock);
+        render(<RunView live={live()} />);
+        await user.click(screen.getByRole("button", { name: "Full transcript" }));
+        expect(await screen.findByText(NOT_YET)).toBeVisible();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        await user.click(screen.getByRole("button", { name: "Try again" }));
+        expect(await screen.findByText("success · 4 turns · 12s")).toBeVisible();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock).toHaveBeenLastCalledWith(TRANSCRIPT_PATH);
+        expect(screen.queryByText(NOT_YET)).toBeNull();
+        expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+      });
+
+      it("offers Try again again when the retry finds nothing either", async () => {
+        const user = userEvent.setup();
+        const fetchMock = vi.fn(async () => new Response(null, { status: 404 }));
+        vi.stubGlobal("fetch", fetchMock);
+        render(<RunView live={live()} />);
+        await user.click(screen.getByRole("button", { name: "Full transcript" }));
+        await user.click(await screen.findByRole("button", { name: "Try again" }));
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+        expect(await screen.findByText(NOT_YET)).toBeVisible();
+        expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+      });
+
+      it("lets a failed retry report the failure", async () => {
+        const user = userEvent.setup();
+        vi.stubGlobal(
+          "fetch",
+          vi
+            .fn()
+            .mockResolvedValueOnce(new Response(null, { status: 404 }))
+            .mockResolvedValueOnce(new Response(null, { status: 500 })),
+        );
+        render(<RunView live={live()} />);
+        await user.click(screen.getByRole("button", { name: "Full transcript" }));
+        await user.click(await screen.findByRole("button", { name: "Try again" }));
+        expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the transcript");
+      });
     });
 
     it("says so when the transcript cannot be loaded", async () => {
@@ -515,7 +597,7 @@ describe("RunPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Connecting…");
 
     act(() => FakeWebSocket.last.open());
-    expect(screen.getByRole("status")).toHaveTextContent("Dispatch live");
+    expect(screen.getByRole("status")).toHaveTextContent("Dispatch live · connected");
   });
 
   it("adds the lines that arrive over the socket, in order, once each", async () => {
@@ -530,7 +612,7 @@ describe("RunPage", () => {
         lines: [line(5, null, { text: "fifth" }), line(4, null, { text: "fourth" }), log[2]!],
       }),
     );
-    const texts = within(screen.getByRole("region", { name: "Radio log" }))
+    const texts = within(screen.getByRole("region", { name: "Radio log · logs" }))
       .getAllByRole("listitem")
       .map((li) => li.textContent ?? "");
     expect(texts).toHaveLength(5);

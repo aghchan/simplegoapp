@@ -4,7 +4,8 @@ import { TrailRating } from "../components/TrailRating.tsx";
 
 const GROUPS: { title: string; statuses: RunStatus[]; urgent?: true }[] = [
   { title: "Wind hold · needs you", statuses: ["failed"], urgent: true },
-  { title: "On the hill", statuses: ["on_the_hill", "swept"] },
+  { title: RUN_STATUS_LABELS.on_the_hill, statuses: ["on_the_hill"] },
+  { title: RUN_STATUS_LABELS.swept, statuses: ["swept"] },
   { title: "Closed", statuses: ["stopped"] },
 ];
 

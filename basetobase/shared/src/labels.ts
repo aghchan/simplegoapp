@@ -29,8 +29,8 @@ export const RATING_LABELS: Record<Rating, string> = {
 };
 
 export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
-  on_the_hill: "On the hill",
-  swept: "Swept · huddle arrives in M3",
+  on_the_hill: "On the hill · running",
+  swept: "Swept · patrol done",
   stopped: "Stopped",
   failed: "Needs you",
 };
@@ -40,7 +40,7 @@ export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
   dispatched: "Dispatched",
   running: "Running",
   stalled: "Stalled",
-  clear: "All clear",
+  clear: "Clear",
   hazards: "Hazards flagged",
   error: "Failed",
   stopped: "Stopped",

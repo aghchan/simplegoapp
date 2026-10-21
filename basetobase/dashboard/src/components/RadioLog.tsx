@@ -43,7 +43,7 @@ export const RadioLog = memo(function RadioLog(p: {
       onScroll={onScroll}
       tabIndex={0}
       role="region"
-      aria-label="Radio log"
+      aria-label="Radio log · logs"
     >
       <ol className="radio-lines" aria-live="polite" aria-relevant="additions">
         {shown.map((line) => (

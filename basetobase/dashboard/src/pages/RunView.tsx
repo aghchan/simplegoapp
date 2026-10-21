@@ -14,7 +14,7 @@ const PANEL_NAMES: Record<Panel, string> = { backend: "Backend", frontend: "Fron
 
 const CONNECTION_TEXT: Record<Connection, string> = {
   connecting: "Connecting…",
-  live: "Dispatch live",
+  live: "Dispatch live · connected",
   reconnecting: "Reconnecting…",
 };
 
