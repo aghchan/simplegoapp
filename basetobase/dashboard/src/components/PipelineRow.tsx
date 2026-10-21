@@ -1,6 +1,12 @@
 import { formatDuration } from "../../../shared/src/format.ts";
 import { STEP_LABELS } from "../../../shared/src/labels.ts";
-import type { StepId, StepSnapshot, StepStatus } from "../../../shared/src/types.ts";
+import type {
+  AgentSnapshot,
+  ReviewOutcome,
+  StepId,
+  StepSnapshot,
+  StepStatus,
+} from "../../../shared/src/types.ts";
 import { Mark, type Tone } from "./Mark.tsx";
 
 const STEP_TONES: Record<StepStatus, Tone> = {
@@ -17,15 +23,51 @@ const STEP_STATUS_TEXT: Record<StepStatus, string> = {
   stopped: "Stopped",
 };
 
+// A done step with a review outcome is green only when the review was clear.
+const OUTCOME_TONES: Record<ReviewOutcome, Tone> = {
+  clear: "ok",
+  hazards: "hazard",
+  failed: "bad",
+  none: "idle",
+  pending: "idle",
+};
+
 // An unfinished step is still counting; one that never started has taken no time.
 export function timeOnStep(step: StepSnapshot, now: number): number {
   return step.startedAt === undefined ? 0 : (step.finishedAt ?? now) - step.startedAt;
 }
 
-function Flag({ reached }: { reached: boolean }) {
+function toneOf(step: StepSnapshot): Tone {
+  if (step.status === "done" && step.outcome) return OUTCOME_TONES[step.outcome];
+  return STEP_TONES[step.status];
+}
+
+// What a done step's review came to, unless it passed.
+function outcomeText(step: StepSnapshot, agents: AgentSnapshot[]): string | undefined {
+  if (step.status !== "done") return undefined;
+  switch (step.outcome) {
+    case "hazards":
+      return "hazards flagged";
+    case "failed": {
+      const failed = agents.filter(
+        (agent) =>
+          agent.step === step.id && (agent.status === "error" || agent.status === "stopped"),
+      );
+      return `${failed.length} failed`;
+    }
+    case "none":
+      return "no patrollers";
+    default:
+      return undefined;
+  }
+}
+
+// A reached flag takes the tone of its step's review, if it has one, else stays navy.
+function Flag({ reached, tone }: { reached: boolean; tone?: Tone }) {
+  const className = reached ? `flag flag-reached${tone ? ` flag-${tone}` : ""}` : "flag";
   return (
     <svg
-      className={reached ? "flag flag-reached" : "flag"}
+      className={className}
       width="12"
       height="14"
       viewBox="0 0 12 14"
@@ -39,16 +81,20 @@ function Flag({ reached }: { reached: boolean }) {
 
 function StepButton(p: {
   step: StepSnapshot;
+  agents: AgentSnapshot[];
   selected: boolean;
   now: number;
   onSelect: (id: StepId) => void;
 }) {
   const { step, selected } = p;
   const label = STEP_LABELS[step.id];
+  const outcome = outcomeText(step, p.agents);
   const text =
     step.status === "pending"
       ? STEP_STATUS_TEXT.pending
-      : `${STEP_STATUS_TEXT[step.status]} · ${formatDuration(timeOnStep(step, p.now))}`;
+      : [STEP_STATUS_TEXT[step.status], outcome, formatDuration(timeOnStep(step, p.now))]
+          .filter((part) => part !== undefined)
+          .join(" · ");
   return (
     <button
       type="button"
@@ -57,7 +103,7 @@ function StepButton(p: {
       onClick={() => p.onSelect(step.id)}
     >
       <span className="step-name">
-        <Mark tone={STEP_TONES[step.status]} />
+        <Mark tone={toneOf(step)} />
         {label.themed}
       </span>
       <span className="step-plain-name">{label.plain}</span>
@@ -68,6 +114,7 @@ function StepButton(p: {
 
 export function PipelineRow(p: {
   steps: StepSnapshot[];
+  agents: AgentSnapshot[];
   selected: StepId;
   now: number;
   onSelect: (id: StepId) => void;
@@ -81,13 +128,14 @@ export function PipelineRow(p: {
           <div key={step.id} className="pipeline-step">
             <StepButton
               step={step}
+              agents={p.agents}
               selected={step.id === p.selected}
               now={p.now}
               onSelect={p.onSelect}
             />
             {milestone && (
               <span className={reached ? "milestone milestone-reached" : "milestone"}>
-                <Flag reached={reached} />
+                <Flag reached={reached} tone={step.outcome ? toneOf(step) : undefined} />
                 {milestone}
                 <span className="sr-only">{reached ? " reached" : " not yet reached"}</span>
               </span>

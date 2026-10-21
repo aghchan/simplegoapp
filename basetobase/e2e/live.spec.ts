@@ -1,7 +1,14 @@
 import { createHmac } from "node:crypto";
 import path from "node:path";
 import { expect, test, type Page, type TestInfo, type WebSocketRoute } from "@playwright/test";
-import type { LobbyMessage } from "../shared/src/types.ts";
+import type { RoleId } from "../shared/src/config.ts";
+import type {
+  AgentSnapshot,
+  LiveMessage,
+  LobbyMessage,
+  RunSnapshot,
+  RunSummary,
+} from "../shared/src/types.ts";
 import { SESSION_COOKIE, signSession } from "../dispatch/src/auth/session.ts";
 import {
   BASE_URL_ENV,
@@ -210,4 +217,138 @@ test("c: with the lobby socket dropped, the list still updates by polling", asyn
   await expect(runLink(page, pr)).toBeVisible({ timeout: POLLED_MS });
   expect(connected).toHaveLength(1);
   await expectNoReload(page);
+});
+
+// A verdict needs a GitHub OIDC token, which the hermetic stack cannot mint, so this run is a
+// fixture: the stack serves the dashboard, page routes answer its API and sockets.
+function hazardsRun(): { run: RunSnapshot; summaries: RunSummary[] } {
+  const now = Date.now();
+  const sweptAt = now - 60_000;
+  const start = sweptAt - 14 * 60_000;
+  const agent = (role: RoleId, over: Partial<AgentSnapshot>): AgentSnapshot => ({
+    id: `${role}-sweep-0`,
+    role,
+    step: "sweep",
+    round: 0,
+    status: "clear",
+    dispatchedAt: start,
+    finishedAt: sweptAt,
+    hasTranscript: false,
+    hazards: [],
+    ...over,
+  });
+  const run: RunSnapshot = {
+    id: "e2e-hazards",
+    repo: REPO,
+    prNumber: 958,
+    prTitle: "orders: add cancel endpoint",
+    prUrl: `https://github.com/${REPO}/pull/958`,
+    branch: "e2e/958",
+    headSha: "a91f3c2e0b7d4c1f8a6e5d3b2c1a0f9e8d7c6b5a",
+    panels: ["backend"],
+    rating: "black",
+    runName: "Red Dog Face",
+    goal: "Let a customer cancel their own pending order.",
+    status: "swept",
+    outcome: "hazards",
+    steps: [
+      { id: "lift_line", status: "done", startedAt: start, finishedAt: start, notes: [] },
+      { id: "trail_map", status: "done", startedAt: start, finishedAt: start, notes: [] },
+      {
+        id: "sweep",
+        status: "done",
+        startedAt: start,
+        finishedAt: sweptAt,
+        outcome: "hazards",
+        notes: [
+          "Hazards flagged",
+          "3 of 3 patrollers in · 1 hazard · 0 failed",
+          "Granite Chief: The change fits the goal.",
+          "KT-22: Cancel never checks the order's owner.",
+          "Mainline: 18 end-to-end requests behave.",
+        ],
+      },
+      ...(["huddle", "summit", "drop_in", "send_it"] as const).map((id) => ({
+        id,
+        status: "pending" as const,
+        notes: [],
+      })),
+    ],
+    agents: [
+      agent("granite-chief", { summary: "The change fits the goal." }),
+      agent("kt-22", {
+        status: "hazards",
+        summary: "Cancel never checks the order's owner.",
+        hazards: [{ id: "SEC-1", title: "Anyone can cancel any order", detail: "No owner check." }],
+      }),
+      agent("mainline", { summary: "18 end-to-end requests behave." }),
+    ],
+    createdAt: start,
+    updatedAt: sweptAt,
+  };
+  const summary = (over: Partial<RunSummary>): RunSummary => ({
+    id: run.id,
+    prNumber: run.prNumber,
+    prTitle: run.prTitle,
+    runName: run.runName,
+    rating: run.rating,
+    status: run.status,
+    outcome: run.outcome,
+    currentStep: "sweep",
+    updatedAt: sweptAt,
+    ...over,
+  });
+  const summaries = [
+    summary({}),
+    summary({ id: "e2e-failed", prNumber: 957, runName: "Headwall Face", outcome: "failed" }),
+    summary({
+      id: "e2e-clear",
+      prNumber: 956,
+      prTitle: "docs: fix a typo",
+      runName: "Easy Slider",
+      rating: "green",
+      outcome: "clear",
+      updatedAt: sweptAt - 1,
+    }),
+  ];
+  return { run, summaries };
+}
+
+test("d: a run whose patrol flagged hazards never reads as a pass", async ({ page }, testInfo) => {
+  const { run, summaries } = hazardsRun();
+  await page.route(/\/api\/me$/, (route) => route.fulfill({ json: { login: OWNER } }));
+  await page.route(/\/api\/runs$/, (route) => route.fulfill({ json: summaries }));
+  await page.route(new RegExp(`/api/runs/${run.id}$`), (route) =>
+    route.fulfill({ json: { run, log: [] } }),
+  );
+  // Answered here, so neither socket reaches the stack; the lobby one sends nothing.
+  await page.routeWebSocket(/\/api\/live$/, () => {});
+  await page.routeWebSocket(new RegExp(`/api/runs/${run.id}/live$`), (ws) => {
+    const snapshot: LiveMessage = { type: "snapshot", run, log: [] };
+    ws.send(JSON.stringify(snapshot));
+  });
+
+  await page.goto(`/runs/${run.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: run.prTitle })).toBeVisible();
+
+  const needsYou = group(page, "Wind hold · needs you");
+  await expect(needsYou.getByRole("link", { name: /#958 / })).toContainText("Hazards flagged");
+  await expect(needsYou.getByRole("link", { name: /#957 / })).toContainText("Review failed");
+  await expect(group(page, "Swept · patrol done").getByRole("link")).toHaveCount(1);
+  await expect(group(page, "Swept · patrol done")).toContainText("#956 ");
+
+  const steps = page.getByRole("group", { name: "Steps of the run" });
+  const sweep = steps.getByRole("button", { name: /Patrol sweep/ });
+  await expect(sweep).toContainText("Done · hazards flagged");
+  await expect(sweep.locator(".mark-hazard")).toHaveCount(1);
+  await expect(sweep.locator(".mark-ok")).toHaveCount(0);
+  // All verdicts are in, so Swept is reached, but its flag is not green.
+  await expect(steps.locator(".milestone").filter({ hasText: "Swept" })).toHaveText(
+    "Swept reached",
+  );
+  await expect(steps.locator(".flag-ok")).toHaveCount(0);
+
+  const detail = page.getByRole("region", { name: "Step detail" });
+  await expect(detail.locator(".note").first()).toHaveText("Hazards flagged");
+  await screenshot(page, testInfo, "hazards-run");
 });

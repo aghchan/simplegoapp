@@ -19,6 +19,9 @@ export type AgentStatus =
   | "hazards"
   | "error"
   | "stopped";
+// What the review came to; only "clear" passes. "pending": the sweep is not done, and for a
+// stopped run never will be. "none": no patroller covered the change.
+export type ReviewOutcome = "pending" | "none" | "clear" | "hazards" | "failed";
 export type EventKind = "system" | "say" | "tool" | "tool_result" | "done" | "error";
 
 export interface AgentEvent {
@@ -71,6 +74,8 @@ export interface StepSnapshot {
   startedAt?: number;
   finishedAt?: number;
   notes: string[];
+  // The sweep step's only.
+  outcome?: ReviewOutcome;
 }
 
 export interface RunSnapshot {
@@ -86,6 +91,7 @@ export interface RunSnapshot {
   runName: string;
   goal: string;
   status: RunStatus;
+  outcome: ReviewOutcome;
   steps: StepSnapshot[];
   agents: AgentSnapshot[];
   createdAt: number;
@@ -99,6 +105,7 @@ export interface RunSummary {
   runName: string;
   rating: Rating;
   status: RunStatus;
+  outcome: ReviewOutcome;
   currentStep: StepId;
   updatedAt: number;
 }

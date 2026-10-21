@@ -1,7 +1,12 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Rating } from "../../shared/src/config.ts";
-import type { RunSnapshot, RunStatus, StepSnapshot } from "../../shared/src/types.ts";
+import type {
+  ReviewOutcome,
+  RunSnapshot,
+  RunStatus,
+  StepSnapshot,
+} from "../../shared/src/types.ts";
 import {
   activeRunNames,
   findActiveRuns,
@@ -23,6 +28,7 @@ function snapshot(over: Partial<RunSnapshot> & { id: string }): RunSnapshot {
     runName: "Red Dog Face",
     goal: "Cancel orders.",
     status: "on_the_hill",
+    outcome: "pending",
     steps: steps("sweep", "active"),
     agents: [],
     createdAt: 1000,
@@ -64,6 +70,7 @@ describe("run index", () => {
         runName: "Red Dog Face",
         rating: "black",
         status: "on_the_hill",
+        outcome: "pending",
         currentStep: "sweep",
         updatedAt: 5,
       },
@@ -80,10 +87,32 @@ describe("run index", () => {
     expect(await listRuns(env.DB)).toEqual([summaryOf(run)]);
   });
 
+  it.each<ReviewOutcome>(["clear", "hazards", "failed", "none"])(
+    "reads back a %s outcome as it was written",
+    async (outcome) => {
+      const run = snapshot({ id: "a", status: "swept", steps: steps("sweep", "done"), outcome });
+      await upsertRun(env.DB, run);
+      expect(await listRuns(env.DB)).toEqual([summaryOf(run)]);
+      expect(summaryOf(run).outcome).toBe(outcome);
+    },
+  );
+
+  it("reads a row indexed before outcomes were recorded as pending, never as a pass", async () => {
+    await env.DB.prepare(
+      `INSERT INTO runs (id, repo, pr_number, pr_title, head_sha, run_name, rating, status,
+         current_step, created_at, updated_at)
+       VALUES ('old', 'aghchan/simplegoapp', 58, 't', 'h', 'Red Dog Face', 'black', 'swept',
+         'sweep', 1, 1)`,
+    ).run();
+    expect(await listRuns(env.DB)).toMatchObject([{ id: "old", outcome: "pending" }]);
+  });
+
   it("updates a run in place", async () => {
     await indexRun("a", "on_the_hill", 5);
-    await indexRun("a", "swept", 9, { steps: steps("sweep", "done") });
-    expect(await listRuns(env.DB)).toMatchObject([{ id: "a", status: "swept", updatedAt: 9 }]);
+    await indexRun("a", "swept", 9, { steps: steps("sweep", "done"), outcome: "hazards" });
+    expect(await listRuns(env.DB)).toMatchObject([
+      { id: "a", status: "swept", outcome: "hazards", updatedAt: 9 },
+    ]);
   });
 
   it("reports the active step, else the last one reached", async () => {

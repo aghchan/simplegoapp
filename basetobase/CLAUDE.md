@@ -13,6 +13,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 - Transcripts: Workers KV (`TRANSCRIPTS`, 30-day TTL), key `runs/{run}/{agent}.jsonl`. Eventually consistent: a fresh upload can 404 elsewhere for ~60 s.
 - `unpatrolledGlobs` (config/basetobase.json): PRs touching Base to Base's own files aren't patrolled until M5. The webhook answers `{"ignored":"unpatrolled"}`.
 - Review gate: main requires the App's check run *Base to Base* on the PR head (`checkRunOf`, machine.ts; a refused write is retried like the index). Hazards or a failed agent fail it; unpatrolled PRs get neutral; a push supersedes the PR's active run; an event whose head isn't the PR's current one is ignored as `stale`.
+- Review outcome: `reviewOutcome` (machine.ts) is the one source for the check, `RunSnapshot.outcome`, the sweep step's `outcome`, the index row (`runs.outcome`, migration 0002) and every dashboard pass/fail signal. Success/green only for `clear`; `none` (no patrollers) is neutral grey. Never derive pass/fail elsewhere.
 - `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`), mounted by `createApp(deps)` in `dispatch/src/index.ts`.
 - Bodies via `readBody`/`readJsonObject` (size-bounded). Refusals via `reject` (`routes/request.ts`).
 - Credentials: `agent` (OIDC) and `api` (session cookie) in sub-app middleware; `github` checks the HMAC in its handler; `auth` is sign-in.

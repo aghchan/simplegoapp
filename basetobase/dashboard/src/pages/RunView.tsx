@@ -74,7 +74,13 @@ export function RunView({ live }: { live: RunLive }) {
             {done} of {run.steps.length} done · flags mark milestones
           </span>
         </div>
-        <PipelineRow steps={run.steps} selected={selected} now={now} onSelect={setPicked} />
+        <PipelineRow
+          steps={run.steps}
+          agents={run.agents}
+          selected={selected}
+          now={now}
+          onSelect={setPicked}
+        />
       </section>
 
       {step && <StepDetail key={step.id} run={run} log={log} step={step} now={now} />}

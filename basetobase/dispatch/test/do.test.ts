@@ -691,6 +691,35 @@ describe("RunDO", () => {
       });
     });
 
+    it("gives the check, the snapshot and the index row the same outcome", async () => {
+      const { id, stub, nonce } = await startRun();
+      const hazard = { id: "FUN-1", title: "Cancel skips the owner check", detail: "d" };
+      await stub.verdict(AGENT, nonce, { ...clearVerdict, status: "hazards", hazards: [hazard] });
+      expect(checks.at(-1)).toMatchObject({ body: { conclusion: "failure" } });
+      expect((await stub.view())!.run.outcome).toBe("hazards");
+      const row = (await listRuns(env.DB)).find((run) => run.id === id);
+      expect(row).toMatchObject({ status: "swept", outcome: "hazards" });
+    });
+
+    it("posts a neutral check, never a success, when no patroller covers the change", async () => {
+      const id = `r${++runCount}`;
+      const stub = runStub(env, id);
+      const snapshot = await stub.start(prRef(), id, { ...triage, panels: [] });
+      expect(snapshot.outcome).toBe("none");
+      expect(checks).toEqual([
+        {
+          method: "POST",
+          body: expect.objectContaining({
+            status: "completed",
+            conclusion: "neutral",
+            output: expect.objectContaining({ title: "No patrollers for this change" }),
+          }),
+        },
+      ]);
+      const row = (await listRuns(env.DB)).find((run) => run.id === id);
+      expect(row?.outcome).toBe("none");
+    });
+
     it("cancels the check of a stopped run", async () => {
       const { stub } = await startRun();
       await stub.stop("PR closed");

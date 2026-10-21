@@ -228,7 +228,7 @@ button:focus-visible,
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.run-failed {
+.run-urgent {
   border-color: var(--warn-border);
   box-shadow: 0 0 0 1px var(--warn-border);
 }
@@ -255,11 +255,11 @@ button:focus-visible,
   color: var(--accent);
 }
 
-.run-failed .run-status {
+.run-urgent .run-status {
   color: var(--warn-text);
 }
 
-.run-stopped .run-status {
+.run-quiet .run-status {
   color: var(--muted);
 }
 
@@ -504,7 +504,8 @@ button:focus-visible,
   fill: var(--ok);
 }
 
-.mark-bad .mark-fill {
+.mark-bad .mark-fill,
+.mark-hazard .mark-fill {
   fill: var(--bad);
 }
 
@@ -663,6 +664,33 @@ button:focus-visible,
   stroke: none;
 }
 
+/* A milestone that carries a review outcome is green only when the review was clear. */
+.flag-ok .flag-pole {
+  stroke: var(--ok);
+}
+
+.flag-ok .flag-cloth {
+  fill: var(--ok);
+}
+
+.flag-bad .flag-pole,
+.flag-hazard .flag-pole {
+  stroke: var(--bad);
+}
+
+.flag-bad .flag-cloth,
+.flag-hazard .flag-cloth {
+  fill: var(--bad);
+}
+
+.flag-idle .flag-pole {
+  stroke: var(--idle);
+}
+
+.flag-idle .flag-cloth {
+  fill: var(--idle);
+}
+
 /* Step detail */
 
 .step-detail {
@@ -757,7 +785,8 @@ button:focus-visible,
   color: var(--ok);
 }
 
-.patrol-status-bad {
+.patrol-status-bad,
+.patrol-status-hazard {
   color: var(--bad);
 }
 

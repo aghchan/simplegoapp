@@ -50,6 +50,7 @@ export function makeRun(over: Partial<RunSnapshot> = {}): RunSnapshot {
     runName: "Red Dog Face",
     goal: "Let a customer cancel their own pending order.",
     status: "on_the_hill",
+    outcome: "pending",
     steps: [
       step("lift_line", "done", { startedAt: START - 80_000, finishedAt: START - 41_000 }),
       step("trail_map", "done", {

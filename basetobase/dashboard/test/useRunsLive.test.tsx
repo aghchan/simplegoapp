@@ -14,6 +14,7 @@ function summary(id: string, over: Partial<RunSummary> = {}): RunSummary {
     runName: "Red Dog Face",
     rating: "black",
     status: "on_the_hill",
+    outcome: "pending",
     currentStep: "sweep",
     updatedAt: 1,
     ...over,
