@@ -4,3 +4,4 @@
 - Pure logic in `*-lib.ts`, tested in `test/`. Side effects (wrangler, gh, browser, network) only in the entry file.
 - `setup.ts` (`npm run setup`): the one-time owner setup. Every step skips what already exists.
 - Secrets travel on child stdin only. Never in argv, files or logs.
+- `wrangler.ts` (`npm run deploy`, `npm run migrate`): runs wrangler; an expired login reruns `wrangler login` and retries once.
