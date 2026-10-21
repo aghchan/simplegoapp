@@ -227,7 +227,7 @@ describe("runAgent", () => {
     const { c, code } = await run("valid", { FAKE_EXIT: "3" });
     expect(c.failures).toEqual(["claude exited 3"]);
     expect(c.verdicts).toEqual([]);
-    expect(code).toBe(0);
+    expect(code).toBe(1);
   });
 
   it("sends stderr lines as system events", async () => {
@@ -240,10 +240,21 @@ describe("runAgent", () => {
   it("writes the brief, claude's stderr and the outcome to the job log", async () => {
     const logs: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
-    await run("valid", { FAKE_STDERR: "Invalid API key", FAKE_EXIT: "1" });
+    await run("valid", { FAKE_STDERR: "disk full", FAKE_EXIT: "1" });
     expect(logs[0]).toMatch(/^brief: Mainline reviewing \S+$/);
-    expect(errors).toContain("claude: Invalid API key");
+    expect(errors).toContain("claude: disk full");
     expect(logs).toContain("reported: failure · claude exited 1");
+  });
+
+  it("names a rejected Claude token as the failure", async () => {
+    const { c, code } = await run("none", {
+      FAKE_STDERR: "Failed to authenticate. API Error: 401 OAuth access token is invalid.",
+      FAKE_EXIT: "1",
+    });
+    expect(c.failures).toEqual([
+      "Claude token rejected: renew the CLAUDE_CODE_OAUTH_TOKEN repo secret with `claude setup-token`",
+    ]);
+    expect(code).toBe(1);
   });
 
   it("logs the verdict status once reported", async () => {
@@ -267,7 +278,7 @@ describe("runAgent", () => {
     const argsFile = join(root, "args.json");
     const { c, code } = await run("valid", { FAKE_ARGS_FILE: argsFile });
     expect(c.failures).toEqual(["cannot read agent templates"]);
-    expect(code).toBe(0);
+    expect(code).toBe(1);
     await expect(readFile(argsFile)).rejects.toThrow();
   });
 
@@ -281,7 +292,7 @@ describe("runAgent", () => {
       workDir,
     });
     expect(r.c.failures).toEqual(["cannot start claude: ENOENT"]);
-    expect(code).toBe(0);
+    expect(code).toBe(1);
   });
 
   it.each([
@@ -290,7 +301,7 @@ describe("runAgent", () => {
   ])("reports a spawn that throws (%s) without the prompt", async (_name, extra, reason) => {
     const { c, code } = await run("valid", {}, {}, extra);
     expect(c.failures).toEqual([`cannot start claude: ${reason}`]);
-    expect(code).toBe(0);
+    expect(code).toBe(1);
   });
 
   it("reports a work directory that cannot be created", async () => {
@@ -298,7 +309,7 @@ describe("runAgent", () => {
     const { c, code } = await run("valid", {}, {}, { workDir: join(root, "blocker", "work") });
     expect(c.failures).toEqual(["cannot start claude: ENOTDIR"]);
     expect(c.verdicts).toEqual([]);
-    expect(code).toBe(0);
+    expect(code).toBe(1);
   });
 
   describe("the brief", () => {
@@ -413,7 +424,7 @@ describe("runAgent", () => {
       expect(c.failures).toEqual(["no verdict written"]);
     });
 
-    it("counts a 422 on the verdict as reported", async () => {
+    it("counts a 422 on the verdict as reported, and fails the job", async () => {
       const { c, code } = await run(
         "valid",
         {},
@@ -427,7 +438,7 @@ describe("runAgent", () => {
             ),
         },
       );
-      expect(code).toBe(0);
+      expect(code).toBe(1);
       expect(c.failures).toEqual([]);
       expect(errors).toEqual([
         'verdict rejected: POST /agent/verdict → 422: {"error":"status must be clear or hazards"}',
@@ -471,7 +482,7 @@ describe("runAgent", () => {
     it("retries a failure report after a network error", async () => {
       const down = flaky(1, new Error("POST /agent/failure failed: fetch failed"), undefined);
       const { code } = await run("none", {}, { failure: down.fn });
-      expect(code).toBe(0);
+      expect(code).toBe(1);
       expect(down.calls.count).toBe(2);
     });
 
@@ -741,7 +752,7 @@ describe("runAgent", () => {
           return (answers[url.pathname] ?? new Response(null, { status: 500 })).clone();
         },
       });
-      expect(await start("valid", { FAKE_LEAK: "1" }, client)).toBe(0);
+      expect(await start("valid", { FAKE_LEAK: "1" }, client)).toBe(1);
       expect(errors.length).toBeGreaterThanOrEqual(3);
       for (const secret of [...Object.values(secrets), "oidc-secret-2345"]) {
         expect(errors.join("\n")).not.toContain(secret);

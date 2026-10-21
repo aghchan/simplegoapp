@@ -14,9 +14,11 @@ import {
   kvId,
   KV_BINDING,
   KV_TITLE,
+  looksLikeClaudeToken,
   manifestPage,
   publicUrlOf,
   REPO,
+  tokenFrom,
   withDatabaseId,
   withKvId,
   withPublicUrl,
@@ -26,6 +28,7 @@ import {
 } from "./setup-lib.ts";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PASTE_SETTLE_MS = 300;
 const CONFIG = `${ROOT}wrangler.jsonc`;
 
 async function main(): Promise<void> {
@@ -86,7 +89,10 @@ async function main(): Promise<void> {
     const repoSecrets = await sh("gh", ["secret", "list", "--repo", REPO], { capture: true });
     if (!repoSecrets.includes("CLAUDE_CODE_OAUTH_TOKEN") || (await yes("Claude token is set. Replace it?"))) {
       console.log("Run `claude setup-token` in another terminal.");
-      const token = await askHidden("Paste the token (hidden): ");
+      let token = await askHidden("Paste the token (hidden): ");
+      while (!looksLikeClaudeToken(token)) {
+        token = await askHidden("That is not a Claude token (sk-ant-…). Paste it again: ");
+      }
       await sh("gh", ["secret", "set", "CLAUDE_CODE_OAUTH_TOKEN", "--repo", REPO], { input: token });
     }
   } else {
@@ -225,29 +231,34 @@ async function yes(question: string): Promise<boolean> {
   return /^y/i.test(await ask(`${question} [y/N]`));
 }
 
-// Reads a line without echoing it, so the token never shows on screen or in scrollback.
+// Reads input without echoing it, so the token never shows on screen or in scrollback. A token
+// copied from a wrapped terminal line arrives with line breaks inside one paste, so Enter only ends
+// the input once nothing more arrives for PASTE_SETTLE_MS; whitespace is dropped (tokens have none).
 function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
     process.stdout.write(question);
     const stdin = process.stdin;
     let value = "";
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const done = () => {
+      stdin.off("data", onData);
+      stdin.setRawMode?.(false);
+      stdin.pause();
+      process.stdout.write("\n");
+      resolve(tokenFrom(value));
+    };
+    const onData = (chunk: string) => {
+      clearTimeout(settle);
+      for (const c of chunk) {
+        if (c === "\u0003") process.exit(130);
+        if (c === "\u007f") value = value.slice(0, -1);
+        else value += c;
+      }
+      if (/[\r\n]$/.test(value)) settle = setTimeout(done, PASTE_SETTLE_MS);
+    };
     stdin.setRawMode?.(true);
     stdin.setEncoding("utf8");
     stdin.resume();
-    const onData = (chunk: string) => {
-      for (const c of chunk) {
-        if (c === "\u0003") process.exit(130);
-        if (c === "\r" || c === "\n") {
-          stdin.off("data", onData);
-          stdin.setRawMode?.(false);
-          stdin.pause();
-          process.stdout.write("\n");
-          resolve(value.trim());
-          return;
-        }
-        value = c === "\u007f" ? value.slice(0, -1) : value + c;
-      }
-    };
     stdin.on("data", onData);
   });
 }

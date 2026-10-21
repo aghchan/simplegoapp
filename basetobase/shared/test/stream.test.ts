@@ -119,6 +119,18 @@ describe("mapStreamLine", () => {
     ]);
   });
 
+  it("does not call a failed run a success", () => {
+    const line = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: true,
+      result: "Failed to authenticate. API Error: 401 OAuth access token is invalid.",
+      num_turns: 1,
+      duration_ms: 2100,
+    });
+    expect(mapStreamLine(line)).toEqual([{ kind: "error", text: "failed · 1 turns · 2s" }]);
+  });
+
   it("leaves out the figures a result does not carry", () =>
     expect(mapStreamLine('{"type":"result","subtype":"success"}')).toEqual([
       { kind: "done", text: "success" },

@@ -27,6 +27,10 @@ const FORWARDER_ONLY_ENV = [
 const DEADLINE_MS = 20 * 60_000;
 const PAST_DEADLINE = "claude ran past 20 min";
 const JOB_CANCELLED = "job cancelled";
+const TOKEN_REJECTED =
+  "Claude token rejected: renew the CLAUDE_CODE_OAUTH_TOKEN repo secret with `claude setup-token`";
+// What claude prints when the Claude token is missing, expired or cut short.
+const TOKEN_REJECTED_TEXT = /OAuth access token is invalid|Failed to authenticate|Invalid API key/i;
 const KILL_GRACE_MS = 5000;
 // On cancel the runner sends SIGTERM 7.5 s after its first signal, and a second signal ends the
 // forwarder at once: each of the cancel's three steps waits at most this long.
@@ -111,6 +115,7 @@ export async function runAgent(o: {
   );
 
   let seq = 0;
+  let tokenRejected = false;
   const push = (kind: EventKind, text: string) =>
     batcher.push({ seq: seq++, ts: Date.now(), kind, text });
   const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -123,6 +128,9 @@ export async function runAgent(o: {
       if (!transcript.writableEnded) transcript.write(`${line}\n`);
       for (const event of mapStreamLine(line)) {
         push(event.kind, event.text);
+        // Tool output can quote any text, so only claude's own messages count.
+        const own = event.kind !== "tool" && event.kind !== "tool_result";
+        if (own && TOKEN_REJECTED_TEXT.test(event.text)) tokenRejected = true;
         // The job log shows how claude ended, so a failed run is readable from GitHub alone.
         if (event.kind === "done" || event.kind === "error") console.log(`claude: ${event.text}`);
       }
@@ -131,6 +139,7 @@ export async function runAgent(o: {
       const text = redact(raw).trim();
       if (!text) return;
       push("system", text.slice(0, EVENT_TEXT_MAX));
+      if (TOKEN_REJECTED_TEXT.test(text)) tokenRejected = true;
       console.error(`claude: ${text}`);
     },
   };
@@ -189,13 +198,16 @@ export async function runAgent(o: {
   async function finish(): Promise<number> {
     failure ??= await untilCancelled(runClaude());
     if (pastDeadline) failure = PAST_DEADLINE;
+    // "claude exited 1" alone sends the owner to the transcript for what is a secret to renew.
+    else if (tokenRejected && failure?.startsWith("claude exited")) failure = TOKEN_REJECTED;
     await untilCancelled(closeTranscript());
     const drained = await untilCancelled(drain(batcher));
     await untilCancelled(upload());
     if (unwanted) return 0;
-    const reported = await untilCancelled(report(reports, failure, verdictPath, retryDelaysMs));
+    const outcome = await untilCancelled(report(reports, failure, verdictPath, retryDelaysMs));
     if (unwanted) return 0;
-    return drained && reported && !pastDeadline ? 0 : 1;
+    // A failed agent fails the job too, so GitHub never shows green for a review that did not run.
+    return drained && outcome === "verdict" && !pastDeadline ? 0 : 1;
   }
 
   async function finishCancelled(): Promise<number> {
@@ -349,7 +361,7 @@ async function report(
   failure: string | undefined,
   verdictPath: string,
   retryDelaysMs: number[],
-): Promise<boolean> {
+): Promise<"verdict" | "failure" | "undelivered"> {
   const outcome = failure === undefined ? await readVerdict(verdictPath) : { failure };
   if ("failure" in outcome) {
     try {
@@ -357,10 +369,10 @@ async function report(
         client.failure(outcome.failure),
       );
       console.log(`reported: failure · ${outcome.failure}`);
-      return true;
+      return "failure";
     } catch (error) {
       warn("reporting the failure failed", error);
-      return false;
+      return "undelivered";
     }
   }
   try {
@@ -368,15 +380,15 @@ async function report(
       client.verdict(outcome.verdict),
     );
     console.log(`reported: verdict ${verdictStatus(outcome.verdict)}`);
-    return true;
+    return "verdict";
   } catch (error) {
     // Dispatch has already marked the agent as errored, so there is nothing left to report.
     if (error instanceof DispatchError && error.status === 422) {
       warn("verdict rejected", error);
-      return true;
+      return "failure";
     }
     warn("reporting the verdict failed", error);
-    return false;
+    return "undelivered";
   }
 }
 

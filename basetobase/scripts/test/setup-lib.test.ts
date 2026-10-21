@@ -5,8 +5,10 @@ import {
   d1Id,
   KV_BINDING,
   kvId,
+  looksLikeClaudeToken,
   manifestPage,
   publicUrlOf,
+  tokenFrom,
   withDatabaseId,
   withKvId,
   withPublicUrl,
@@ -152,5 +154,20 @@ describe("workerSecrets", () => {
 
   it("refuses an App without a webhook secret", () => {
     expect(() => workerSecrets(app({ webhook_secret: null }))).toThrow("no webhook secret");
+  });
+});
+
+describe("Claude token input", () => {
+  const token = `sk-ant-oat01-${"a1B2_c3-".repeat(12)}`;
+
+  it("joins a token pasted across wrapped lines", () => {
+    expect(tokenFrom(`${token.slice(0, 30)}\r\n${token.slice(30)}\r`)).toBe(token);
+    expect(looksLikeClaudeToken(tokenFrom(`  ${token}\n`))).toBe(true);
+  });
+
+  it("refuses what is not a whole token", () => {
+    expect(looksLikeClaudeToken(token.slice(0, 20))).toBe(false);
+    expect(looksLikeClaudeToken("ghp_notaclaudetoken0000000000000000000000000000")).toBe(false);
+    expect(looksLikeClaudeToken("")).toBe(false);
   });
 });
