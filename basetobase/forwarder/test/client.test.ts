@@ -266,6 +266,7 @@ describe("githubOidcToken", () => {
     const error = await token().catch((e: unknown) => e);
     expect((error as Error).message).toMatch(/ACTIONS_ID_TOKEN_REQUEST_URL/);
     expect((error as Error).message).not.toContain("request-secret");
+    expect(error).toMatchObject({ permanent: true });
   });
 
   it("says why the token request could not be made", async () => {

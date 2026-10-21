@@ -1,21 +1,22 @@
-// Stands in for the claude binary: replays stream.jsonl, writes a verdict, exits.
+// Stands in for the claude binary: reads the prompt from stdin, replays stream.jsonl, writes a verdict,
+// exits.
 // FAKE_VERDICT_DIR + FAKE_VERDICT (valid | none | broken) control the verdict file; FAKE_EXIT the exit code.
 // FAKE_SPLIT writes every line in two chunks, FAKE_STDERR adds a stderr line, FAKE_LEAK echoes the
-// secrets a real agent could echo, FAKE_ARGS_FILE records how the process was started.
-import { readFileSync, writeFileSync, fstatSync } from "node:fs";
+// secrets a real agent could echo, FAKE_ARGS_FILE records argv, cwd and the stdin it was given.
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const env = process.env;
 
+const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+const stdin = Buffer.concat(chunks).toString("utf8");
+
 if (env.FAKE_ARGS_FILE) {
   writeFileSync(
     env.FAKE_ARGS_FILE,
-    JSON.stringify({
-      argv: process.argv.slice(2),
-      cwd: process.cwd(),
-      stdinIsDevNull: fstatSync(0).isCharacterDevice(),
-    }),
+    JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), stdin }),
   );
 }
 

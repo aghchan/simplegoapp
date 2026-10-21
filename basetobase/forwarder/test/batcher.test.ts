@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentEvent } from "../../shared/src/types.ts";
 import { createBatcher } from "../src/batcher.ts";
+import type { Batcher } from "../src/batcher.ts";
 
 const ev = (seq: number): AgentEvent => ({ seq, ts: 1, kind: "say", text: `e${seq}` });
 const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
@@ -121,6 +122,107 @@ describe("createBatcher", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await closed;
     expect(most).toBe(1);
+  });
+
+  describe("cadence", () => {
+    const slowSend = (sent: number[][], ms: number) => async (batch: AgentEvent[]) => {
+      sent.push(batch.map((e) => e.seq));
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    };
+
+    // close() waits for the slow send in flight, which fake timers only finish when advanced.
+    async function closeAfterSends(b: Batcher) {
+      const closed = b.close();
+      await vi.advanceTimersByTimeAsync(5000);
+      await closed;
+    }
+
+    it("sends events that arrive during a send only once the interval has elapsed", async () => {
+      const sent: number[][] = [];
+      const b = createBatcher(slowSend(sent, 100));
+      b.push(ev(0));
+      await vi.advanceTimersByTimeAsync(2000);
+      b.push(ev(1));
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sent).toEqual([[0]]);
+      await vi.advanceTimersByTimeAsync(1899);
+      expect(sent).toEqual([[0]]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent).toEqual([[0], [1]]);
+      await closeAfterSends(b);
+    });
+
+    it("waits a further interval when its timer fired while a send was still running", async () => {
+      const sent: number[][] = [];
+      const b = createBatcher(slowSend(sent, 3000));
+      b.push(ev(0));
+      await vi.advanceTimersByTimeAsync(2000);
+      b.push(ev(1));
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(sent).toEqual([[0]]);
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(sent).toEqual([[0]]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent).toEqual([[0], [1]]);
+      await closeAfterSends(b);
+    });
+
+    it("keeps sending without waiting while a full batch is queued", async () => {
+      const sent: number[][] = [];
+      const b = createBatcher(slowSend(sent, 100));
+      for (let i = 0; i < 120; i++) b.push(ev(i));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(sent.map((x) => x.length)).toEqual([50]);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sent.map((x) => x.length)).toEqual([50, 50]);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sent.map((x) => x.length)).toEqual([50, 50]);
+      await vi.advanceTimersByTimeAsync(1800);
+      expect(sent.map((x) => x.length)).toEqual([50, 50, 20]);
+      await closeAfterSends(b);
+    });
+  });
+
+  describe("batch size in bytes", () => {
+    const cjk = (seq: number): AgentEvent => ({ ...ev(seq), text: "漢".repeat(2000) });
+    const bodyBytes = (batch: AgentEvent[]) => Buffer.byteLength(JSON.stringify(batch));
+
+    it("splits 50 events of 2000 CJK chars so each batch stays under 200000 bytes", async () => {
+      const sent: AgentEvent[][] = [];
+      const b = createBatcher(async (batch) => void sent.push(batch));
+      for (let i = 0; i < 50; i++) b.push(cjk(i));
+      await b.close();
+      expect(sent.length).toBeGreaterThan(1);
+      for (const batch of sent) expect(bodyBytes(batch)).toBeLessThan(200_000);
+      expect(sent.flat().map((e) => e.seq)).toEqual([...Array(50).keys()]);
+    });
+
+    it("splits events made of escaped control characters", async () => {
+      const sent: AgentEvent[][] = [];
+      const b = createBatcher(async (batch) => void sent.push(batch));
+      for (let i = 0; i < 50; i++) b.push({ ...ev(i), text: "\u0001".repeat(2000) });
+      await b.close();
+      expect(sent.length).toBeGreaterThan(1);
+      for (const batch of sent) expect(bodyBytes(batch)).toBeLessThan(200_000);
+    });
+
+    it("sends an event larger than the cap on its own", async () => {
+      const sent: number[][] = [];
+      const b = createBatcher(async (batch) => void sent.push(batch.map((e) => e.seq)), {
+        maxBatchBytes: 10,
+      });
+      for (let i = 0; i < 3; i++) b.push(ev(i));
+      await b.close();
+      expect(sent).toEqual([[0], [1], [2]]);
+    });
+
+    it("leaves a small batch whole", async () => {
+      const sent: number[][] = [];
+      const b = createBatcher(async (batch) => void sent.push(batch.map((e) => e.seq)));
+      for (let i = 0; i < 10; i++) b.push(ev(i));
+      await b.close();
+      expect(sent).toEqual([[...Array(10).keys()]]);
+    });
   });
 
   it("push never blocks while sending", () => {

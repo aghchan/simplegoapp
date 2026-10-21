@@ -68,11 +68,14 @@ function recorder(over: Partial<DispatchClient> = {}) {
   return { c, client };
 }
 
+type RunOptions = Parameters<typeof runAgent>[0];
+type Verdict = "valid" | "none" | "broken";
+
 function start(
-  verdict: "valid" | "none" | "broken",
+  verdict: Verdict,
   env: Record<string, string> = {},
   client = recorder().client,
-  extra = {},
+  extra: Partial<RunOptions> = {},
 ) {
   vi.stubEnv("FAKE_VERDICT", verdict);
   for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
@@ -83,20 +86,33 @@ function start(
     repoDir,
     templatesDir,
     workDir,
+    retryDelaysMs: [1, 1],
     ...extra,
   });
 }
 
 async function run(
-  verdict: "valid" | "none" | "broken",
+  verdict: Verdict,
   env: Record<string, string> = {},
   over: Partial<DispatchClient> = {},
-  extra = {},
+  extra: Partial<RunOptions> = {},
 ) {
   const r = recorder(over);
   const code = await start(verdict, env, r.client, extra);
   return { ...r, code };
 }
+
+// Rejects with `error` for the first `failures` calls, then resolves to `result`.
+function flaky<R>(failures: number, error: Error, result: R) {
+  const calls = { count: 0 };
+  const fn = async (..._args: unknown[]) => {
+    if (calls.count++ < failures) throw error;
+    return result;
+  };
+  return { calls, fn };
+}
+
+const unavailable = (what: string) => new DispatchError(`${what} → 503`, 503);
 
 describe("runAgent", () => {
   it("streams events in order and posts the verdict", async () => {
@@ -111,7 +127,7 @@ describe("runAgent", () => {
   it("maps the stream, keeps the raw transcript, and reports events, then transcript, then verdict", async () => {
     const { c } = await run("valid");
     expect(c.events.flat().map((e) => [e.kind, e.text])).toEqual([
-      ["system", "session started · model claude-sonnet"],
+      ["system", "session started · model test-model"],
       ["say", "Starting the app."],
       ["tool", "Bash go run ."],
       ["tool_result", "listening on :8080"],
@@ -123,13 +139,12 @@ describe("runAgent", () => {
     expect(c.order).toEqual([...c.events.map(() => "events"), "transcript", "verdict"]);
   });
 
-  it("starts claude headless in the repo, with the brief's model and the built prompt", async () => {
+  it("starts claude headless in the repo and gives it the prompt on stdin", async () => {
     const argsFile = join(root, "args.json");
     await run("valid", { FAKE_ARGS_FILE: argsFile });
     const seen = JSON.parse(await readFile(argsFile, "utf8"));
     expect(seen.argv).toEqual([
       "-p",
-      buildPrompt(brief, "MAINLINE ROLE", "VERDICT RULES", join(workDir, "verdict.json")),
       "--output-format",
       "stream-json",
       "--verbose",
@@ -137,8 +152,32 @@ describe("runAgent", () => {
       "sonnet",
       "--dangerously-skip-permissions",
     ]);
+    expect(seen.stdin).toBe(
+      buildPrompt(brief, "MAINLINE ROLE", "VERDICT RULES", join(workDir, "verdict.json")),
+    );
     expect(seen.cwd).toBe(await realpath(repoDir));
-    expect(seen.stdinIsDevNull).toBe(true);
+  });
+
+  it("hands claude a prompt too large for argv intact", async () => {
+    const argsFile = join(root, "args.json");
+    const big = { ...brief, goal: "漢字 ".repeat(60_000) };
+    const { c, code } = await run(
+      "valid",
+      { FAKE_ARGS_FILE: argsFile },
+      { brief: async () => big },
+    );
+    const prompt = buildPrompt(
+      big,
+      "MAINLINE ROLE",
+      "VERDICT RULES",
+      join(workDir, "verdict.json"),
+    );
+    const seen = JSON.parse(await readFile(argsFile, "utf8"));
+    expect(Buffer.byteLength(prompt)).toBeGreaterThan(200_000);
+    expect(seen.stdin).toBe(prompt);
+    expect(seen.argv.join(" ")).not.toContain("漢");
+    expect(code).toBe(0);
+    expect(c.verdicts).toHaveLength(1);
   });
 
   it("reports a missing verdict", async () => {
@@ -198,18 +237,66 @@ describe("runAgent", () => {
     expect(code).toBe(0);
   });
 
-  it("gives up with 1 when the brief cannot be fetched", async () => {
-    const { c, code } = await run(
-      "valid",
-      {},
-      {
-        brief: async () =>
-          Promise.reject(new DispatchError("GET /agent/brief → 403: forbidden", 403)),
-      },
-    );
-    expect(code).toBe(1);
-    expect(c.events).toEqual([]);
-    expect(errors).toEqual(["fetching the brief failed: GET /agent/brief → 403: forbidden"]);
+  it.each([
+    ["a NUL in the binary name", { claudeBin: "claude\0" }, "ERR_INVALID_ARG_VALUE"],
+    ["arguments over the kernel limit", { claudeArgs: ["x".repeat(2_000_000)] }, "E2BIG"],
+  ])("reports a spawn that throws (%s) without the prompt", async (_name, extra, reason) => {
+    const { c, code } = await run("valid", {}, {}, extra);
+    expect(c.failures).toEqual([`cannot start claude: ${reason}`]);
+    expect(code).toBe(0);
+  });
+
+  it("reports a work directory that cannot be created", async () => {
+    await writeFile(join(root, "blocker"), "");
+    const { c, code } = await run("valid", {}, {}, { workDir: join(root, "blocker", "work") });
+    expect(c.failures).toEqual(["cannot start claude: ENOTDIR"]);
+    expect(c.verdicts).toEqual([]);
+    expect(code).toBe(0);
+  });
+
+  describe("the brief", () => {
+    it("is retried when Dispatch is unavailable", async () => {
+      const briefAfterOutage = flaky(2, unavailable("GET /agent/brief"), brief);
+      const { c, code } = await run("valid", {}, { brief: briefAfterOutage.fn });
+      expect(briefAfterOutage.calls.count).toBe(3);
+      expect(c.verdicts).toHaveLength(1);
+      expect(code).toBe(0);
+      expect(errors).toEqual([
+        "fetching the brief failed, retrying in 1 ms: GET /agent/brief → 503",
+        "fetching the brief failed, retrying in 1 ms: GET /agent/brief → 503",
+      ]);
+    });
+
+    it("gives up with 1 once the retry schedule is used up", async () => {
+      const outage = flaky(Infinity, unavailable("GET /agent/brief"), brief);
+      const { c, code } = await run("valid", {}, { brief: outage.fn });
+      expect(code).toBe(1);
+      expect(outage.calls.count).toBe(3);
+      expect(c.order).toEqual([]);
+      expect(errors.at(-1)).toBe("fetching the brief failed: GET /agent/brief → 503");
+    });
+
+    it("is refused for a stopped run or a finished agent: exit 0 and nothing else sent", async () => {
+      const argsFile = join(root, "args.json");
+      const refused = flaky(
+        Infinity,
+        new DispatchError("GET /agent/brief → 403: forbidden", 403),
+        brief,
+      );
+      const { c, code } = await run("valid", { FAKE_ARGS_FILE: argsFile }, { brief: refused.fn });
+      expect(code).toBe(0);
+      expect(refused.calls.count).toBe(1);
+      expect(c.order).toEqual([]);
+      await expect(readFile(argsFile)).rejects.toThrow();
+      expect(errors).toEqual(["the agent is no longer wanted: GET /agent/brief → 403: forbidden"]);
+    });
+
+    it("is not retried after another permanent answer", async () => {
+      const refused = flaky(Infinity, new DispatchError("GET /agent/brief → 401", 401), brief);
+      const { code } = await run("valid", {}, { brief: refused.fn });
+      expect(code).toBe(1);
+      expect(refused.calls.count).toBe(1);
+    });
   });
 
   describe("when Dispatch misbehaves", () => {
@@ -301,34 +388,58 @@ describe("runAgent", () => {
     });
 
     it("returns 1 when another verdict error means Dispatch has not heard", async () => {
-      const { c, code } = await run(
-        "valid",
-        {},
-        {
-          verdict: async () =>
-            Promise.reject(new DispatchError("POST /agent/verdict → 403: forbidden", 403)),
-        },
+      const refused = flaky(
+        Infinity,
+        new DispatchError("POST /agent/verdict → 403: forbidden", 403),
+        undefined,
       );
+      const { c, code } = await run("valid", {}, { verdict: refused.fn });
       expect(code).toBe(1);
+      expect(refused.calls.count).toBe(1);
       expect(c.failures).toEqual([]);
       expect(errors).toEqual([
         "reporting the verdict failed: POST /agent/verdict → 403: forbidden",
       ]);
     });
 
-    it("returns 1 when the failure report is not accepted", async () => {
-      const { code } = await run(
-        "none",
-        {},
-        {
-          failure: async () =>
-            Promise.reject(new Error("POST /agent/failure failed: fetch failed")),
-        },
-      );
-      expect(code).toBe(1);
+    it("retries a verdict that gets a 503", async () => {
+      const busy = flaky(1, unavailable("POST /agent/verdict"), undefined);
+      const { c, code } = await run("valid", {}, { verdict: busy.fn });
+      expect(code).toBe(0);
+      expect(busy.calls.count).toBe(2);
+      expect(c.failures).toEqual([]);
       expect(errors).toEqual([
-        "reporting the failure failed: POST /agent/failure failed: fetch failed",
+        "reporting the verdict failed, retrying in 1 ms: POST /agent/verdict → 503",
       ]);
+    });
+
+    it("returns 1 when the verdict keeps getting a 503", async () => {
+      const busy = flaky(Infinity, unavailable("POST /agent/verdict"), undefined);
+      const { code } = await run("valid", {}, { verdict: busy.fn });
+      expect(code).toBe(1);
+      expect(busy.calls.count).toBe(3);
+      expect(errors.at(-1)).toBe("reporting the verdict failed: POST /agent/verdict → 503");
+    });
+
+    it("retries a failure report after a network error", async () => {
+      const down = flaky(1, new Error("POST /agent/failure failed: fetch failed"), undefined);
+      const { code } = await run("none", {}, { failure: down.fn });
+      expect(code).toBe(0);
+      expect(down.calls.count).toBe(2);
+    });
+
+    it("returns 1 when the failure report is not accepted", async () => {
+      const down = flaky(
+        Infinity,
+        new Error("POST /agent/failure failed: fetch failed"),
+        undefined,
+      );
+      const { code } = await run("none", {}, { failure: down.fn });
+      expect(code).toBe(1);
+      expect(down.calls.count).toBe(3);
+      expect(errors.at(-1)).toBe(
+        "reporting the failure failed: POST /agent/failure failed: fetch failed",
+      );
     });
   });
 

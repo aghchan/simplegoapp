@@ -4,9 +4,10 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { finished } from "node:stream/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { EVENT_TEXT_MAX, mapStreamLine } from "../../shared/src/stream.ts";
 import type { AgentBrief, AgentEvent, EventKind } from "../../shared/src/types.ts";
-import { createBatcher } from "./batcher.ts";
+import { createBatcher, isPermanent, RETRY_DELAYS_MS } from "./batcher.ts";
 import type { Batcher } from "./batcher.ts";
 import { DispatchError } from "./client.ts";
 import type { DispatchClient } from "./client.ts";
@@ -21,7 +22,8 @@ const FORWARDER_ONLY_ENV = [
 ];
 
 // Runs Claude Code on the brief, streams what it does, and reports how it ended. Resolves to the
-// process exit code: 1 when Dispatch was not told everything it should have been.
+// process exit code: 1 when Dispatch was not told everything it should have been. `retryDelaysMs`
+// is how long the brief, the verdict and the failure report wait between attempts.
 export async function runAgent(o: {
   client: DispatchClient;
   claudeBin: string;
@@ -30,16 +32,28 @@ export async function runAgent(o: {
   templatesDir: string;
   workDir: string;
   batcher?: (send: (b: AgentEvent[]) => Promise<void>) => Batcher;
+  retryDelaysMs?: number[];
 }): Promise<number> {
+  const retryDelaysMs = o.retryDelaysMs ?? RETRY_DELAYS_MS;
   let brief: AgentBrief;
   try {
-    brief = await o.client.brief();
+    brief = await withRetries("fetching the brief", retryDelaysMs, () => o.client.brief());
   } catch (error) {
+    // Dispatch refuses the brief of a stopped run and of an agent that has already reported.
+    if (error instanceof DispatchError && error.status === 403) {
+      warn("the agent is no longer wanted", error);
+      return 0;
+    }
     warn("fetching the brief failed", error);
     return 1;
   }
 
-  await mkdir(o.workDir, { recursive: true });
+  let failure: string | undefined;
+  try {
+    await mkdir(o.workDir, { recursive: true });
+  } catch (error) {
+    failure = startFailure(error);
+  }
   const verdictPath = join(o.workDir, "verdict.json");
   const transcriptPath = join(o.workDir, "transcript.jsonl");
   const batcher = (o.batcher ?? createBatcher)((batch) => o.client.events(batch));
@@ -53,7 +67,7 @@ export async function runAgent(o: {
   const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
   const redact = (text: string) => (oauthToken ? text.replaceAll(oauthToken, "[redacted]") : text);
 
-  const failure = await runClaude(o, brief, verdictPath, {
+  failure ??= await runClaude(o, brief, verdictPath, {
     stdout(raw) {
       if (raw.trim() === "") return;
       const line = redact(raw);
@@ -74,7 +88,7 @@ export async function runAgent(o: {
   }
   const drained = await drain(batcher);
   await uploadTranscript(o.client, transcriptPath);
-  const reported = await report(o.client, failure, verdictPath);
+  const reported = await report(o.client, failure, verdictPath, retryDelaysMs);
   return drained && reported ? 0 : 1;
 }
 
@@ -93,25 +107,14 @@ async function runClaude(
     return "cannot read agent templates";
   }
 
-  const child = spawn(
-    o.claudeBin,
-    [
-      ...(o.claudeArgs ?? []),
-      "-p",
-      prompt,
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--model",
-      brief.model,
-      "--dangerously-skip-permissions",
-    ],
-    { cwd: o.repoDir, stdio: ["ignore", "pipe", "pipe"], env: claudeEnv() },
-  );
+  let child: ReturnType<typeof startClaude>;
+  try {
+    child = startClaude(o, brief.model, prompt);
+  } catch (error) {
+    return startFailure(error);
+  }
   const finishedWith = new Promise<string | undefined>((resolve) => {
-    child.once("error", (error: NodeJS.ErrnoException) =>
-      resolve(`cannot start claude: ${error.code ?? error.message}`),
-    );
+    child.once("error", (error) => resolve(startFailure(error)));
     child.once("close", (code, signal) =>
       resolve(code === 0 ? undefined : `claude exited ${code ?? signal}`),
     );
@@ -120,6 +123,40 @@ async function runClaude(
   createInterface({ input: child.stdout }).on("line", onLine.stdout);
   createInterface({ input: child.stderr }).on("line", onLine.stderr);
   return finishedWith;
+}
+
+// The prompt goes in on stdin: it holds the whole PR description, which can be longer than the
+// kernel allows for one argument.
+function startClaude(
+  o: { claudeBin: string; claudeArgs?: string[]; repoDir: string },
+  model: string,
+  prompt: string,
+) {
+  const child = spawn(
+    o.claudeBin,
+    [
+      ...(o.claudeArgs ?? []),
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--verbose",
+      "--model",
+      model,
+      "--dangerously-skip-permissions",
+    ],
+    { cwd: o.repoDir, stdio: ["pipe", "pipe", "pipe"], env: claudeEnv() },
+  );
+  // EPIPE when claude exits without reading it; the exit is reported on its own.
+  child.stdin.on("error", () => {});
+  child.stdin.end(prompt);
+  return child;
+}
+
+// By code before message: some spawn errors quote their arguments.
+function startFailure(error: unknown): string {
+  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+  const reason = code ?? (error instanceof Error ? error.message : String(error));
+  return `cannot start claude: ${reason}`;
 }
 
 async function readPrompt(
@@ -164,11 +201,14 @@ async function report(
   client: DispatchClient,
   failure: string | undefined,
   verdictPath: string,
+  retryDelaysMs: number[],
 ): Promise<boolean> {
   const outcome = failure === undefined ? await readVerdict(verdictPath) : { failure };
   if ("failure" in outcome) {
     try {
-      await client.failure(outcome.failure);
+      await withRetries("reporting the failure", retryDelaysMs, () =>
+        client.failure(outcome.failure),
+      );
       return true;
     } catch (error) {
       warn("reporting the failure failed", error);
@@ -176,7 +216,9 @@ async function report(
     }
   }
   try {
-    await client.verdict(outcome.verdict);
+    await withRetries("reporting the verdict", retryDelaysMs, () =>
+      client.verdict(outcome.verdict),
+    );
     return true;
   } catch (error) {
     // Dispatch has already marked the agent as errored, so there is nothing left to report.
@@ -186,6 +228,25 @@ async function report(
     }
     warn("reporting the verdict failed", error);
     return false;
+  }
+}
+
+// Goes through `delaysMs` once: no endless retrying for a call the job's outcome hangs on. A
+// permanent error is thrown straight away.
+async function withRetries<T>(
+  what: string,
+  delaysMs: number[],
+  call: () => Promise<T>,
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      const delay = delaysMs[attempt];
+      if (delay === undefined || isPermanent(error)) throw error;
+      warn(`${what} failed, retrying in ${delay} ms`, error);
+      await sleep(delay);
+    }
   }
 }
 

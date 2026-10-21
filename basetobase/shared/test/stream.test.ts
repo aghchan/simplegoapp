@@ -20,7 +20,7 @@ const toolResult = (content: unknown, extra: object = {}) =>
 describe("mapStreamLine", () => {
   it("init", () =>
     expect(mapStreamLine(l.init)).toEqual([
-      { kind: "system", text: "session started · model claude-sonnet" },
+      { kind: "system", text: "session started · model test-model" },
     ]));
   it("init without a model", () =>
     expect(mapStreamLine('{"type":"system","subtype":"init"}')).toEqual([

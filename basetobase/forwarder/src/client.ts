@@ -140,7 +140,11 @@ async function requestToken(
   const url = env.ACTIONS_ID_TOKEN_REQUEST_URL;
   const bearer = env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
   if (!url || !bearer) {
-    throw new Error("ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are not set");
+    // Waiting does not set a variable, so the callers that retry are told not to.
+    throw Object.assign(
+      new Error("ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are not set"),
+      { permanent: true },
+    );
   }
   let response: Response;
   try {
