@@ -76,6 +76,16 @@ export function kvId(listJson: string, title: string): string | undefined {
   return rows.find((row) => row.title === title)?.id;
 }
 
+// Typed or pasted input with any whitespace removed: a token has none, a wrapped paste adds some.
+export function tokenFrom(input: string): string {
+  return input.replace(/\s+/g, "");
+}
+
+// The shape `claude setup-token` prints. A cut-off paste fails here instead of as a 401 on a runner.
+export function looksLikeClaudeToken(token: string): boolean {
+  return /^sk-ant-[A-Za-z0-9_-]{40,}$/.test(token);
+}
+
 // GitHub hands out PKCS#1 keys; Dispatch imports PKCS#8.
 export function toPkcs8(pem: string): string {
   return createPrivateKey(pem).export({ type: "pkcs8", format: "pem" }).toString();

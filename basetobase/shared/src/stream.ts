@@ -84,7 +84,9 @@ function resultText(content: unknown): string {
 }
 
 function mapResult(message: Fields): Mapped {
-  const parts = [typeof message.subtype === "string" ? message.subtype : "result"];
+  // A failed login still ends with subtype "success"; is_error is the field that tells.
+  const label = message.is_error === true && message.subtype === "success" ? "failed" : message.subtype;
+  const parts = [typeof label === "string" ? label : "result"];
   if (typeof message.num_turns === "number") parts.push(`${message.num_turns} turns`);
   if (typeof message.duration_ms === "number") {
     parts.push(`${Math.round(message.duration_ms / 1000)}s`);
