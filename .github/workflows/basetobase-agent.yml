@@ -1,0 +1,79 @@
+# Dispatch starts this workflow with workflow_dispatch; nothing else triggers it.
+# vars.BASETOBASE_URL must equal Dispatch's PUBLIC_URL byte for byte: it is the OIDC audience.
+name: basetobase-agent
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Dispatch run id
+        required: true
+        type: string
+      agent_id:
+        description: Agent id, role-step-round
+        required: true
+        type: string
+      nonce:
+        description: Per-agent secret Dispatch checks on every call
+        required: true
+        type: string
+      sha:
+        description: Pull request head SHA to review
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+# Agent ids repeat across runs, so the group names the run as well.
+concurrency:
+  group: basetobase-agent-${{ inputs.run_id }}-${{ inputs.agent_id }}
+  cancel-in-progress: false
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLAUDE_CODE_VERSION: "2.1.292"
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      # Templates and forwarder come from the default branch, never from the pull request.
+      - uses: actions/checkout@v4
+        with:
+          path: b2b
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      # The agent runs pull request code; a cache it saved would be restored by trusted builds.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: repo/go.mod
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install -g @anthropic-ai/claude-code@${{ env.CLAUDE_CODE_VERSION }}
+      - run: cp b2b/.basetobase/ci/local.yml repo/local.yml
+      - run: node b2b/basetobase/forwarder/src/main.ts
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          AGENT_ID: ${{ inputs.agent_id }}
+          NONCE: ${{ inputs.nonce }}
+          DISPATCH_URL: ${{ vars.BASETOBASE_URL }}
+          B2B_REPO_DIR: ${{ github.workspace }}/repo
+          B2B_TEMPLATES_DIR: ${{ github.workspace }}/b2b
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

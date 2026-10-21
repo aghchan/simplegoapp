@@ -454,11 +454,14 @@ The rating is display-only in v1. It does not change the panel or models
   round, and SHA. It is never triggered by `pull_request`, and Dispatch never
   dispatches for fork PRs, so the Claude token never meets fork code.
 - **Each job:**
-  1. Check out the target SHA, or the merge ref for the summit check.
+  1. Check out the templates and the forwarder from the default branch,
+     never the PR. Then check out the target SHA separately, or the merge
+     ref for the summit check.
   2. Install a pinned Claude Code version.
   3. Start services the role needs: Postgres, the app, Chromium.
   4. Run `claude -p` with the role's prompt, `--output-format stream-json`,
-     the role's model, and the role's tool allowlist.
+     the role's model, and the role's tool allowlist. The forwarder gives
+     claude the prompt on stdin.
 - **Permissions by role** **(designer's call)**:
   - Patrollers: `contents: read`. They can run the app and tests but can't
     push.
@@ -567,7 +570,7 @@ simplegoapp/                 Go module, unchanged (framework + template app)
 │   ├── dashboard/           dashboard app (TS), served as Worker assets
 │   ├── forwarder/           agent-side wrapper run on the Actions runner
 │   ├── config/              patrol config, trail names, free-tier limits
-│   └── wrangler.toml
+│   └── wrangler.jsonc
 ├── .basetobase/patrol/      patroller criteria prompts (§6)
 └── .github/workflows/
     ├── ci.yml               existing Go CI

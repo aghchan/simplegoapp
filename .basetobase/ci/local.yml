@@ -1,0 +1,18 @@
+test:
+    field1: here
+    field2: there
+twilio:
+    phone_number: 1234
+ticketmaster:
+    base_url: https://app.ticketmaster.com
+    api_key: ci-placeholder
+mongo:
+    host: localhost
+    port: 27017
+    database: sparrow
+postgres:
+    host: localhost
+    port: 5432
+    database: postgres
+    user: postgres
+    password: password
