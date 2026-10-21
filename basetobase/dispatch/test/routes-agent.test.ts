@@ -483,20 +483,31 @@ describe("reports the run no longer wants", () => {
 
 describe("PUT /agent/transcript", () => {
   const body = '{"type":"assistant"}\n{"type":"result"}\n';
+  const stored = (runId: string) => env.TRANSCRIPTS.get(`runs/${runId}/${AGENT}.jsonl`);
 
-  it("transcript stored in R2 and flagged", async () => {
+  it("transcript stored in KV and flagged", async () => {
     const { runId, ids } = await startRun();
     const res = await call("PUT", "transcript", { query: ids, body });
     expect(res.status).toBe(204);
-    expect(await (await env.EVIDENCE.get(`runs/${runId}/${AGENT}.jsonl`))!.text()).toBe(body);
+    expect(await stored(runId)).toBe(body);
     expect((await viewOf(runId)).run.agents[0]!.hasTranscript).toBe(true);
+  });
+
+  it("keeps the transcript for 30 days", async () => {
+    const { runId, ids } = await startRun();
+    const before = Math.floor(Date.now() / 1000);
+    await call("PUT", "transcript", { query: ids, body });
+    const { keys } = await env.TRANSCRIPTS.list({ prefix: `runs/${runId}/` });
+    expect(keys).toHaveLength(1);
+    expect(keys[0]!.expiration).toBeGreaterThanOrEqual(before + 30 * 24 * 3600);
+    expect(keys[0]!.expiration).toBeLessThanOrEqual(Math.ceil(Date.now() / 1000) + 30 * 24 * 3600);
   });
 
   it("stores the transcript of a run that was stopped", async () => {
     const { runId, ids, stub } = await startRun();
     await stub.stop("PR closed");
     expect((await call("PUT", "transcript", { query: ids, body })).status).toBe(204);
-    expect(await (await env.EVIDENCE.get(`runs/${runId}/${AGENT}.jsonl`))!.text()).toBe(body);
+    expect(await stored(runId)).toBe(body);
     expect((await viewOf(runId)).run.agents[0]).toMatchObject({
       status: "stopped",
       hasTranscript: true,
@@ -514,21 +525,21 @@ describe("PUT /agent/transcript", () => {
     const { runId, ids } = await startRun();
     await call("PUT", "transcript", { query: ids, body: "first\n" });
     await call("PUT", "transcript", { query: ids, body });
-    expect(await (await env.EVIDENCE.get(`runs/${runId}/${AGENT}.jsonl`))!.text()).toBe(body);
+    expect(await stored(runId)).toBe(body);
   });
 
   it("403 on wrong nonce, writing nothing", async () => {
     const { runId, ids } = await startRun();
     const res = await call("PUT", "transcript", { query: { ...ids, nonce: "wrong" }, body });
     expect(res.status).toBe(403);
-    expect(await env.EVIDENCE.get(`runs/${runId}/${AGENT}.jsonl`)).toBeNull();
+    expect(await stored(runId)).toBeNull();
     expect((await viewOf(runId)).run.agents[0]!.hasTranscript).toBe(false);
   });
 
   it("403 for a run that does not exist, writing nothing and not creating it", async () => {
     const ids = { run_id: "ghost", agent_id: AGENT, nonce: "x" };
     expect((await call("PUT", "transcript", { query: ids, body })).status).toBe(403);
-    expect(await env.EVIDENCE.get(`runs/ghost/${AGENT}.jsonl`)).toBeNull();
+    expect(await stored("ghost")).toBeNull();
     expect(await runStub(env, "ghost").view()).toBeNull();
   });
 
@@ -538,11 +549,13 @@ describe("PUT /agent/transcript", () => {
     expect(res.status).toBe(400);
   });
 
+  // 25 MiB is also the most a KV value may hold.
   it("accepts a transcript of exactly 25 MiB", async () => {
     const { runId, ids } = await startRun();
     const res = await call("PUT", "transcript", { query: ids, body: new Uint8Array(25 * MIB) });
     expect(res.status).toBe(204);
-    expect((await env.EVIDENCE.head(`runs/${runId}/${AGENT}.jsonl`))!.size).toBe(25 * MIB);
+    const value = await env.TRANSCRIPTS.get(`runs/${runId}/${AGENT}.jsonl`, "arrayBuffer");
+    expect(value!.byteLength).toBe(25 * MIB);
   });
 
   it("413 over 25 MiB, writing nothing and flagging nothing", async () => {
@@ -552,7 +565,7 @@ describe("PUT /agent/transcript", () => {
       body: new Uint8Array(25 * MIB + 1),
     });
     expect(res.status).toBe(413);
-    expect(await env.EVIDENCE.get(`runs/${runId}/${AGENT}.jsonl`)).toBeNull();
+    expect(await stored(runId)).toBeNull();
     expect((await viewOf(runId)).run.agents[0]!.hasTranscript).toBe(false);
   });
 });

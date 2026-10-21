@@ -9,7 +9,10 @@ import { readBody, readJsonObject, reject } from "./request.ts";
 type AgentEnv = { Bindings: Env; Variables: { githubRunId: string } };
 
 const JSON_MAX_BYTES = 256 * 1024;
+// Also the most a KV value may hold.
 const TRANSCRIPT_MAX_BYTES = 25 * 1024 * 1024;
+// 30 days (spec §12).
+const TRANSCRIPT_TTL_SECONDS = 2_592_000;
 const EVENTS_MAX = 500;
 const FAILURE_REASON_MAX = 500;
 const FORBIDDEN = "forbidden";
@@ -92,7 +95,9 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     // has reported, whose transcript the owner most needs.
     if (!(await run.checkNonce(agentId, nonce))) reject(403, FORBIDDEN);
     const transcript = await readBody(c.req.raw, TRANSCRIPT_MAX_BYTES);
-    await c.env.EVIDENCE.put(`runs/${runId}/${agentId}.jsonl`, transcript);
+    await c.env.TRANSCRIPTS.put(`runs/${runId}/${agentId}.jsonl`, transcript, {
+      expirationTtl: TRANSCRIPT_TTL_SECONDS,
+    });
     if (!(await run.transcriptStored(agentId, nonce))) reject(403, FORBIDDEN);
     return c.body(null, 204);
   });

@@ -190,7 +190,7 @@ describe("GET /api/runs/:id/agents/:agentId/transcript", () => {
   it("returns the stored transcript as ndjson", async () => {
     const runId = await startRun();
     const lines = '{"type":"assistant"}\n{"type":"result"}\n';
-    await env.EVIDENCE.put(transcriptKey(runId), lines);
+    await env.TRANSCRIPTS.put(transcriptKey(runId), lines);
     const res = await get(transcriptPath(runId));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/x-ndjson");
@@ -208,7 +208,7 @@ describe("GET /api/runs/:id/agents/:agentId/transcript", () => {
 
   it("404 for another agent's transcript", async () => {
     const runId = await startRun();
-    await env.EVIDENCE.put(transcriptKey(runId), "{}\n");
+    await env.TRANSCRIPTS.put(transcriptKey(runId), "{}\n");
     const res = await get(`/api/runs/${runId}/agents/corduroy-sweep-0/transcript`);
     expect(res.status).toBe(404);
   });
@@ -229,12 +229,12 @@ describe("GET /api/runs/:id/agents/:agentId/transcript", () => {
         controller.close();
       },
     });
-    const bucketGet = vi.fn(async () => ({ body }));
-    const workerEnv = envWith(env, { EVIDENCE: { get: bucketGet } });
+    const kvGet = vi.fn(async () => body);
+    const workerEnv = envWith(env, { TRANSCRIPTS: { get: kvGet } });
 
     const res = await get(transcriptPath("r1"), { workerEnv });
 
-    expect(bucketGet).toHaveBeenCalledWith(transcriptKey("r1"));
+    expect(kvGet).toHaveBeenCalledWith(transcriptKey("r1"), "stream");
     const reader = res.body!.getReader();
     const decoder = new TextDecoder();
     // The second chunk is still being held back, so a buffered body would never have got here.

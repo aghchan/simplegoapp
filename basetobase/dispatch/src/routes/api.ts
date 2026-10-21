@@ -46,12 +46,13 @@ export function apiRoutes(): Hono<ApiEnv> {
   });
 
   routes.get("/runs/:id/agents/:agentId/transcript", async (c) => {
-    const transcript = await c.env.EVIDENCE.get(
+    // A stream, passed on as it is: a transcript can run to megabytes.
+    const transcript = await c.env.TRANSCRIPTS.get(
       `runs/${c.req.param("id")}/${c.req.param("agentId")}.jsonl`,
+      "stream",
     );
     if (!transcript) reject(404, NOT_FOUND);
-    // The body is passed on as the stream it is: a transcript can run to megabytes.
-    return c.body(transcript.body, 200, { "Content-Type": "application/x-ndjson" });
+    return c.body(transcript, 200, { "Content-Type": "application/x-ndjson" });
   });
 
   return routes;

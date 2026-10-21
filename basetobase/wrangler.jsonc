@@ -3,6 +3,8 @@
   "main": "dispatch/src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Workers Logs: console output, readable later in the Cloudflare dashboard.
+  "observability": { "enabled": true },
   "durable_objects": {
     "bindings": [{ "name": "RUNS", "class_name": "RunDO" }]
   },
@@ -16,7 +18,13 @@
       "migrations_dir": "dispatch/migrations"
     }
   ],
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "basetobase-evidence" }],
+  "kv_namespaces": [
+    {
+      "binding": "TRANSCRIPTS",
+      // Replace with the id printed by `npx wrangler kv namespace create basetobase-transcripts`.
+      "id": "local-placeholder"
+    }
+  ],
   "assets": {
     "directory": "dashboard/dist",
     "binding": "ASSETS",
