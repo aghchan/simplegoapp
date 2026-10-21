@@ -294,7 +294,9 @@ describe("POST /github/webhook", () => {
       });
       const res = await deliver(opened());
       expect(res.status).toBe(502);
-      expect(await res.text()).not.toContain("secret body");
+      const text = await res.text();
+      expect(text).not.toContain("secret body");
+      expect(JSON.parse(text)).toEqual({ error: "could not post the check run to GitHub", github_status: 500 });
       expect(errors).toHaveBeenCalledOnce();
       expect(String(errors.mock.calls[0]![0])).toContain("failed with status 500");
       expect(await listRuns(env.DB)).toEqual([]);
@@ -410,7 +412,9 @@ describe("POST /github/webhook", () => {
       (push.pull_request as { head: { sha: string } }).head.sha = "head59";
       const res = await deliver(push);
       expect(res.status).toBe(502);
-      expect(await res.text()).not.toContain("secret body");
+      const text = await res.text();
+      expect(text).not.toContain("secret body");
+      expect(JSON.parse(text)).toMatchObject({ github_status: 500 });
       expect(errors).toHaveBeenCalledOnce();
       expect(await listRuns(env.DB)).toMatchObject([{ status: "on_the_hill" }]);
       expect(dispatches).toEqual([]);
