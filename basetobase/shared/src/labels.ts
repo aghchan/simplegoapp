@@ -1,5 +1,5 @@
 import type { Rating } from "./config.ts";
-import type { RunStatus, StepId } from "./types.ts";
+import type { AgentStatus, RunStatus, StepId } from "./types.ts";
 
 export const STEP_ORDER: StepId[] = [
   "lift_line",
@@ -33,4 +33,15 @@ export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   swept: "Swept · huddle arrives in M3",
   stopped: "Stopped",
   failed: "Needs you",
+};
+
+export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
+  queued: "Queued",
+  dispatched: "Dispatched",
+  running: "Running",
+  stalled: "Stalled",
+  clear: "All clear",
+  hazards: "Hazards flagged",
+  error: "Failed",
+  stopped: "Stopped",
 };

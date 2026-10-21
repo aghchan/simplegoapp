@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunSummary } from "../../shared/src/types.ts";
 import { App } from "../src/App.tsx";
 import * as api from "../src/api.ts";
+import { FakeWebSocket, makeRun } from "./fixtures.ts";
 
 const RUNS: RunSummary[] = [
   {
@@ -29,6 +30,7 @@ function signedIn(): void {
   stubApi({
     "/api/me": () => Response.json({ login: "aghchan" }),
     "/api/runs": () => Response.json(RUNS),
+    "/api/runs/r1": () => Response.json({ run: makeRun(), log: [] }),
   });
 }
 
@@ -36,6 +38,8 @@ describe("App", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
     vi.spyOn(api, "navigateTo").mockImplementation(() => {});
+    FakeWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", FakeWebSocket);
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -69,11 +73,13 @@ describe("App", () => {
     expect(api.navigateTo).not.toHaveBeenCalled();
   });
 
-  it("holds the place of the run page and marks the run as open", async () => {
+  it("shows the run page and marks the run as open", async () => {
     window.history.replaceState(null, "", "/runs/r1");
     signedIn();
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Loading run…" })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: /Red Dog Face/ })).toHaveAttribute(
       "aria-current",
       "page",
@@ -84,8 +90,32 @@ describe("App", () => {
     signedIn();
     render(<App />);
     await userEvent.click(await screen.findByRole("link", { name: /Red Dog Face/ }));
-    expect(await screen.findByRole("heading", { name: "Loading run…" })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+    ).toBeVisible();
     expect(window.location.pathname).toBe("/runs/r1");
+  });
+
+  it("moves to another run with its own data and socket", async () => {
+    window.history.replaceState(null, "", "/runs/r1");
+    const other = { ...RUNS[0]!, id: "r2", prNumber: 59, runName: "Home Run" };
+    stubApi({
+      "/api/me": () => Response.json({ login: "aghchan" }),
+      "/api/runs": () => Response.json([...RUNS, other]),
+      "/api/runs/r1": () => Response.json({ run: makeRun(), log: [] }),
+      "/api/runs/r2": () =>
+        Response.json({ run: makeRun({ id: "r2", prTitle: "orders: list endpoint" }), log: [] }),
+    });
+    render(<App />);
+    await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" });
+    const first = FakeWebSocket.last;
+
+    await userEvent.click(screen.getByRole("link", { name: /Home Run/ }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" }),
+    ).toBeVisible();
+    expect(first.closed).toBe(true);
+    expect(FakeWebSocket.last.url).toMatch(/\/api\/runs\/r2\/live$/);
   });
 
   it("leaves a modified click to the browser", async () => {

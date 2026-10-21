@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RunSummary } from "../../shared/src/types.ts";
 import { getJson, navigateTo, SIGN_IN_URL, SignedOutError } from "./api.ts";
+import { RunPage } from "./pages/RunView.tsx";
 import { RunsList } from "./pages/RunsList.tsx";
 import { followInternalLink, useRoute, type Route } from "./router.ts";
 
@@ -51,7 +52,7 @@ function Page({ route }: { route: Route }) {
     case "runs":
       return <p className="hint">Pick a run to see how it is going.</p>;
     case "run":
-      return <h1 className="page-title">Loading run…</h1>;
+      return <RunPage key={route.runId} runId={route.runId} />;
     case "notFound":
       return (
         <>
