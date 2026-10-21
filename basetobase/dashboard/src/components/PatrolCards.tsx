@@ -9,7 +9,7 @@ const AGENT_TONES: Record<AgentStatus, Tone> = {
   running: "busy",
   stalled: "warn",
   clear: "ok",
-  hazards: "bad",
+  hazards: "hazard",
   error: "bad",
   stopped: "idle",
 };

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { RunStatus, RunSummary } from "../../shared/src/types.ts";
+import type { ReviewOutcome, RunStatus, RunSummary } from "../../shared/src/types.ts";
 import { RunsList } from "../src/pages/RunsList.tsx";
 
 function run(id: string, status: RunStatus, over: Partial<RunSummary> = {}): RunSummary {
@@ -11,6 +11,8 @@ function run(id: string, status: RunStatus, over: Partial<RunSummary> = {}): Run
     runName: `Trail ${id}`,
     rating: "green",
     status,
+    // As reviewOutcome gives it: a swept run defaults to a clear review.
+    outcome: status === "swept" ? "clear" : status === "failed" ? "failed" : "pending",
     currentStep: "sweep",
     updatedAt: 1,
     ...over,
@@ -104,6 +106,46 @@ describe("RunsList", () => {
   ])("labels a %s run %s", (status, label) => {
     render(<RunsList runs={[run("r1", status)]} />);
     expect(within(screen.getByRole("link")).getByText(label)).toBeVisible();
+  });
+
+  describe("a swept run", () => {
+    const group = (name: string) =>
+      within(screen.getByRole("heading", { name }).closest("section")!).getAllByRole("link");
+
+    it.each<[ReviewOutcome, string]>([
+      ["hazards", "Hazards flagged"],
+      ["failed", "Review failed"],
+    ])("whose review is %s needs you, reading %s", (outcome, label) => {
+      render(<RunsList runs={[run("r1", "swept", { outcome }), run("r2", "swept")]} />);
+      const [link] = group("Wind hold · needs you");
+      expect(link).toHaveAttribute("href", "/runs/r1");
+      expect(link).toHaveClass("run-urgent");
+      expect(within(link!).getByText(label)).toBeVisible();
+      expect(within(link!).queryByText("Swept · patrol done")).toBeNull();
+      expect(group("Swept · patrol done").map((l) => l.getAttribute("href"))).toEqual(["/runs/r2"]);
+    });
+
+    it("reads Swept · patrol done only when its review is clear", () => {
+      const outcomes: ReviewOutcome[] = ["clear", "hazards", "failed", "none", "pending"];
+      render(
+        <RunsList runs={outcomes.map((outcome) => run(outcome, "swept", { outcome }))} />,
+      );
+      const passing = screen
+        .getAllByRole("link")
+        .filter((link) => within(link).queryByText("Swept · patrol done") !== null);
+      expect(passing.map((link) => link.getAttribute("href"))).toEqual(["/runs/clear"]);
+    });
+
+    it.each<[ReviewOutcome, string]>([
+      ["none", "No patrollers for this change"],
+      ["pending", "No outcome yet"],
+    ])("with a %s review stays under Swept, quiet, reading %s", (outcome, label) => {
+      render(<RunsList runs={[run("r1", "swept", { outcome })]} />);
+      const [link] = group("Swept · patrol done");
+      expect(within(link!).getByText(label)).toBeVisible();
+      expect(link).toHaveClass("run-quiet");
+      expect(screen.queryByRole("heading", { name: /needs you/ })).toBeNull();
+    });
   });
 
   it("marks the open run as the current page", () => {

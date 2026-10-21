@@ -1,5 +1,5 @@
 import type { Rating } from "./config.ts";
-import type { AgentStatus, RunStatus, StepId } from "./types.ts";
+import type { AgentStatus, ReviewOutcome, RunStatus, StepId } from "./types.ts";
 
 export const STEP_ORDER: StepId[] = [
   "lift_line",
@@ -33,6 +33,15 @@ export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   swept: "Swept · patrol done",
   stopped: "Stopped",
   failed: "Needs you",
+};
+
+// Not "All clear": that is the huddle's milestone.
+export const OUTCOME_LABELS: Record<ReviewOutcome, string> = {
+  pending: "No outcome yet",
+  none: "No patrollers for this change",
+  clear: "Patrol clear · review passed",
+  hazards: "Hazards flagged",
+  failed: "Review failed",
 };
 
 export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {

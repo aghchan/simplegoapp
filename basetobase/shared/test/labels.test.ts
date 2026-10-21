@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_STATUS_LABELS, RUN_STATUS_LABELS, STEP_LABELS } from "../src/labels.ts";
+import {
+  AGENT_STATUS_LABELS,
+  OUTCOME_LABELS,
+  RUN_STATUS_LABELS,
+  STEP_LABELS,
+} from "../src/labels.ts";
 
 describe("labels", () => {
   it("gives every step a themed and a plain label", () => {
@@ -20,5 +25,16 @@ describe("labels", () => {
     expect(milestones).toContain("All clear");
     expect(Object.values(AGENT_STATUS_LABELS)).not.toContain("All clear");
     expect(AGENT_STATUS_LABELS.clear).toBe("Clear");
+    expect(Object.values(OUTCOME_LABELS)).not.toContain("All clear");
+  });
+
+  it("names each review outcome, saying a pass only for clear", () => {
+    expect(OUTCOME_LABELS).toEqual({
+      pending: "No outcome yet",
+      none: "No patrollers for this change",
+      clear: "Patrol clear · review passed",
+      hazards: "Hazards flagged",
+      failed: "Review failed",
+    });
   });
 });

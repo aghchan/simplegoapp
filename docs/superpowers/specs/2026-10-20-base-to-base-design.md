@@ -316,7 +316,9 @@ the run to *Needs you*, and comments on the PR listing open hazards and
 Other events during a run **(designer's call)**:
 
 - The owner pushes to the PR → a new huddle round on the new head with the
-  30-minute clock reset.
+  30-minute clock reset. Until then (M1–M2), a push stops the run and starts
+  a fresh sweep on the new head; the huddle replaces this in M3. An event
+  whose head is no longer the PR's (a late delivery) is ignored.
 - The PR is closed → run Stopped, in-flight jobs cancelled.
 - Base branch moves → nothing during the huddle; the summit check uses the
   merge ref (§8). If the PR no longer merges cleanly (GitHub produces no
@@ -412,6 +414,10 @@ every mutating action require it **(designer's call)**.
 
 **Quality bar:** WCAG AA contrast, real buttons and links, works at phone
 width, live updates without reload.
+
+**Live updates (built):** the run view over its run's socket; the runs list
+over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while
+that is down. `npm run e2e` proves both in a real browser.
 
 **Look:** night-navy header with a ridgeline, snow-white panels, condensed
 uppercase headings like trail signage, monospace logs on dark. Trail-rating
@@ -520,6 +526,9 @@ The rating is display-only in v1. It does not change the panel or models
   - pauses all runs, since the quota is shared
   - stops the wind-hold clocks
   - re-dispatches the interrupted jobs after the reset
+- **Job colour = review outcome** (owner): a job is green only when its
+  patroller returned clear; hazards or a failure turn it red. A red job whose
+  verdict reached Dispatch is not an agent failure and is never retried.
 - **Failures:** each job has `timeout-minutes: 25` **(designer's call)**. A
   failed or timed-out job is retried once, then shows as an agent failure on
   the dashboard, and the huddle clock keeps running. The watchdog alarm
@@ -543,6 +552,9 @@ The rating is display-only in v1. It does not change the panel or models
   Confirm that WebSocket hibernation is available on the Workers Free plan
   before building on it. If it isn't, the fallback is the dashboard polling
   the run every few seconds — the UI must not depend on which one is used.
+- **Lobby Durable Object (built):** a singleton holding the runs lists'
+  hibernating sockets; each run sends it its summary after every index
+  write, and a lobby failure never fails the run.
 - **D1:** the runs index and per-step durations (for "usual").
 - **Workers KV:** transcripts, kept 30 days by TTL **(designer's call)**.
   R2 asks for a payment method on file, so evidence storage (screenshots,
@@ -555,7 +567,9 @@ The rating is display-only in v1. It does not change the panel or models
   - installation tokens minted in the Worker, signing the JWT with WebCrypto
 - **Check run:** Dispatch posts a *Base to Base* check run on the PR head
   that mirrors the run state, so GitHub's own UI shows it
-  **(designer's call)**. It doesn't change branch protection.
+  **(designer's call)**. Branch protection on main requires it, from the
+  App only **(owner)**: a failed or errored review blocks merge. An
+  unpatrolled PR (§8) gets a neutral check, which passes.
 - **Idempotency:** dedupe webhook deliveries by delivery id, and agent posts
   by (job, sequence).
 
@@ -685,6 +699,10 @@ with exact click-paths, at the milestone that first needs each one:
   - its private key and webhook secret stored as Worker secrets
   - a GitHub OAuth app (or the GitHub App's own user auth) for dashboard
     sign-in
+  - Checks · Read and write, and branch protection on main requiring the
+    App's *Base to Base* check: `npm run setup` sets both (an existing App
+    gets the permission by hand, accepted on the installation; setup asks
+    for its App ID)
 - **Claude token:** `claude setup-token`, stored as the
   `CLAUDE_CODE_OAUTH_TOKEN` secret in each watched repo.
 - **Render and Neon:**

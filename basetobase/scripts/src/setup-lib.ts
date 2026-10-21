@@ -5,6 +5,8 @@ export const APP_NAME = "Base to Base (aghchan)";
 export const D1_NAME = "basetobase";
 export const KV_TITLE = "basetobase-transcripts";
 export const KV_BINDING = "TRANSCRIPTS";
+// The check run Dispatch posts on every PR head (CHECK_NAME in dispatch/src/run/machine.ts).
+export const CHECK_NAME = "Base to Base";
 
 // What GitHub's manifest conversion returns (POST /app-manifests/{code}/conversions), as used here.
 export interface AppConversion {
@@ -27,12 +29,33 @@ export function appManifest(publicUrl: string, redirectUrl: string) {
     public: false,
     default_permissions: {
       actions: "write",
+      checks: "write",
       contents: "read",
       pull_requests: "read",
       metadata: "read",
     },
     default_events: ["pull_request"],
   };
+}
+
+// The body for PUT /repos/{repo}/branches/main/protection: nothing merges into main, admins
+// included, until the Base to Base check passes. GitHub needs all four keys, null or not. The
+// check is pinned to the App: without app_id, any workflow allowed to write checks could pass it.
+export function branchProtection(appId: number) {
+  return {
+    required_status_checks: { strict: false, checks: [{ context: CHECK_NAME, app_id: appId }] },
+    enforce_admins: true,
+    required_pull_request_reviews: null,
+    restrictions: null,
+  };
+}
+
+// The App ID as the owner typed it, or undefined for anything but a positive whole number.
+export function appIdFrom(input: string): number | undefined {
+  const typed = input.trim();
+  if (!/^\d+$/.test(typed)) return undefined;
+  const id = Number(typed);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }
 
 // A page that posts the manifest to GitHub, which then shows the owner a prefilled "Create" form.

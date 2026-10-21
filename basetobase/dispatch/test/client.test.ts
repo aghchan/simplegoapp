@@ -155,6 +155,36 @@ describe("pull request files", () => {
   });
 });
 
+describe("pull request head", () => {
+  const PULL_PATH = `/repos/${REPO}/pulls/58`;
+
+  it("pullHeadSha reads the PR's current head", async () => {
+    const { f, client } = setup({
+      [`GET ${PULL_PATH}`]: () => Response.json({ number: 58, head: { sha: "head59" } }),
+    });
+    expect(await client.pullHeadSha(REPO, 58)).toBe("head59");
+    expect(callsTo(f, PULL_PATH)[0]!.headers.get("authorization")).toBe(
+      `Bearer ${INSTALLATION_TOKEN}`,
+    );
+  });
+
+  it.each([
+    ["no head", { number: 58 }],
+    ["a head without a sha", { head: {} }],
+    ["an empty sha", { head: { sha: "" } }],
+  ])("throws on a response with %s", async (_label, reply) => {
+    const { client } = setup({ [`GET ${PULL_PATH}`]: () => Response.json(reply) });
+    const error = await rejection(client.pullHeadSha(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${PULL_PATH} returned an unexpected response`);
+  });
+
+  it("throws with the status when GitHub refuses", async () => {
+    const { client } = setup({ [`GET ${PULL_PATH}`]: () => new Response("nope", { status: 404 }) });
+    const error = await rejection(client.pullHeadSha(REPO, 58));
+    expect(error.message).toBe(`GitHub GET ${PULL_PATH} failed with status 404`);
+  });
+});
+
 describe("workflow dispatch", () => {
   it("dispatchWorkflow posts ref and inputs", async () => {
     const { f, client } = setup({ [`POST ${DISPATCH_PATH}`]: noContent });
@@ -171,6 +201,63 @@ describe("workflow dispatch", () => {
     });
     const p = client.dispatchWorkflow(REPO, WORKFLOW, "main", { run_id: "r" });
     await expect(p).rejects.toThrow(/422/);
+  });
+});
+
+describe("check runs", () => {
+  const CHECKS_PATH = `/repos/${REPO}/check-runs`;
+  const body = {
+    name: "Base to Base",
+    details_url: "https://b2b.example/runs/r1",
+    status: "in_progress" as const,
+    output: { title: "Red Dog Face · patrol sweep", summary: "0 of 1 patroller in" },
+  };
+
+  it("createCheckRun posts the body and returns the new id", async () => {
+    const { f, client } = setup({
+      [`POST ${CHECKS_PATH}`]: () => Response.json({ id: 501 }, { status: 201 }),
+    });
+    expect(await client.createCheckRun(REPO, { ...body, head_sha: "head58" })).toBe(501);
+    const [req] = callsTo(f, CHECKS_PATH);
+    expect(req!.headers.get("authorization")).toBe(`Bearer ${INSTALLATION_TOKEN}`);
+    expect(req!.headers.get("content-type")).toBe("application/json");
+    expect(await req!.json()).toEqual({ ...body, head_sha: "head58" });
+  });
+
+  it.each([
+    ["no id", {}],
+    ["a string id", { id: "501" }],
+    ["a fractional id", { id: 1.5 }],
+  ])("createCheckRun throws on a response with %s", async (_label, reply) => {
+    const { client } = setup({
+      [`POST ${CHECKS_PATH}`]: () => Response.json(reply, { status: 201 }),
+    });
+    const error = await rejection(client.createCheckRun(REPO, { ...body, head_sha: "head58" }));
+    expect(error.message).toBe(`GitHub POST ${CHECKS_PATH} returned an unexpected response`);
+  });
+
+  it("updateCheckRun patches the check run by id", async () => {
+    const done = { ...body, status: "completed" as const, conclusion: "success" as const };
+    const { f, client } = setup({
+      [`PATCH ${CHECKS_PATH}/501`]: () => Response.json({ id: 501, status: "completed" }),
+    });
+    await client.updateCheckRun(REPO, 501, done);
+    const [req] = callsTo(f, `${CHECKS_PATH}/501`);
+    expect(req!.method).toBe("PATCH");
+    expect(req!.headers.get("authorization")).toBe(`Bearer ${INSTALLATION_TOKEN}`);
+    expect(await req!.json()).toEqual(done);
+  });
+
+  it.each<[string, (client: ReturnType<typeof setup>["client"]) => Promise<unknown>, string]>([
+    ["a create", (client) => client.createCheckRun(REPO, { ...body, head_sha: "h" }), "POST"],
+    ["an update", (client) => client.updateCheckRun(REPO, 501, body), "PATCH"],
+  ])("carries the status and path of %s GitHub refused, nothing else", async (_l, send, method) => {
+    const path = method === "POST" ? CHECKS_PATH : `${CHECKS_PATH}/501`;
+    const { client } = setup({
+      [`${method} ${path}`]: () => new Response("leaky response body", { status: 403 }),
+    });
+    const error = await rejection(send(client));
+    expect(error.message).toBe(`GitHub ${method} ${path} failed with status 403`);
   });
 });
 

@@ -52,7 +52,7 @@ export function encodeBase64Url(bytes: Uint8Array): string {
     .replaceAll("=", "");
 }
 
-function decodeBase64Url(text: string): Uint8Array | null {
+function decodeBase64Url(text: string): Uint8Array<ArrayBuffer> | null {
   if (!/^[A-Za-z0-9_-]*$/.test(text)) return null;
   try {
     const binary = atob(text.replaceAll("-", "+").replaceAll("_", "/"));

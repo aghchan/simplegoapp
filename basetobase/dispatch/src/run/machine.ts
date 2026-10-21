@@ -4,22 +4,29 @@ import {
   type Panel,
   type RoleId,
 } from "../../../shared/src/config.ts";
-import { RATING_LABELS, STEP_ORDER } from "../../../shared/src/labels.ts";
+import { OUTCOME_LABELS, RATING_LABELS, STEP_ORDER } from "../../../shared/src/labels.ts";
 import type { Triage } from "../../../shared/src/triage.ts";
 import type {
   AgentBrief,
   AgentSnapshot,
+  ReviewOutcome,
   RunSnapshot,
   StepId,
   StepSnapshot,
   Verdict,
 } from "../../../shared/src/types.ts";
+import type { CheckRunBody } from "../github/client.ts";
 import type { PullRequestRef } from "../github/webhook.ts";
 
 export const STALL_MS = 600_000;
 export const AGENT_TIMEOUT_MS = 1_800_000;
+// Branch protection on main requires a check of this name.
+export const CHECK_NAME = "Base to Base";
+// GitHub refuses a summary over 65 535 characters.
+const CHECK_SUMMARY_MAX = 60_000;
 
-export interface RunState extends RunSnapshot {
+// The outcome is derived (reviewOutcome), never stored, so it cannot go stale.
+export interface RunState extends Omit<RunSnapshot, "outcome"> {
   installationId: number;
   defaultBranch: string;
   baseSha: string;
@@ -28,13 +35,18 @@ export interface RunState extends RunSnapshot {
   agentNames: Record<string, string>;
   // Agents whose stall has been logged. A repeat stall flips the card but is not logged again.
   stalledLogged: string[];
+  // The run's check run on the PR head, once GitHub has created it.
+  checkRunId?: number;
 }
 
+// "check" mirrors the run's current state onto its check run. It comes last, so GitHub never
+// holds up the run's own work or the dashboard.
 export type Effect =
   | { type: "dispatch"; agentId: string }
   | { type: "log"; text: string }
   | { type: "index" }
-  | { type: "broadcast" };
+  | { type: "broadcast" }
+  | { type: "check" };
 
 export interface Transition {
   state: RunState;
@@ -123,6 +135,7 @@ export function createRun(
       { type: "index" },
       ...agents.map((agent): Effect => ({ type: "dispatch", agentId: agent.id })),
       { type: "broadcast" },
+      { type: "check" },
     ],
   };
 }
@@ -214,8 +227,67 @@ export function stopRun(s: RunState, reason: string, now: number): Transition {
   });
   return {
     state: { ...s, status: "stopped", steps, agents, updatedAt: now },
-    effects: [{ type: "log", text: stopped }, { type: "index" }, { type: "broadcast" }],
+    effects: [
+      { type: "log", text: stopped },
+      { type: "index" },
+      { type: "broadcast" },
+      { type: "check" },
+    ],
   };
+}
+
+// Takes no clock: storing the id changes nothing a viewer sees.
+export function onCheckCreated(s: RunState, id: number): Transition {
+  if (s.checkRunId !== undefined) return unchanged(s);
+  return { state: { ...s, checkRunId: id }, effects: [] };
+}
+
+// The check run for the run's current state, without the commit (creating it adds head_sha).
+export function checkRunOf(s: RunState, publicUrl: string): CheckRunBody {
+  const details = `${publicUrl}/runs/${s.id}`;
+  const base = { name: CHECK_NAME, details_url: details };
+  const output = (title: string) => ({ title, summary: checkSummary(s, details) });
+  // Its sweep never finished, so its outcome is pending; the check must still end.
+  if (s.status === "stopped") {
+    return { ...base, status: "completed", conclusion: "cancelled", output: output("Stopped") };
+  }
+  switch (reviewOutcome(s)) {
+    case "pending":
+      return { ...base, status: "in_progress", output: output(`${s.runName} · patrol sweep`) };
+    // Neutral passes the required check, as for an unpatrolled PR, but never reads as a success.
+    case "none":
+      return {
+        ...base,
+        status: "completed",
+        conclusion: "neutral",
+        output: output(OUTCOME_LABELS.none),
+      };
+    case "clear":
+      return { ...base, status: "completed", conclusion: "success", output: output("All clear") };
+    case "hazards":
+    case "failed":
+      return {
+        ...base,
+        status: "completed",
+        conclusion: "failure",
+        output: output(failureTitle(s)),
+      };
+  }
+}
+
+// The one verdict on the review: the check, the snapshot, the index and the dashboard all read it.
+export function reviewOutcome(s: RunState): ReviewOutcome {
+  if (s.status === "failed") return "failed";
+  if (s.steps.find((step) => step.id === "sweep")?.status !== "done") return "pending";
+  const sweeps = sweepsOf(s);
+  // An agent that never reported found no hazards; its silence must not pass.
+  if (sweeps.some((agent) => agent.status === "error" || agent.status === "stopped")) {
+    return "failed";
+  }
+  if (sweeps.some((agent) => agent.status === "hazards" || agent.hazards.length > 0)) {
+    return "hazards";
+  }
+  return sweeps.length === 0 ? "none" : "clear";
 }
 
 // The earliest moment onTick has something to do, so an alarm set for it always makes progress.
@@ -226,6 +298,7 @@ export function nextAlarm(s: RunState): number | null {
 }
 
 export function snapshotOf(s: RunState): RunSnapshot {
+  const outcome = reviewOutcome(s);
   // Listed field by field so a private field added to RunState can never reach a dashboard socket.
   return {
     id: s.id,
@@ -240,7 +313,8 @@ export function snapshotOf(s: RunState): RunSnapshot {
     runName: s.runName,
     goal: s.goal,
     status: s.status,
-    steps: s.steps,
+    outcome,
+    steps: s.steps.map((step) => (step.id === "sweep" ? { ...step, outcome } : step)),
     agents: s.agents,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -333,14 +407,20 @@ function stalled(s: RunState, id: string, now: number): Transition {
 // The run with its sweep closed, or undefined while any sweep agent has yet to report.
 function sweptState(s: RunState, now: number): RunState | undefined {
   if (!s.agents.every((agent) => agent.step !== "sweep" || isTerminal(agent))) return undefined;
-  const notes = conditionsReport(s);
-  const sweepDone = patchStep(s, "sweep", { status: "done", finishedAt: now, notes });
-  return { ...sweepDone, status: "swept", updatedAt: now };
+  const sweepDone = patchStep(s, "sweep", { status: "done", finishedAt: now });
+  const swept: RunState = { ...sweepDone, status: "swept", updatedAt: now };
+  return patchStep(swept, "sweep", { notes: conditionsReport(swept) });
 }
 
-// A tally of the sweep, then each patroller's summary, which for a failed one is the reason.
+function sweepsOf(s: RunState): AgentSnapshot[] {
+  return s.agents.filter((agent) => agent.step === "sweep");
+}
+
+// The outcome once there is one, a tally of the sweep, then each patroller's summary, which for a
+// failed one is the reason.
 function conditionsReport(s: RunState): string[] {
-  const sweeps = s.agents.filter((agent) => agent.step === "sweep");
+  const outcome = reviewOutcome(s);
+  const sweeps = sweepsOf(s);
   // In with a verdict or a failure; a stopped agent never came in.
   const reported = sweeps.filter((agent) => isTerminal(agent) && agent.status !== "stopped").length;
   const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
@@ -349,9 +429,40 @@ function conditionsReport(s: RunState): string[] {
     `${reported} of ${counted(sweeps.length, "patroller")} in · ` +
     `${counted(hazards, "hazard")} · ${failed} failed`;
   const summaries = sweeps.flatMap((agent) =>
-    agent.summary ? [`${s.agentNames[agent.id] ?? agent.role}: ${agent.summary}`] : [],
+    agent.summary ? [`${nameOf(s, agent)}: ${agent.summary}`] : [],
   );
-  return [tally, ...summaries];
+  return [...(outcome === "pending" ? [] : [OUTCOME_LABELS[outcome]]), tally, ...summaries];
+}
+
+function nameOf(s: RunState, agent: AgentSnapshot): string {
+  return s.agentNames[agent.id] ?? agent.role;
+}
+
+// Why the check fails. Hazards are named before a failed agent: they are what the author has to
+// answer.
+function failureTitle(s: RunState): string {
+  const sweeps = sweepsOf(s);
+  const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  const flagged = hazards > 0 ? [`${counted(hazards, "hazard")} flagged`] : [];
+  const failed = sweeps.find((agent) => agent.status === "error" || agent.status === "stopped");
+  const why = failed
+    ? [`${nameOf(s, failed)} failed: ${failed.summary ?? failed.status}`]
+    : s.status === "failed"
+      ? ["Run failed"]
+      : [];
+  return [...flagged, ...why].join(" · ");
+}
+
+// The Conditions report, each hazard, and the dashboard link, which a cut never drops.
+function checkSummary(s: RunState, details: string): string {
+  const hazards = s.agents.flatMap((agent) =>
+    agent.hazards.map((hazard) => `**${hazard.id}** ${hazard.title} — ${nameOf(s, agent)}`),
+  );
+  const link = `[Open ${s.runName} on the dashboard](${details})`;
+  const body = [...conditionsReport(s), ...hazards].join("\n\n");
+  const room = CHECK_SUMMARY_MAX - link.length - 2;
+  const kept = body.length > room ? `${body.slice(0, room - 1)}…` : body;
+  return `${kept}\n\n${link}`;
 }
 
 function counted(count: number, noun: string): string {
@@ -374,6 +485,7 @@ function closeSweepIfDone(s: RunState, now: number, earned: Effect[] = []): Tran
       { type: "log", text: `all ${sweeps.length} sweeps in · ${hazards} hazards${failures}` },
       { type: "index" },
       { type: "broadcast" },
+      { type: "check" },
     ],
   };
 }

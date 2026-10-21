@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { AgentSnapshot, ReviewOutcome } from "../../shared/src/types.ts";
 import { PipelineRow } from "../src/components/PipelineRow.tsx";
-import { makeRun, START, step } from "./fixtures.ts";
+import { agent, makeRun, START, step } from "./fixtures.ts";
 
 const run = makeRun();
 
@@ -11,6 +12,7 @@ function renderRow(over: Partial<Parameters<typeof PipelineRow>[0]> = {}) {
   render(
     <PipelineRow
       steps={run.steps}
+      agents={run.agents}
       selected="sweep"
       now={START + 872_000}
       onSelect={onSelect}
@@ -82,5 +84,68 @@ describe("PipelineRow", () => {
     renderRow({ steps });
     expect(screen.getByText("Swept")).toHaveTextContent("Swept reached");
     expect(screen.getByText("All clear")).toHaveTextContent("All clear not yet reached");
+  });
+
+  describe("a done sweep", () => {
+    const sweepDone = (outcome: ReviewOutcome) => [
+      step("sweep", "done", { startedAt: START, finishedAt: START + 5000, outcome }),
+      step("huddle", "pending"),
+    ];
+    const sweepButton = () => screen.getByRole("button", { name: /Patrol sweep/ });
+    const swept = () => screen.getByText("Swept");
+
+    it("shows a clear review with a green check and a green Swept flag", () => {
+      renderRow({ steps: sweepDone("clear"), agents: [agent("mainline", { status: "clear" })] });
+      expect(sweepButton()).toHaveTextContent("Done · 5s");
+      expect(sweepButton().querySelector(".mark-ok")).not.toBeNull();
+      expect(swept()).toHaveTextContent("Swept reached");
+      expect(swept().querySelector(".flag-ok")).not.toBeNull();
+    });
+
+    it.each<[ReviewOutcome, AgentSnapshot[], string, string]>([
+      [
+        "hazards",
+        [agent("kt-22", { status: "hazards" }), agent("mainline", { status: "clear" })],
+        "Done · hazards flagged · 5s",
+        "hazard",
+      ],
+      [
+        "failed",
+        [
+          agent("mainline", { status: "error" }),
+          agent("kt-22", { status: "stopped" }),
+          agent("granite-chief", { status: "hazards" }),
+        ],
+        "Done · 2 failed · 5s",
+        "bad",
+      ],
+      ["none", [], "Done · no patrollers · 5s", "idle"],
+    ])("never shows a %s review as a pass", (outcome, agents, text, tone) => {
+      const { container } = render(
+        <PipelineRow
+          steps={sweepDone(outcome)}
+          agents={agents}
+          selected="sweep"
+          now={START + 9000}
+          onSelect={vi.fn()}
+        />,
+      );
+      expect(sweepButton()).toHaveTextContent(text);
+      expect(sweepButton().querySelector(`.mark-${tone}`)).not.toBeNull();
+      expect(container.querySelector(".mark-ok")).toBeNull();
+      // All verdicts are in, so the flag is reached, but it is not green.
+      expect(swept()).toHaveTextContent("Swept reached");
+      expect(container.querySelector(".flag-ok")).toBeNull();
+    });
+
+    it("counts only the failures of that step", () => {
+      const huddler = agent("mainline", { id: "mainline-huddle-1", step: "huddle", status: "error" });
+      renderRow({
+        steps: sweepDone("failed"),
+        agents: [agent("kt-22", { status: "error" }), huddler],
+        now: START + 9000,
+      });
+      expect(sweepButton()).toHaveTextContent("Done · 1 failed");
+    });
   });
 });

@@ -8,7 +8,8 @@
   "scripts": {
     "test": "npm run build && vitest run --passWithNoTests",
     "types": "wrangler types",
-    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard && tsc -p scripts",
+    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard && tsc -p scripts && tsc -p e2e",
+    "e2e": "npm run build && playwright test -c e2e",
     "build": "vite build dashboard",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.5",
+    "@playwright/test": "1.56.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",

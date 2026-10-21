@@ -6,9 +6,15 @@
   // Workers Logs: console output, readable later in the Cloudflare dashboard.
   "observability": { "enabled": true },
   "durable_objects": {
-    "bindings": [{ "name": "RUNS", "class_name": "RunDO" }]
+    "bindings": [
+      { "name": "RUNS", "class_name": "RunDO" },
+      { "name": "LOBBY", "class_name": "LobbyDO" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RunDO"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RunDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["LobbyDO"] }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

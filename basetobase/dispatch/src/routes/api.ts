@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { isOwner, readSession } from "../auth/session.ts";
+import { lobbyStub } from "../lobby/do.ts";
 import { listRuns, runStub } from "../runs/index.ts";
 import { reject } from "./request.ts";
 
@@ -43,6 +44,12 @@ export function apiRoutes(): Hono<ApiEnv> {
     // For a run that never started the object answers 404 in plain text; the API says it in JSON.
     if (res.status === 404) reject(404, NOT_FOUND);
     return res;
+  });
+
+  // The runs list's socket: a summary each time a run's index row is written.
+  routes.get("/live", async (c) => {
+    if (c.req.header("Upgrade") !== "websocket") reject(426, "expected a websocket upgrade");
+    return lobbyStub(c.env).fetch(c.req.raw);
   });
 
   routes.get("/runs/:id/agents/:agentId/transcript", async (c) => {

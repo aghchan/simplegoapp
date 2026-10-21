@@ -70,7 +70,7 @@ function recorder(over: Partial<DispatchClient> = {}) {
 }
 
 type RunOptions = Parameters<typeof runAgent>[0];
-type Verdict = "valid" | "none" | "broken";
+type Verdict = "valid" | "hazards" | "none" | "broken";
 
 function start(
   verdict: Verdict,
@@ -261,7 +261,31 @@ describe("runAgent", () => {
     const logs: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
     await run("valid");
-    expect(logs.at(-1)).toMatch(/^reported: verdict (clear|hazards)$/);
+    expect(logs).toContain("reported: verdict clear");
+    expect(logs).toContain("  summary: Works.");
+  });
+
+  it("passes the job only for a clear verdict", async () => {
+    expect((await run("valid")).code).toBe(0);
+    expect((await run("hazards")).code).toBe(1);
+  });
+
+  it("logs only claude's final result line, not its failed tool calls", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
+    await run("valid");
+    expect(logs.filter((line) => line.startsWith("claude: "))).toEqual([
+      expect.stringMatching(/^claude: success · /),
+    ]);
+  });
+
+  it("lists each hazard in the job log", async () => {
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
+    const { code } = await run("hazards");
+    expect(logs).toContain("reported: verdict hazards");
+    expect(code).toBe(1);
+    expect(logs).toContain("  FUN-1 README omits the database the app needs");
   });
 
   it("parses a JSON line that arrives in two chunks", async () => {

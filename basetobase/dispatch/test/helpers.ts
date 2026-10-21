@@ -84,10 +84,10 @@ export function fakeFetch(
   return Object.assign(fake, { calls });
 }
 
-// Replaces the global fetch with a GitHub that hands out installation tokens and accepts workflow
-// dispatches, returning the inputs of each dispatch as they arrive; `routes` adds or overrides
-// endpoints. The body is recorded inside the route because a Request made in a Durable Object
-// can't be read from the test.
+// Replaces the global fetch with a GitHub that hands out installation tokens, gives PR 58 head
+// head58, and accepts workflow dispatches and check runs (id 1), returning the inputs of each
+// dispatch as they arrive; `routes` adds or overrides endpoints. The body is recorded inside the
+// route because a Request made in a Durable Object can't be read from the test.
 export function stubGitHub(
   routes: Record<string, (req: Request) => Response | Promise<Response>> = {},
 ): Record<string, string>[] {
@@ -102,6 +102,9 @@ export function stubGitHub(
       dispatchInputs.push(((await req.json()) as { inputs: Record<string, string> }).inputs);
       return new Response(null, { status: 204 });
     },
+    [`GET /repos/${REPO}/pulls/58`]: () => Response.json({ head: { sha: "head58" } }),
+    [`POST /repos/${REPO}/check-runs`]: () => Response.json({ id: 1 }, { status: 201 }),
+    [`PATCH /repos/${REPO}/check-runs/1`]: () => Response.json({ id: 1 }),
     ...routes,
   });
   vi.spyOn(globalThis, "fetch").mockImplementation(github);

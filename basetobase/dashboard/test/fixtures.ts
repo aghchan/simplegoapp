@@ -50,6 +50,7 @@ export function makeRun(over: Partial<RunSnapshot> = {}): RunSnapshot {
     runName: "Red Dog Face",
     goal: "Let a customer cancel their own pending order.",
     status: "on_the_hill",
+    outcome: "pending",
     steps: [
       step("lift_line", "done", { startedAt: START - 80_000, finishedAt: START - 41_000 }),
       step("trail_map", "done", {
@@ -94,9 +95,12 @@ export class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
 
   // The socket opens in an effect after the first paint, which findBy* can see before it runs.
-  static async opened(count = 1): Promise<FakeWebSocket> {
-    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(count));
-    return FakeWebSocket.last;
+  // With `url`, only sockets to a matching URL count; the last of them is returned.
+  static async opened(count = 1, url?: RegExp): Promise<FakeWebSocket> {
+    const matching = () =>
+      FakeWebSocket.instances.filter((socket) => url?.test(socket.url) ?? true);
+    await waitFor(() => expect(matching()).toHaveLength(count));
+    return matching().at(-1)!;
   }
 
   static get last(): FakeWebSocket {

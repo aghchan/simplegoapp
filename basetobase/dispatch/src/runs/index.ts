@@ -12,8 +12,8 @@ export async function upsertRun(db: D1Database, s: RunSnapshot): Promise<void> {
   await db
     .prepare(
       `INSERT OR REPLACE INTO runs (id, repo, pr_number, pr_title, head_sha, run_name, rating,
-         status, current_step, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, outcome, current_step, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       s.id,
@@ -24,11 +24,27 @@ export async function upsertRun(db: D1Database, s: RunSnapshot): Promise<void> {
       s.runName,
       s.rating,
       s.status,
+      s.outcome,
       currentStep(s.steps),
       s.createdAt,
       s.updatedAt,
     )
     .run();
+}
+
+// The run as listRuns reads it back once upsertRun has written it.
+export function summaryOf(s: RunSnapshot): RunSummary {
+  return {
+    id: s.id,
+    prNumber: s.prNumber,
+    prTitle: s.prTitle,
+    runName: s.runName,
+    rating: s.rating,
+    status: s.status,
+    outcome: s.outcome,
+    currentStep: currentStep(s.steps),
+    updatedAt: s.updatedAt,
+  };
 }
 
 export async function listRuns(
@@ -38,7 +54,8 @@ export async function listRuns(
   const { results } = await db
     .prepare(
       `SELECT id, pr_number AS prNumber, pr_title AS prTitle, run_name AS runName, rating, status,
-         current_step AS currentStep, updated_at AS updatedAt FROM runs
+         COALESCE(outcome, 'pending') AS outcome, current_step AS currentStep,
+         updated_at AS updatedAt FROM runs
        ORDER BY status = 'on_the_hill' DESC, updated_at DESC LIMIT ?`,
     )
     .bind(limit)
