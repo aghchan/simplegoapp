@@ -1,3 +1,5 @@
+import { waitFor } from "@testing-library/react";
+import { expect } from "vitest";
 import type { RoleId } from "../../shared/src/config.ts";
 import type {
   AgentSnapshot,
@@ -90,6 +92,12 @@ export function line(
 
 export class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
+
+  // The socket opens in an effect after the first paint, which findBy* can see before it runs.
+  static async opened(count = 1): Promise<FakeWebSocket> {
+    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(count));
+    return FakeWebSocket.last;
+  }
 
   static get last(): FakeWebSocket {
     const socket = FakeWebSocket.instances.at(-1);

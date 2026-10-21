@@ -108,14 +108,14 @@ describe("App", () => {
     });
     render(<App />);
     await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" });
-    const first = FakeWebSocket.last;
+    const first = await FakeWebSocket.opened();
 
     await userEvent.click(screen.getByRole("link", { name: /Home Run/ }));
     expect(
       await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" }),
     ).toBeVisible();
     expect(first.closed).toBe(true);
-    expect(FakeWebSocket.last.url).toMatch(/\/api\/runs\/r2\/live$/);
+    expect((await FakeWebSocket.opened(2)).url).toMatch(/\/api\/runs\/r2\/live$/);
   });
 
   it("leaves a modified click to the browser", async () => {

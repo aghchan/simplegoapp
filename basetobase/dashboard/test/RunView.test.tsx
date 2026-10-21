@@ -592,8 +592,7 @@ describe("RunPage", () => {
 
     expect(await screen.findByRole("heading", { name: /Patrol sweep/ })).toBeVisible();
     expect(screen.getByText("app healthy on :8080")).toBeVisible();
-    expect(FakeWebSocket.instances).toHaveLength(1);
-    expect(FakeWebSocket.last.url).toBe(`ws://${window.location.host}/api/runs/r1/live`);
+    expect((await FakeWebSocket.opened()).url).toBe(`ws://${window.location.host}/api/runs/r1/live`);
     expect(screen.getByRole("status")).toHaveTextContent("Connecting…");
 
     act(() => FakeWebSocket.last.open());
@@ -604,6 +603,7 @@ describe("RunPage", () => {
     stubRun(() => Response.json({ run, log }));
     render(<RunPage runId="r1" />);
     await screen.findByRole("heading", { name: /Patrol sweep/ });
+    await FakeWebSocket.opened();
     act(() => FakeWebSocket.last.open());
     act(() => FakeWebSocket.last.send({ type: "snapshot", run, log }));
     act(() =>
@@ -624,6 +624,7 @@ describe("RunPage", () => {
     stubRun(() => Response.json({ run, log }));
     render(<RunPage runId="r1" />);
     await screen.findByRole("heading", { name: /Patrol sweep/ });
+    await FakeWebSocket.opened();
     act(() => FakeWebSocket.last.open());
     act(() => FakeWebSocket.last.send({ type: "run", run: huddleBegun() }));
     expect(screen.getByRole("heading", { name: /Patrol huddle/ })).toBeVisible();
@@ -655,7 +656,7 @@ describe("RunPage", () => {
   it("stops listening when the page is left", async () => {
     stubRun(() => Response.json({ run, log }));
     const { unmount } = render(<RunPage runId="r1" />);
-    await screen.findByRole("heading", { name: /Patrol sweep/ });
+    await FakeWebSocket.opened();
     unmount();
     expect(FakeWebSocket.last.closed).toBe(true);
   });
