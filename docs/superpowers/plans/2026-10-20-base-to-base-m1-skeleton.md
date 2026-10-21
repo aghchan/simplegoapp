@@ -1294,7 +1294,7 @@ The mockup is the visual reference.
 **Interfaces:**
 - Consumes: everything above.
 
-- [ ] **Step 1: Owner setup (the owner does these; the implementer gives them these exact steps and waits)**
+- [ ] **Step 1: Owner setup.** On the owner's machine (Node ≥22.18, `gh` signed in): `cd basetobase && npx -y npm@11 ci && npm run setup`. It runs every step below, rerunnably. The GitHub App's own user authorization replaces the OAuth App. The manual steps below are the fallback.
 
 **Cloudflare:**
 1. `cd basetobase && npx wrangler login`

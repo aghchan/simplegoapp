@@ -259,7 +259,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
     - `onEvidence sets hasEvidence even after stop`.
 - [ ] **Step 2: Run** `npx vitest run --project node shared/test` and `npx vitest run --project dispatch`. Expect FAIL.
 - [ ] **Step 3: Implement.**
-  - **KV binding.** Rename `TRANSCRIPTS` → `EVIDENCE` in `wrangler.jsonc`, keeping the id and the JSONC comment, then run `npm run types`.
+  - **KV binding.** Rename `TRANSCRIPTS` → `EVIDENCE` in `wrangler.jsonc`, keeping the id and the JSONC comment, and in `scripts/src/setup-lib.ts` (`KV_BINDING`). Then run `npm run types`.
   - **Evidence route.** `PUT /agent/evidence`: `checkNonce`, read the body (≤ 1 MiB), JSON-parse it (bad JSON → 400), `parseEvidence` (`EvidenceError` → 422 `{error}`), store `{items}` with the TTL, then `evidenceStored`.
   - **Transcript route.** Store with `{metadata: {encoding: "gzip"}}` when the content type is `application/gzip`.
   - **API.**

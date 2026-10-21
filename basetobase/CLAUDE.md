@@ -3,7 +3,7 @@
 Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 
 - Own Go module (go.mod) keeps this tree out of `go ./...` and module zips. No Go code here.
-- One npm package. Units: shared/ (pure; only dep picomatch), dispatch/ (Worker + RunDO), forwarder/ (Node on runners), dashboard/ (React SPA).
+- One npm package. Units: shared/ (pure; only dep picomatch), dispatch/ (Worker + RunDO), forwarder/ (Node on runners), dashboard/ (React SPA), scripts/ (owner-run Node tools).
 - Relative imports with `.ts` extensions. Erasable TS only.
 - Run logic: pure transitions returning effects in dispatch/src/run/machine.ts. RunDO only persists and executes effects.
 - Commands: `npm test` (builds the dashboard first; `dashboard/dist` is the Worker's assets) · `npm run typecheck` · `npm run dev` · `npm run deploy`.
@@ -19,7 +19,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 ## Deploy
 
 - `npm run deploy`.
-- First deploy: owner setup in docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md, Task 13.
+- First deploy: `npm run setup` on the owner's machine (`scripts/src/setup.ts`; rerunnable). Manual fallback: docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md, Task 13.
 - New migration: `npx wrangler d1 migrations apply basetobase --remote`.
 - Logs: Cloudflare dashboard → Workers Logs, or `npx wrangler tail`.
 
