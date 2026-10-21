@@ -23,7 +23,8 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 
 - `npm run deploy`.
 - First deploy: `npm run setup` on the owner's machine (`scripts/src/setup.ts`; rerunnable). Manual fallback: docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md, Task 13.
-- New migration: `npx wrangler d1 migrations apply basetobase --remote`.
+- New migration: `npm run migrate`.
+- `deploy` and `migrate` re-run `wrangler login` and retry once when the Cloudflare login has expired (`scripts/src/wrangler.ts`). A `CLOUDFLARE_API_TOKEN` in the shell never expires and skips login.
 - Logs: Cloudflare dashboard → Workers Logs, or `npx wrangler tail`.
 
 ## Rollback
