@@ -3,3 +3,4 @@ basetobase/dashboard/dist/
 .wrangler/
 .dev.vars*
 .env*
+/local.yml
