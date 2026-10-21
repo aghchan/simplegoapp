@@ -6,9 +6,9 @@
     "node": ">=22.18"
   },
   "scripts": {
-    "test": "vitest run --passWithNoTests",
+    "test": "npm run build && vitest run --passWithNoTests",
     "types": "wrangler types",
-    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder",
+    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard",
     "build": "vite build dashboard",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
@@ -22,7 +22,10 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.4.5",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^24.19.2",
     "@types/picomatch": "^4.0.3",
     "@types/react": "^19.3.0",

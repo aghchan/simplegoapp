@@ -1,0 +1,276 @@
+:root {
+  --navy: #0f1b2d;
+  --ground: #eef2f6;
+  --surface: #ffffff;
+  --border: #d9e0e8;
+  --muted: #4a5868;
+  --accent: #1e5aa8;
+  --ok: #15803d;
+  --bad: #b91c1c;
+  --warn: #b45309;
+  /* --warn is under 4.5:1 on --ground, so text that sits there uses the darker amber. */
+  --warn-text: #92400e;
+  --warn-border: #f3c98b;
+  --rating-blue: #1d4ed8;
+  --on-navy: #f4f7fa;
+  --on-navy-muted: #c9d4e1;
+  --ridge-far: #1b2c45;
+
+  --font-heading: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --gutter: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ground);
+  color: var(--navy);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--navy);
+}
+
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Header */
+
+.header {
+  position: relative;
+  background: var(--navy);
+  color: var(--on-navy);
+  overflow: hidden;
+}
+
+.header-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px var(--gutter) 30px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--on-navy);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--on-navy);
+}
+
+.header a:focus-visible {
+  outline-color: var(--on-navy);
+}
+
+.brand-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.who {
+  font-size: 14px;
+  color: var(--on-navy-muted);
+}
+
+.ridgeline {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 44px;
+}
+
+.ridge-far {
+  fill: var(--ridge-far);
+}
+
+.ridge-near {
+  fill: var(--ground);
+}
+
+/* Layout: the runs column sits beside the page and stacks above it on a narrow screen. */
+
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px var(--gutter) 32px;
+}
+
+.side {
+  flex: 1 1 270px;
+  min-width: 0;
+}
+
+.main {
+  flex: 999 1 560px;
+  min-width: 0;
+}
+
+.notice,
+.hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+.notice {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px var(--gutter);
+}
+
+.page-title {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+/* Runs list */
+
+.runs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.run-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.group-title-urgent {
+  color: var(--warn-text);
+}
+
+.run-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--navy);
+  text-decoration: none;
+}
+
+.run:hover {
+  color: var(--navy);
+  border-color: var(--accent);
+}
+
+/* The second pixel of an emphasised border is a shadow, so the cards do not shift when it changes. */
+.run[aria-current="page"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.run-failed {
+  border-color: var(--warn-border);
+  box-shadow: 0 0 0 1px var(--warn-border);
+}
+
+.run-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.run-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.run-status {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.run-failed .run-status {
+  color: var(--warn-text);
+}
+
+.run-stopped .run-status {
+  color: var(--muted);
+}
+
+.rating {
+  flex: none;
+}
+
+.rating-green {
+  fill: var(--ok);
+}
+
+.rating-blue {
+  fill: var(--rating-blue);
+}
+
+.rating-black,
+.rating-double_black {
+  fill: var(--navy);
+}
+
+@media (max-width: 600px) {
+  :root {
+    --gutter: 16px;
+  }
+}

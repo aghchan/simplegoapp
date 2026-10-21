@@ -17,6 +17,7 @@ export default defineConfig({
           name: "dashboard",
           include: ["dashboard/test/**/*.test.{ts,tsx}"],
           environment: "jsdom",
+          setupFiles: ["dashboard/test/setup.ts"],
         },
       },
       "dispatch/vitest.config.ts",
