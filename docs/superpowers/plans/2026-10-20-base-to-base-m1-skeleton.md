@@ -1289,7 +1289,7 @@ The mockup is the visual reference.
 ### Task 13: Deploy and end-to-end smoke test
 
 **Files:**
-- Modify: `basetobase/wrangler.jsonc` (real `database_id`, `PUBLIC_URL`), `basetobase/CLAUDE.md` (add the deploy and rollback lines)
+- Modify: `basetobase/wrangler.jsonc` (real `database_id`, KV namespace `id`, `PUBLIC_URL`), `basetobase/CLAUDE.md` (add the deploy and rollback lines)
 
 **Interfaces:**
 - Consumes: everything above.
@@ -1299,9 +1299,9 @@ The mockup is the visual reference.
 **Cloudflare:**
 1. `cd basetobase && npx wrangler login`
 2. `npx wrangler d1 create basetobase` → paste the id into `wrangler.jsonc`.
-3. `npx wrangler r2 bucket create basetobase-evidence`
+3. `npx wrangler kv namespace create basetobase-transcripts` → paste the id into the `TRANSCRIPTS` entry of `wrangler.jsonc`. Transcripts go to Workers KV, not R2: R2 asks for a payment method on file.
 4. `npx wrangler d1 migrations apply basetobase --remote`
-5. `npm run deploy` → note the URL, `https://basetobase.<subdomain>.workers.dev`. Set `PUBLIC_URL` to it and deploy again.
+5. `npm run deploy` → note the URL, `https://basetobase.<subdomain>.workers.dev`. Set `PUBLIC_URL` to it, with no trailing slash, and deploy again.
 
 **GitHub App** (Settings → Developer settings → GitHub Apps → New):
 - name "Base to Base (aghchan)"
@@ -1316,7 +1316,7 @@ The mockup is the visual reference.
 
 **Worker secrets:** `npx wrangler secret put` for each of:
 - `GITHUB_APP_ID`
-- `GITHUB_APP_PRIVATE_KEY` (the PKCS#8 file)
+- `GITHUB_APP_PRIVATE_KEY`: pipe the PKCS#8 file, `npx wrangler secret put GITHUB_APP_PRIVATE_KEY < app.pkcs8.pem`. Don't paste it: the prompt reads one line, so only the PEM's header would be stored.
 - `GITHUB_WEBHOOK_SECRET`
 - `GITHUB_OAUTH_CLIENT_ID`
 - `GITHUB_OAUTH_CLIENT_SECRET`
@@ -1324,7 +1324,12 @@ The mockup is the visual reference.
 
 **Repo** (Settings → Secrets and variables → Actions):
 - secret `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`
-- variable `BASETOBASE_URL` = `PUBLIC_URL`
+- variable `BASETOBASE_URL` = `PUBLIC_URL`, byte for byte, with no trailing slash (it is the OIDC audience)
+
+**Good to know:**
+- Worker logs are in the Cloudflare dashboard (Workers Logs; `observability` is on in `wrangler.jsonc`), or live via `npx wrangler tail`.
+- `npm run dev` needs `basetobase/.dev.vars` (git-ignored) with the six Worker secrets above.
+- PRs touching Base to Base's own files (`unpatrolledGlobs` in `config/basetobase.json`: `basetobase/**`, `.basetobase/**`, `.github/workflows/basetobase-*.yml`) are not patrolled until M5, this branch's own PR included.
 
 - [ ] **Step 2: Verify that signed-out access is refused**
 

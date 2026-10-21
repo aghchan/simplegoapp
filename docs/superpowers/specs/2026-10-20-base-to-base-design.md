@@ -109,9 +109,10 @@ and the controls to intervene.
     │  │ merge, check run, comments      │  state machine · SQLite event log ·
     │  └─────────────────────────────────┤  alarms (wind hold, watchdog) ·
     │                                    │  WebSocket fan-out
-    │  workflow_dispatch(role, run, sha) │
+    │  workflow_dispatch(run_id,         │
+    │    agent_id, nonce, sha)           │
     │◄───────────────────────────────────┤        D1: runs index
-    │                                    │        R2: transcripts, evidence
+    │                                    │        KV: transcripts (30 days)
     ▼                                    │
   GitHub Actions job (fresh runner)      │  WebSocket
   Claude Code headless + forwarder ──────┤──────────────►  Dashboard (static
@@ -127,7 +128,7 @@ and the controls to intervene.
 |---|---|---|
 | Dispatch + dashboard | Cloudflare Workers + Durable Objects + static assets | Never sleeps; real WebSockets; per-run state with built-in alarms; free, no card. |
 | Run index | Cloudflare D1 | Durable Objects can't be listed; D1 backs the runs list and "usual" durations. |
-| Transcripts, evidence | Cloudflare R2 | Free 10 GB; dashboard shows screenshots inline. |
+| Transcripts | Cloudflare Workers KV | Free, no card; 25 MiB values; 30-day TTL. Evidence storage is open (§12). |
 | Agents | GitHub Actions (one job per agent invocation) | Unlimited minutes for public repos; 6 h job cap; Docker and Chromium available. |
 | Alpine (test env) | The Actions runner itself (docker compose) | Fresh every time, free. |
 | Palisades (production) | Render free web service + Neon free Postgres | Only free no-card host for a Go server; sleeping is acceptable for the app. Neon doesn't expire (Render's free Postgres is deleted after 30 + 14 days). |
@@ -520,7 +521,9 @@ The rating is display-only in v1. It does not change the panel or models
   before building on it. If it isn't, the fallback is the dashboard polling
   the run every few seconds — the UI must not depend on which one is used.
 - **D1:** the runs index and per-step durations (for "usual").
-- **R2:** transcripts and evidence, kept 30 days **(designer's call)**.
+- **Workers KV:** transcripts, kept 30 days by TTL **(designer's call)**.
+  R2 asks for a payment method on file, so evidence storage (screenshots,
+  M2+) must be re-decided under the no-card rule before M2.
 - **GitHub App** (owned by the owner, installed on watched repos):
   - permissions: pull requests read/write, contents read/write (for merge),
     actions read/write (dispatch and cancel workflows), checks read/write,
@@ -570,7 +573,7 @@ simplegoapp/                 Go module, unchanged (framework + template app)
 │   ├── dashboard/           dashboard app (TS), served as Worker assets
 │   ├── forwarder/           agent-side wrapper run on the Actions runner
 │   ├── config/              patrol config, trail names, free-tier limits
-│   └── wrangler.jsonc
+│   └── wrangler.jsonc       bindings: Durable Objects, D1, KV (transcripts)
 ├── .basetobase/patrol/      patroller criteria prompts (§6)
 └── .github/workflows/
     ├── ci.yml               existing Go CI
@@ -620,7 +623,7 @@ Cloudflare's free Durable Objects limits before building.
 |---|---|---|
 | Cloudflare Workers | 100k requests/day, 10 ms CPU per request | Log batching. Dispatch waits on I/O, and waiting isn't CPU. |
 | Durable Objects (free) | SQLite-backed objects, ~100k requests/day, WebSocket hibernation | Fan-out to one viewer is small. |
-| D1 / R2 | ~5 GB / 10 GB | 30-day retention on R2. |
+| D1 / Workers KV | ~5 GB / 1 GB, 1,000 writes/day | One KV write per transcript, 30-day TTL. |
 | GitHub Actions | Unlimited standard runners on public repos | Private repos get ~2,000 min/month. |
 | Render | 750 instance-hours/month, sleeps after 15 min idle, ~1 min wake | Palisades only. A cold start is fine. |
 | Neon | 0.5 GB storage, scales to zero, no expiry | Palisades data size. |
@@ -653,7 +656,7 @@ would exceed them.
 The builder can't do these steps; the plan should list them as owner tasks,
 with exact click-paths, at the milestone that first needs each one:
 
-- **Cloudflare account:** Workers, D1, and R2 enabled.
+- **Cloudflare account:** Workers, D1, and Workers KV enabled.
 - **A GitHub App** with the §12 permissions:
   - created by the owner and installed on the watched repos
   - its private key and webhook secret stored as Worker secrets
