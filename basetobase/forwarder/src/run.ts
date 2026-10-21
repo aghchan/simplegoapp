@@ -22,9 +22,10 @@ const FORWARDER_ONLY_ENV = [
   "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
 ];
 
-// Under the agent job's 25-minute timeout, so the reason and the transcript still reach Dispatch.
-const DEADLINE_MS = 22 * 60_000;
-const PAST_DEADLINE = "claude ran past 22 min";
+// Under the agent job's 25-minute timeout, which also covers the setup steps before claude starts,
+// so the reason and the transcript still reach Dispatch.
+const DEADLINE_MS = 20 * 60_000;
+const PAST_DEADLINE = "claude ran past 20 min";
 const JOB_CANCELLED = "job cancelled";
 const KILL_GRACE_MS = 5000;
 // On cancel the runner sends SIGTERM 7.5 s after its first signal, and a second signal ends the

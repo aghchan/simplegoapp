@@ -566,11 +566,11 @@ describe("runAgent", () => {
         { deadlineMs: 300 },
       );
       expect(code).toBe(1);
-      expect(c.failures).toEqual(["claude ran past 22 min"]);
+      expect(c.failures).toEqual(["claude ran past 20 min"]);
       expect(c.verdicts).toEqual([]);
       expect(c.order.slice(-2)).toEqual(["transcript", "failure"]);
       expect(c.transcripts).toEqual([await streamText()]);
-      expect(errors).toEqual(["claude ran past 22 min: stopping it"]);
+      expect(errors).toEqual(["claude ran past 20 min: stopping it"]);
       expect(alive(await readPid(pidFile))).toBe(false);
     });
 

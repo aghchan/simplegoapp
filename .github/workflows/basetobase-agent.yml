@@ -68,7 +68,7 @@ jobs:
           node-version: 24
       - run: npm install -g @anthropic-ai/claude-code@${{ env.CLAUDE_CODE_VERSION }}
       - run: cp b2b/.basetobase/ci/local.yml repo/local.yml
-      - run: node b2b/basetobase/forwarder/src/main.ts
+      - run: exec node b2b/basetobase/forwarder/src/main.ts
         env:
           RUN_ID: ${{ inputs.run_id }}
           AGENT_ID: ${{ inputs.agent_id }}
