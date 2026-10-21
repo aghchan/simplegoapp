@@ -179,6 +179,22 @@ on the frontend panel are **(designer's call)** — the owner named the
 frontend weights (functionality, UX, security, design) and said general
 engineering practice applies everywhere.
 
+### Stance
+
+Every patroller is an adversarial reviewer (owner). Groomer, the
+implementer, is not a reviewer.
+
+- It assumes the change is broken and tries to break it within its own
+  criteria: hostile and malformed input, boundaries, failure paths, the cases
+  the author skipped.
+- No benefit of the doubt. "Clear" means its own attempts failed, and its
+  summary names what it tried. A required check it couldn't run is a hazard.
+- Every hazard carries evidence (a reproduction, or file:line), so the stance
+  doesn't turn into speculative hazards that stall the huddle.
+- Huddle re-checks attack the fix the same way.
+- The stance lives in `.basetobase/patrol/_verdict.md`, which every patroller
+  prompt includes, so new roles inherit it.
+
 ### Weights
 
 - **Frontend:** functionality > UX > security > design (owner), then goal fit
