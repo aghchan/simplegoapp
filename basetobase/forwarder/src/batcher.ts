@@ -5,6 +5,9 @@ export interface Batcher {
   // Delivers what is queued, retrying a batch that is waiting out its delay straight away. Rejects
   // when that takes longer than the close timeout; the queue is then abandoned.
   close(): Promise<void>;
+  // Drops what is queued and sends nothing more, pushed later or not; a pending close resolves
+  // without waiting for a send in flight.
+  abandon(): void;
 }
 
 export const RETRY_DELAYS_MS = [1000, 2000, 5000, 10_000, 30_000];
@@ -40,6 +43,10 @@ export function createBatcher(
   let wakeSleeper: (() => void) | undefined;
   let closing = false;
   let abandoned = false;
+  let releaseClose: (() => void) | undefined;
+  const released = new Promise<"released">((resolve) => {
+    releaseClose = () => resolve("released");
+  });
 
   function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
@@ -122,6 +129,7 @@ export function createBatcher(
 
   return {
     push(event) {
+      if (abandoned) return;
       queue.push(event);
       if (queue.length >= maxBatch) start();
       else scheduleTick();
@@ -136,13 +144,26 @@ export function createBatcher(
       const expired = new Promise<"expired">((resolve) => {
         deadline = setTimeout(() => resolve("expired"), closeTimeoutMs);
       });
-      const outcome = await Promise.race([flush().then(() => "drained" as const), expired]);
+      const outcome = await Promise.race([
+        flush().then(() => "drained" as const),
+        expired,
+        released,
+      ]);
       clearTimeout(deadline);
       if (outcome === "expired") {
         abandoned = true;
         wakeSleeper?.();
         throw new Error(`event queue not drained within ${closeTimeoutMs} ms`);
       }
+    },
+
+    abandon() {
+      abandoned = true;
+      queue.length = 0;
+      clearTimeout(timer);
+      timer = undefined;
+      wakeSleeper?.();
+      releaseClose?.();
     },
   };
 }

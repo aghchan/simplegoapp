@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -113,6 +114,33 @@ function flaky<R>(failures: number, error: Error, result: R) {
 }
 
 const unavailable = (what: string) => new DispatchError(`${what} → 503`, 503);
+const gone = (what: string) => new DispatchError(`${what} → 410: {"error":"no longer wanted"}`, 410);
+const unwantedLine = (what: string) =>
+  `Dispatch no longer wants reports (run stopped or agent finished): ${what} → 410: {"error":"no longer wanted"}`;
+const never = () => new Promise<never>(() => {});
+const quickBatches = {
+  batcher: (send: (b: AgentEvent[]) => Promise<void>) => createBatcher(send, { intervalMs: 5 }),
+};
+
+async function until(check: () => boolean): Promise<void> {
+  const giveUpAt = Date.now() + 4000;
+  while (!check()) {
+    if (Date.now() > giveUpAt) throw new Error("condition not met within 4000 ms");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const readPid = async (file: string) => Number(await readFile(file, "utf8"));
+const streamText = () => readFile(new URL("stream.jsonl", fixtures), "utf8");
 
 describe("runAgent", () => {
   it("streams events in order and posts the verdict", async () => {
@@ -150,6 +178,9 @@ describe("runAgent", () => {
       "--verbose",
       "--model",
       "sonnet",
+      "--setting-sources",
+      "user",
+      "--strict-mcp-config",
       "--dangerously-skip-permissions",
     ]);
     expect(seen.stdin).toBe(
@@ -440,6 +471,221 @@ describe("runAgent", () => {
       expect(errors.at(-1)).toBe(
         "reporting the failure failed: POST /agent/failure failed: fetch failed",
       );
+    });
+  });
+
+  describe("when Dispatch no longer wants reports", () => {
+    it("stops claude on a 410 for events, sends nothing more, uploads the transcript, exits 0", async () => {
+      const pidFile = join(root, "pid");
+      let eventCalls = 0;
+      const { c, code } = await run(
+        "valid",
+        { FAKE_HANG: "1", FAKE_PID_FILE: pidFile },
+        {
+          events: async () => {
+            eventCalls++;
+            throw gone("POST /agent/events");
+          },
+        },
+        quickBatches,
+      );
+      expect(code).toBe(0);
+      expect(eventCalls).toBe(1);
+      expect(c.verdicts).toEqual([]);
+      expect(c.failures).toEqual([]);
+      expect(c.transcripts).toEqual([await streamText()]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events")]);
+      expect(alive(await readPid(pidFile))).toBe(false);
+    });
+
+    it("kills claude with SIGKILL when it ignores SIGTERM past the grace period", async () => {
+      const pidFile = join(root, "pid");
+      const { c, code } = await run(
+        "valid",
+        { FAKE_HANG: "1", FAKE_IGNORE_TERM: "1", FAKE_PID_FILE: pidFile },
+        { events: async () => Promise.reject(gone("POST /agent/events")) },
+        { ...quickBatches, killGraceMs: 50 },
+      );
+      expect(code).toBe(0);
+      expect(c.transcripts).toHaveLength(1);
+      expect(alive(await readPid(pidFile))).toBe(false);
+    });
+
+    it("skips the verdict after a 410 for events that drain once claude has exited", async () => {
+      const { c, code } = await run(
+        "valid",
+        {},
+        { events: async () => Promise.reject(gone("POST /agent/events")) },
+      );
+      expect(code).toBe(0);
+      expect(c.order).toEqual(["transcript"]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events")]);
+    });
+
+    it("exits 0 on a 410 for a retried verdict whose first answer was lost", async () => {
+      let verdictCalls = 0;
+      const { c, code } = await run(
+        "valid",
+        {},
+        {
+          verdict: async () => {
+            verdictCalls++;
+            throw verdictCalls === 1
+              ? unavailable("POST /agent/verdict")
+              : gone("POST /agent/verdict");
+          },
+        },
+      );
+      expect(code).toBe(0);
+      expect(verdictCalls).toBe(2);
+      expect(c.failures).toEqual([]);
+      expect(errors).toEqual([
+        "reporting the verdict failed, retrying in 1 ms: POST /agent/verdict → 503",
+        unwantedLine("POST /agent/verdict"),
+      ]);
+    });
+
+    it("exits 0 on a 410 for the failure report", async () => {
+      const { code } = await run(
+        "none",
+        {},
+        { failure: async () => Promise.reject(gone("POST /agent/failure")) },
+      );
+      expect(code).toBe(0);
+      expect(errors).toEqual([unwantedLine("POST /agent/failure")]);
+    });
+  });
+
+  describe("the deadline", () => {
+    it("stops claude, reports the overrun, uploads the transcript and exits 1", async () => {
+      const pidFile = join(root, "pid");
+      const { c, code } = await run(
+        "valid",
+        { FAKE_HANG: "1", FAKE_PID_FILE: pidFile },
+        {},
+        { deadlineMs: 300 },
+      );
+      expect(code).toBe(1);
+      expect(c.failures).toEqual(["claude ran past 22 min"]);
+      expect(c.verdicts).toEqual([]);
+      expect(c.order.slice(-2)).toEqual(["transcript", "failure"]);
+      expect(c.transcripts).toEqual([await streamText()]);
+      expect(errors).toEqual(["claude ran past 22 min: stopping it"]);
+      expect(alive(await readPid(pidFile))).toBe(false);
+    });
+
+    it("does not touch a claude that finishes in time", async () => {
+      const { c, code } = await run("valid", {}, {}, { deadlineMs: 60_000 });
+      expect(code).toBe(0);
+      expect(c.verdicts).toHaveLength(1);
+      expect(errors).toEqual([]);
+    });
+  });
+
+  describe("a signal", () => {
+    let signals: EventEmitter;
+
+    beforeEach(() => {
+      signals = new EventEmitter();
+    });
+
+    it.each(["SIGINT", "SIGTERM"])(
+      "(%s) stops claude, uploads the transcript, reports the cancel and exits 1",
+      async (name) => {
+        const r = recorder();
+        const pidFile = join(root, "pid");
+        const running = start("valid", { FAKE_HANG: "1", FAKE_PID_FILE: pidFile }, r.client, {
+          ...quickBatches,
+          signals,
+        });
+        await until(() => r.c.events.length > 0);
+        expect(signals.listenerCount(name)).toBe(1);
+        signals.emit(name);
+        expect(await running).toBe(1);
+        expect(r.c.failures).toEqual(["job cancelled"]);
+        expect(r.c.verdicts).toEqual([]);
+        expect(r.c.order.slice(-2)).toEqual(["transcript", "failure"]);
+        expect(r.c.transcripts).toEqual([await streamText()]);
+        expect(errors).toEqual([`${name} received: stopping claude`]);
+        expect(alive(await readPid(pidFile))).toBe(false);
+        expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
+      },
+    );
+
+    it("reports job cancelled, not claude's exit, when claude died of the same signal", async () => {
+      const pidFile = join(root, "pid");
+      const r = recorder();
+      const running = start("valid", { FAKE_HANG: "1", FAKE_PID_FILE: pidFile }, r.client, {
+        ...quickBatches,
+        signals,
+      });
+      await until(() => r.c.events.length > 0);
+      process.kill(await readPid(pidFile), "SIGTERM");
+      signals.emit("SIGTERM");
+      expect(await running).toBe(1);
+      expect(r.c.failures).toEqual(["job cancelled"]);
+    });
+
+    it("reports job cancelled when it arrives after claude's exit was seen", async () => {
+      const pidFile = join(root, "pid");
+      let uploads = 0;
+      const r = recorder({
+        transcript: async () => {
+          uploads++;
+          return never();
+        },
+      });
+      const running = start("valid", { FAKE_HANG: "1", FAKE_PID_FILE: pidFile }, r.client, {
+        ...quickBatches,
+        signals,
+        cancelStepMs: 50,
+      });
+      await until(() => r.c.events.length > 0);
+      process.kill(await readPid(pidFile), "SIGTERM");
+      await until(() => uploads > 0);
+      signals.emit("SIGTERM");
+      expect(await running).toBe(1);
+      expect(uploads).toBe(1);
+      expect(r.c.failures).toEqual(["job cancelled"]);
+      expect(r.c.verdicts).toEqual([]);
+    });
+
+    it("finishes within its bounded steps when claude and Dispatch do not answer", async () => {
+      const r = recorder({ transcript: never, failure: never });
+      const running = start("valid", { FAKE_HANG: "1", FAKE_IGNORE_TERM: "1" }, r.client, {
+        ...quickBatches,
+        signals,
+        cancelStepMs: 100,
+      });
+      await until(() => r.c.events.length > 0);
+      const signalledAt = Date.now();
+      signals.emit("SIGINT");
+      expect(await running).toBe(1);
+      expect(Date.now() - signalledAt).toBeLessThan(1000);
+      expect(errors).toEqual([
+        "SIGINT received: stopping claude",
+        "waiting for claude to exit: gave up after 100 ms",
+        "uploading the transcript: gave up after 100 ms",
+        "reporting the failure: gave up after 100 ms",
+      ]);
+    });
+
+    it("exits at once on a second signal and kills claude", async () => {
+      const pidFile = join(root, "pid");
+      const r = recorder({ transcript: never, failure: never });
+      const running = start(
+        "valid",
+        { FAKE_HANG: "1", FAKE_IGNORE_TERM: "1", FAKE_PID_FILE: pidFile },
+        r.client,
+        { ...quickBatches, signals, cancelStepMs: 60_000 },
+      );
+      await until(() => r.c.events.length > 0);
+      signals.emit("SIGINT");
+      signals.emit("SIGTERM");
+      expect(await running).toBe(1);
+      const pid = await readPid(pidFile);
+      await until(() => !alive(pid));
+      expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
     });
   });
 

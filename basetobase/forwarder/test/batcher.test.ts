@@ -282,6 +282,41 @@ describe("createBatcher", () => {
     await settled;
   });
 
+  describe("abandon", () => {
+    it("drops the queue, ignores later pushes and releases a close stuck on a send", async () => {
+      const calls: number[][] = [];
+      const b = createBatcher((batch) => {
+        calls.push(batch.map((e) => e.seq));
+        return new Promise(() => {});
+      });
+      b.push(ev(0));
+      await vi.advanceTimersByTimeAsync(2000);
+      b.push(ev(1));
+      const closed = b.close();
+      b.abandon();
+      await closed;
+      b.push(ev(2));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(calls).toEqual([[0]]);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("does not retry a batch waiting out its delay", async () => {
+      const calls: number[] = [];
+      const b = createBatcher(async () => {
+        calls.push(Date.now());
+        throw new Error("503");
+      });
+      b.push(ev(0));
+      await vi.advanceTimersByTimeAsync(2000);
+      b.abandon();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(calls).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+      await b.close();
+    });
+  });
+
   it("sends nothing after close", async () => {
     const sent: AgentEvent[][] = [];
     const b = createBatcher(async (batch) => void sent.push(batch));

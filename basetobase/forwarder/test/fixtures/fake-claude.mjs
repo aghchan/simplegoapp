@@ -3,11 +3,15 @@
 // FAKE_VERDICT_DIR + FAKE_VERDICT (valid | none | broken) control the verdict file; FAKE_EXIT the exit code.
 // FAKE_SPLIT writes every line in two chunks, FAKE_STDERR adds a stderr line, FAKE_LEAK echoes the
 // secrets a real agent could echo, FAKE_ARGS_FILE records argv, cwd and the stdin it was given.
+// FAKE_HANG keeps running after the verdict until killed, FAKE_IGNORE_TERM ignores SIGTERM,
+// FAKE_PID_FILE records the pid.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const env = process.env;
+if (env.FAKE_IGNORE_TERM) process.on("SIGTERM", () => {});
+if (env.FAKE_PID_FILE) writeFileSync(env.FAKE_PID_FILE, String(process.pid));
 
 const chunks = [];
 for await (const chunk of process.stdin) chunks.push(chunk);
@@ -58,4 +62,5 @@ const verdicts = {
 const verdict = verdicts[env.FAKE_VERDICT ?? "none"];
 if (verdict !== undefined) writeFileSync(join(env.FAKE_VERDICT_DIR, "verdict.json"), verdict);
 
+if (env.FAKE_HANG) setInterval(() => {}, 1000);
 process.exitCode = Number(env.FAKE_EXIT ?? 0);
