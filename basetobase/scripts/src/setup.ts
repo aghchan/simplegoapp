@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   await sh("npx", ["wrangler", "d1", "migrations", "apply", D1_NAME, "--remote"]);
 
   step("Deploy");
-  const url = workersDevUrl(await sh("npm", ["run", "deploy"], { capture: true, echo: true }));
+  const url = workersDevUrl(await deploy());
   if (!url) {
     throw new Error(
       "deploy printed no workers.dev URL: register a workers.dev subdomain " +
@@ -105,6 +105,29 @@ async function main(): Promise<void> {
   console.log("Commit basetobase/wrangler.jsonc (ids and URL; no secrets).");
 }
 
+// Captured output makes wrangler non-interactive, so it cannot offer to register a subdomain itself.
+async function deploy(): Promise<string> {
+  try {
+    return await sh("npm", ["run", "deploy"], { capture: true, echo: true, teeStderr: true });
+  } catch (error) {
+    const output = error instanceof CommandError ? error.output : "";
+    if (!/register a workers\.dev subdomain/.test(output)) throw error;
+    const link = /https:\/\/dash\.cloudflare\.com\/\S+\/workers\/onboarding/.exec(output)?.[0];
+    throw new Error(
+      `this Cloudflare account has no workers.dev subdomain. Pick one at ${link ?? "Cloudflare dashboard → Workers & Pages"}, then rerun`,
+    );
+  }
+}
+
+class CommandError extends Error {
+  readonly output: string;
+
+  constructor(message: string, output: string) {
+    super(message);
+    this.output = output;
+  }
+}
+
 // Serves the manifest form on localhost, waits for GitHub's redirect, and trades its code for the App.
 async function createApp(publicUrl: string): Promise<AppConversion> {
   const state = randomBytes(16).toString("hex");
@@ -145,22 +168,31 @@ async function createApp(publicUrl: string): Promise<AppConversion> {
 function sh(
   cmd: string,
   args: string[],
-  o: { input?: string; capture?: boolean; echo?: boolean } = {},
+  o: { input?: string; capture?: boolean; echo?: boolean; teeStderr?: boolean } = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       cwd: ROOT,
-      stdio: [o.input === undefined ? "inherit" : "pipe", o.capture ? "pipe" : "inherit", "inherit"],
+      stdio: [
+        o.input === undefined ? "inherit" : "pipe",
+        o.capture ? "pipe" : "inherit",
+        o.teeStderr ? "pipe" : "inherit",
+      ],
     });
     let out = "";
     child.stdout?.on("data", (chunk: Buffer) => {
       out += chunk.toString();
       if (o.echo) process.stdout.write(chunk);
     });
+    // JSON-listing commands keep stderr out of `out`: wrangler's warnings would break the parse.
+    child.stderr?.on("data", (chunk: Buffer) => {
+      out += chunk.toString();
+      process.stderr.write(chunk);
+    });
     if (o.input !== undefined) child.stdin?.end(o.input);
     child.on("error", reject);
     child.on("close", (status) =>
-      status === 0 ? resolve(out) : reject(new Error(`${cmd} ${args.join(" ")} exited ${status}`)),
+      status === 0 ? resolve(out) : reject(new CommandError(`${cmd} ${args.join(" ")} exited ${status}`, out)),
     );
   });
 }
