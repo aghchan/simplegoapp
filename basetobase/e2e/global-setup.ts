@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { startFakeGitHub } from "./fake-github.ts";
-import { BASE_URL_ENV, OWNER, REPO, SESSION_SECRET, WEBHOOK_SECRET } from "./stack.ts";
+import { BASE_URL_ENV, GITHUB_URL_ENV, OWNER, REPO, SESSION_SECRET, WEBHOOK_SECRET } from "./stack.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const WRANGLER = path.join(ROOT, "node_modules/wrangler/bin/wrangler.js");
@@ -83,6 +83,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     throw new Error(`${(error as Error).message}\n${await readFile(LOG, "utf8")}`);
   }
   process.env[BASE_URL_ENV] = baseUrl;
+  process.env[GITHUB_URL_ENV] = github.url;
   console.log(`e2e: wrangler dev at ${baseUrl}, log in ${LOG}`);
 
   return async () => {

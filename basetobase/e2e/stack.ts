@@ -7,3 +7,5 @@ export const WEBHOOK_SECRET = "e2e-webhook-secret";
 
 // Set by global-setup.ts once `wrangler dev` answers.
 export const BASE_URL_ENV = "E2E_BASE_URL";
+// The fake GitHub's origin, so tests can read the check runs Dispatch posted (GET /__checks).
+export const GITHUB_URL_ENV = "E2E_GITHUB_URL";

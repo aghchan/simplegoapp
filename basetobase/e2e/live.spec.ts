@@ -5,6 +5,7 @@ import type { LobbyMessage } from "../shared/src/types.ts";
 import { SESSION_COOKIE, signSession } from "../dispatch/src/auth/session.ts";
 import {
   BASE_URL_ENV,
+  GITHUB_URL_ENV,
   INSTALLATION_ID,
   OWNER,
   REPO,
@@ -13,6 +14,16 @@ import {
 } from "./stack.ts";
 
 const baseURL = process.env[BASE_URL_ENV];
+const githubURL = process.env[GITHUB_URL_ENV];
+
+type CheckCall = { method: "POST" | "PATCH"; id: number; body: Record<string, unknown> };
+
+// The Base to Base check runs Dispatch posted for this PR's head, oldest first.
+async function checksFor(pr: number): Promise<CheckCall[]> {
+  const calls = (await (await fetch(`${githubURL}/__checks`)).json()) as CheckCall[];
+  const created = calls.find((c) => c.method === "POST" && c.body.head_sha === `e2e-head-${pr}`);
+  return created ? calls.filter((c) => c.id === created.id) : [];
+}
 const LIVE_MS = 3000;
 // The 5 s poll, plus its fetch.
 const POLLED_MS = 8000;
@@ -152,6 +163,11 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
   ).toBeVisible();
   const steps = page.getByRole("group", { name: "Steps of the run" });
   await expect(steps).not.toContainText("Stopped");
+  // The gate: the review's PR check is created in progress, never passing.
+  await expect.poll(async () => (await checksFor(pr))[0]?.body).toMatchObject({
+    name: "Base to Base",
+    status: "in_progress",
+  });
 
   const sent = Date.now();
   await pullRequestEvent("closed", pr);
@@ -163,6 +179,11 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
   });
   expect(Date.now() - sent).toBeLessThanOrEqual(LIVE_MS);
   await expect(group(page, "On the hill · running")).not.toContainText(`#${pr} `);
+  // A closed PR's check ends cancelled: it never reads as a pass.
+  await expect.poll(async () => (await checksFor(pr)).at(-1)?.body).toMatchObject({
+    status: "completed",
+    conclusion: "cancelled",
+  });
   await expectNoReload(page);
   await screenshot(page, testInfo, "b-run-view");
 });

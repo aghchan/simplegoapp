@@ -6,10 +6,18 @@ export interface FakeGitHub {
   close(): Promise<void>;
 }
 
-type Answer = { status: number; body?: () => unknown };
+type Answer = { status: number; body?: (match: RegExpMatchArray) => unknown };
+
+// A check-run call Dispatch made: the create's body, or an update's id and body.
+export interface CheckCall {
+  method: "POST" | "PATCH";
+  id: number;
+  body: Record<string, unknown>;
+}
 
 // What Dispatch asks of GitHub, for any installation, repository and pull request. Every PR changes
-// one backend file outside unpatrolledGlobs.
+// one backend file outside unpatrolledGlobs, and PR n's head is always `e2e-head-<n>`, as the tests
+// send it.
 const ROUTES: [RegExp, Answer][] = [
   [
     /^POST \/app\/installations\/\d+\/access_tokens$/,
@@ -26,26 +34,52 @@ const ROUTES: [RegExp, Answer][] = [
     { status: 200, body: () => [{ filename: "orders/cancel.go", additions: 120, deletions: 10 }] },
   ],
   [/^POST \/repos\/[^/]+\/[^/]+\/actions\/workflows\/[^/]+\/dispatches$/, { status: 204 }],
+  [
+    /^GET \/repos\/[^/]+\/[^/]+\/pulls\/(\d+)$/,
+    { status: 200, body: (m) => ({ number: Number(m[1]), state: "open", head: { sha: `e2e-head-${m[1]}` } }) },
+  ],
+  [/^POST \/repos\/[^/]+\/[^/]+\/check-runs$/, { status: 201, body: () => ({ id: nextCheckId++ }) }],
+  [/^PATCH \/repos\/[^/]+\/[^/]+\/check-runs\/(\d+)$/, { status: 200, body: (m) => ({ id: Number(m[1]) }) }],
 ];
+let nextCheckId = 1;
 
 export async function startFakeGitHub(): Promise<FakeGitHub> {
+  const checks: CheckCall[] = [];
   const server = createServer((req, res) => {
     const route = `${req.method} ${new URL(req.url ?? "/", "http://github.test").pathname}`;
-    req.resume();
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", () => {
-      const answer = ROUTES.find(([pattern]) => pattern.test(route))?.[1];
-      if (!answer) {
+      if (route === "GET /__checks") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(checks));
+        return;
+      }
+      const found = ROUTES.map(([pattern, answer]) => [route.match(pattern), answer] as const).find(
+        ([match]) => match !== null,
+      );
+      if (!found) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ message: "Not Found" }));
         return;
       }
+      const [match, answer] = found;
+      const checkRun = /^(POST|PATCH) \/repos\/[^/]+\/[^/]+\/check-runs(?:\/(\d+))?$/.exec(route);
       if (!answer.body) {
         res.writeHead(answer.status);
         res.end();
         return;
       }
+      const reply = answer.body(match!);
+      if (checkRun) {
+        checks.push({
+          method: checkRun[1] as "POST" | "PATCH",
+          id: (reply as { id: number }).id,
+          body: JSON.parse(Buffer.concat(chunks).toString() || "{}") as Record<string, unknown>,
+        });
+      }
       res.writeHead(answer.status, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(answer.body()));
+      res.end(JSON.stringify(reply));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
