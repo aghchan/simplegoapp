@@ -43,6 +43,7 @@ export function summaryOf(s: RunSnapshot): RunSummary {
     status: s.status,
     outcome: s.outcome,
     currentStep: currentStep(s.steps),
+    createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };
 }
@@ -55,7 +56,7 @@ export async function listRuns(
     .prepare(
       `SELECT id, pr_number AS prNumber, pr_title AS prTitle, run_name AS runName, rating, status,
          COALESCE(outcome, 'pending') AS outcome, current_step AS currentStep,
-         updated_at AS updatedAt FROM runs
+         created_at AS createdAt, updated_at AS updatedAt FROM runs
        ORDER BY status = 'on_the_hill' DESC, updated_at DESC LIMIT ?`,
     )
     .bind(limit)

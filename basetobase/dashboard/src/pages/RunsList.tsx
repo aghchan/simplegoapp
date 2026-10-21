@@ -2,12 +2,13 @@ import { OUTCOME_LABELS, RUN_STATUS_LABELS, STEP_LABELS } from "../../../shared/
 import type { RunSummary } from "../../../shared/src/types.ts";
 import { TrailRating } from "../components/TrailRating.tsx";
 
-type Group = "needs_you" | "on_the_hill" | "swept" | "closed";
+type Group = "needs_you" | "on_the_hill" | "swept" | "landed" | "closed";
 
 const GROUPS: { id: Group; title: string; urgent?: true }[] = [
   { id: "needs_you", title: "Wind hold · needs you", urgent: true },
   { id: "on_the_hill", title: RUN_STATUS_LABELS.on_the_hill },
   { id: "swept", title: RUN_STATUS_LABELS.swept },
+  { id: "landed", title: RUN_STATUS_LABELS.landed },
   { id: "closed", title: "Closed" },
 ];
 

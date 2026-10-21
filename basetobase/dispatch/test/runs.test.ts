@@ -72,6 +72,7 @@ describe("run index", () => {
         status: "on_the_hill",
         outcome: "pending",
         currentStep: "sweep",
+        createdAt: 1000,
         updatedAt: 5,
       },
     ]);

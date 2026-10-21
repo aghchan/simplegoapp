@@ -14,6 +14,7 @@ function run(id: string, status: RunStatus, over: Partial<RunSummary> = {}): Run
     // As reviewOutcome gives it: a swept run defaults to a clear review.
     outcome: status === "swept" ? "clear" : status === "failed" ? "failed" : "pending",
     currentStep: "sweep",
+    createdAt: 1,
     updatedAt: 1,
     ...over,
   };

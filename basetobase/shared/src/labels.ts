@@ -31,6 +31,7 @@ export const RATING_LABELS: Record<Rating, string> = {
 export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   on_the_hill: "On the hill · running",
   swept: "Swept · patrol done",
+  landed: "Landed · merged",
   stopped: "Stopped",
   failed: "Needs you",
 };

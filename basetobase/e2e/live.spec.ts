@@ -295,6 +295,7 @@ function hazardsRun(): { run: RunSnapshot; summaries: RunSummary[] } {
     status: run.status,
     outcome: run.outcome,
     currentStep: "sweep",
+    createdAt: start,
     updatedAt: sweptAt,
     ...over,
   });

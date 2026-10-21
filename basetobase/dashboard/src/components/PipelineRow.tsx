@@ -14,6 +14,7 @@ const STEP_TONES: Record<StepStatus, Tone> = {
   active: "busy",
   pending: "idle",
   stopped: "idle",
+  skipped: "idle",
 };
 
 const STEP_STATUS_TEXT: Record<StepStatus, string> = {
@@ -21,6 +22,7 @@ const STEP_STATUS_TEXT: Record<StepStatus, string> = {
   active: "On it",
   pending: "Waiting",
   stopped: "Stopped",
+  skipped: "Skipped",
 };
 
 // A done step with a review outcome is green only when the review was clear.

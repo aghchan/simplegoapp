@@ -8,8 +8,10 @@ export type StepId =
   | "summit"
   | "drop_in"
   | "send_it";
-export type StepStatus = "pending" | "active" | "done" | "stopped";
-export type RunStatus = "on_the_hill" | "swept" | "stopped" | "failed";
+// "skipped": the run went past the step without doing it (a step not built yet, before landing).
+export type StepStatus = "pending" | "active" | "done" | "stopped" | "skipped";
+// "landed": GitHub merged the PR on the run's head. Until M4 deploys, that is the end of the line.
+export type RunStatus = "on_the_hill" | "swept" | "landed" | "stopped" | "failed";
 export type AgentStatus =
   | "queued"
   | "dispatched"
@@ -60,6 +62,8 @@ export interface AgentSnapshot {
   round: number;
   status: AgentStatus;
   dispatchedAt?: number;
+  // The job's first call to Dispatch: GitHub has started it. The stall and timeout clocks run from it.
+  briefedAt?: number;
   lastEventAt?: number;
   finishedAt?: number;
   jobUrl?: string;
@@ -92,6 +96,8 @@ export interface RunSnapshot {
   goal: string;
   status: RunStatus;
   outcome: ReviewOutcome;
+  // The merge commit, once the run has landed.
+  mergeSha?: string;
   steps: StepSnapshot[];
   agents: AgentSnapshot[];
   createdAt: number;
@@ -107,6 +113,7 @@ export interface RunSummary {
   status: RunStatus;
   outcome: ReviewOutcome;
   currentStep: StepId;
+  createdAt: number;
   updatedAt: number;
 }
 
