@@ -598,10 +598,19 @@ describe("RunDO", () => {
       );
     });
 
-    it("retries a failed first write, then returns to the machine's own deadline", async () => {
+    it("retries a failed first write when the dispatch result comes in", async () => {
       const id = `r${++runCount}`;
       const stub = runStub(env, id);
       await failIndexWrites(stub, 1);
+      await stub.start(prRef(), id, triage);
+      expect(await indexedStatus()).toBe("on_the_hill");
+    });
+
+    it("keeps retrying a failing first write, then returns to the machine's deadline", async () => {
+      const id = `r${++runCount}`;
+      const stub = runStub(env, id);
+      // The first write, then its retry when the dispatch result comes in.
+      await failIndexWrites(stub, 2);
       await stub.start(prRef(), id, triage);
       expect(await listRuns(env.DB)).toEqual([]);
       const pending = await storedState(stub);

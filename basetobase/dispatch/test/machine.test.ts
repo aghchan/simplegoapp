@@ -152,8 +152,8 @@ describe("createRun", () => {
     );
     expect(effects).toEqual([
       { type: "log", text: "run created · Red Dog Face" },
-      { type: "dispatch", agentId: "mainline-sweep-0" },
       { type: "index" },
+      { type: "dispatch", agentId: "mainline-sweep-0" },
       { type: "broadcast" },
     ]);
   });
@@ -275,16 +275,22 @@ describe("createRun", () => {
     expect(ids(["backend", "frontend"])).toEqual([GRANITE, KT, "magic-carpet-sweep-0"]);
   });
 
-  it("gives each agent its own nonce and one dispatch, between the log and the index", () => {
+  // Indexed first: a close that arrives while GitHub takes the dispatches must find the run.
+  it("gives each agent its own nonce and one dispatch, after the index", () => {
     const { state, effects } = createRun(pr, "r1", t, PATROL, CREATED_AT, counter());
     expect(state.nonces).toEqual({ [GRANITE]: "n1", [KT]: "n2" });
     expect(effects).toEqual([
       { type: "log", text: "run created · Red Dog Face" },
+      { type: "index" },
       { type: "dispatch", agentId: GRANITE },
       { type: "dispatch", agentId: KT },
-      { type: "index" },
       { type: "broadcast" },
     ]);
+  });
+
+  it("keeps each agent's roster name for the Conditions report", () => {
+    const { state } = createRun(pr, "r1", t, PATROL, CREATED_AT, counter());
+    expect(state.agentNames).toEqual({ [GRANITE]: "Granite Chief", [KT]: "KT-22" });
   });
 
   it("only creates agents for enabled roles", () => {
@@ -314,6 +320,7 @@ describe("createRun", () => {
       status: "done",
       startedAt: CREATED_AT,
       finishedAt: CREATED_AT,
+      notes: ["0 of 0 patrollers in · 0 hazards · 0 failed"],
     });
     expect(effects).toEqual([
       { type: "log", text: "run created · Red Dog Face" },
@@ -532,6 +539,42 @@ describe("onFailure", () => {
     const closed = report(opened, "kt-22", second, 2500);
     expect(closed.state.status).toBe("swept");
     expect(closed.effects).toContainEqual({ type: "log", text: summary });
+  });
+});
+
+describe("the sweep's Conditions report", () => {
+  const notesOf = (s: RunState) => stepOf(s, "sweep").notes;
+
+  it("tallies the sweep, then gives each patroller's summary in run order", () => {
+    const first = onFailure(patrolRun(), KT, "claude exited 1", 2000).state;
+    const { state } = onVerdict(first, GRANITE, verdictFor("granite-chief", 2), 2500);
+    expect(notesOf(state)).toEqual([
+      "2 of 2 patrollers in · 2 hazards · 1 failed",
+      "Granite Chief: 2 found.",
+      "KT-22: claude exited 1",
+    ]);
+  });
+
+  it("is not written while the sweep is open", () => {
+    const { state } = onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000);
+    expect(notesOf(state)).toEqual([]);
+  });
+
+  it("gives the reason of a patroller that never reported", () => {
+    const { state } = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    expect(notesOf(state)).toEqual([
+      "1 of 1 patroller in · 0 hazards · 1 failed",
+      "Mainline: timed out",
+    ]);
+  });
+
+  it.each([
+    [0, "1 of 1 patroller in · 0 hazards · 0 failed"],
+    [1, "1 of 1 patroller in · 1 hazard · 0 failed"],
+    [2, "1 of 1 patroller in · 2 hazards · 0 failed"],
+  ])("tallies %i hazards as '%s'", (count, tally) => {
+    const { state } = onVerdict(runningRun(), ID, verdictFor("mainline", count), 2000);
+    expect(notesOf(state)[0]).toBe(tally);
   });
 });
 
@@ -1014,7 +1057,14 @@ describe("nextAlarm", () => {
 });
 
 describe("snapshotOf", () => {
-  const PRIVATE_FIELDS = ["installationId", "defaultBranch", "baseSha", "nonces", "stalledLogged"];
+  const PRIVATE_FIELDS = [
+    "installationId",
+    "defaultBranch",
+    "baseSha",
+    "nonces",
+    "agentNames",
+    "stalledLogged",
+  ];
 
   it("snapshot hides nonces", () =>
     expect(snapshotOf(created().state)).not.toHaveProperty("nonces"));

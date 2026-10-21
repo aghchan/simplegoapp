@@ -24,6 +24,8 @@ export interface RunState extends RunSnapshot {
   defaultBranch: string;
   baseSha: string;
   nonces: Record<string, string>;
+  // Each agent's roster name when the run started, for the Conditions report.
+  agentNames: Record<string, string>;
   // Agents whose stall has been logged. A repeat stall flips the card but is not logged again.
   stalledLogged: string[];
 }
@@ -74,6 +76,9 @@ export function createRun(
     );
   const nonces: Record<string, string> = {};
   for (const agent of agents) nonces[agent.id] = nonce();
+  const agentNames = Object.fromEntries(
+    agents.map((agent) => [agent.id, rosterEntry(cfg, agent.role).name]),
+  );
 
   let state: RunState = {
     id: runId,
@@ -96,6 +101,7 @@ export function createRun(
     defaultBranch: pr.defaultBranch,
     baseSha: pr.baseSha,
     nonces,
+    agentNames,
     stalledLogged: [],
   };
   state = patchStep(state, "lift_line", { status: "done", startedAt: now, finishedAt: now });
@@ -113,8 +119,9 @@ export function createRun(
     state,
     effects: [
       { type: "log", text: `run created · ${t.runName}` },
-      ...agents.map((agent): Effect => ({ type: "dispatch", agentId: agent.id })),
+      // Ahead of the dispatches: a close that arrives during them finds the run only in the index.
       { type: "index" },
+      ...agents.map((agent): Effect => ({ type: "dispatch", agentId: agent.id })),
       { type: "broadcast" },
     ],
   };
@@ -325,8 +332,29 @@ function stalled(s: RunState, id: string, now: number): Transition {
 // The run with its sweep closed, or undefined while any sweep agent has yet to report.
 function sweptState(s: RunState, now: number): RunState | undefined {
   if (!s.agents.every((agent) => agent.step !== "sweep" || isTerminal(agent))) return undefined;
-  const sweepDone = patchStep(s, "sweep", { status: "done", finishedAt: now });
+  const notes = conditionsReport(s);
+  const sweepDone = patchStep(s, "sweep", { status: "done", finishedAt: now, notes });
   return { ...sweepDone, status: "swept", updatedAt: now };
+}
+
+// A tally of the sweep, then each patroller's summary, which for a failed one is the reason.
+function conditionsReport(s: RunState): string[] {
+  const sweeps = s.agents.filter((agent) => agent.step === "sweep");
+  // In with a verdict or a failure; a stopped agent never came in.
+  const reported = sweeps.filter((agent) => isTerminal(agent) && agent.status !== "stopped").length;
+  const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  const failed = sweeps.filter((agent) => agent.status === "error").length;
+  const tally =
+    `${reported} of ${counted(sweeps.length, "patroller")} in · ` +
+    `${counted(hazards, "hazard")} · ${failed} failed`;
+  const summaries = sweeps.flatMap((agent) =>
+    agent.summary ? [`${s.agentNames[agent.id] ?? agent.role}: ${agent.summary}`] : [],
+  );
+  return [tally, ...summaries];
+}
+
+function counted(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 // `earned` are the effects the caller's own change produced; they come first.

@@ -8,6 +8,8 @@ import { prPayload, sign, stubGitHub } from "./helpers.ts";
 
 const app = createApp({ agentKey: createLocalJWKSet({ keys: [] }) });
 const FILES_PATH = "GET /repos/aghchan/simplegoapp/pulls/58/files";
+const DISPATCH_PATH =
+  "POST /repos/aghchan/simplegoapp/actions/workflows/basetobase-agent.yml/dispatches";
 const docsOnly = () =>
   Response.json([{ filename: "docs/BEST_PRACTICES.md", additions: 1, deletions: 1 }]);
 const PKCS1_KEY = "-----BEGIN RSA PRIVATE KEY-----\nQUJD\n-----END RSA PRIVATE KEY-----\n";
@@ -188,6 +190,27 @@ describe("POST /github/webhook", () => {
       expect((await runStub(env, id).view())!.log.map((line) => line.text)).toContain(
         "stopped · PR closed",
       );
+    });
+
+    it("stops a run whose first dispatch is still with GitHub", async () => {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      let dispatching = false;
+      stubGitHub({
+        [FILES_PATH]: docsOnly,
+        [DISPATCH_PATH]: async () => {
+          dispatching = true;
+          await held;
+          return new Response(null, { status: 204 });
+        },
+      });
+      const opening = deliver(opened());
+      await vi.waitFor(() => expect(dispatching).toBe(true));
+      const res = await deliver(closed());
+      release();
+      const { runId } = (await (await opening).json()) as { runId: string };
+      expect(await res.json()).toEqual({ stopped: [runId] });
+      expect(await listRuns(env.DB)).toMatchObject([{ id: runId, status: "stopped" }]);
     });
 
     it("stops nothing for a PR with no active run", async () => {
