@@ -102,6 +102,19 @@ async function failIndexWrites(stub: Stub, times: number): Promise<void> {
   });
 }
 
+// Backdates the agent's dispatch past the timeout and fires the alarm that fails it.
+async function timeOut(stub: Stub): Promise<void> {
+  await runInDurableObject(stub, async (_instance, state) => {
+    const run = (await state.storage.get<RunState>("state"))!;
+    const old = run.agents.map((agent) => ({
+      ...agent,
+      dispatchedAt: Date.now() - AGENT_TIMEOUT_MS - 1,
+    }));
+    await state.storage.put("state", { ...run, agents: old });
+  });
+  await runDurableObjectAlarm(stub);
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => (resolve = done));
@@ -160,9 +173,10 @@ describe("RunDO", () => {
         const bad = mangle(nonce);
         expect(await stub.checkNonce(AGENT, bad)).toBe(false);
         expect(await stub.brief(AGENT, bad)).toBeNull();
-        expect(await stub.events(AGENT, bad, evs, JOB_URL)).toBe(false);
-        expect(await stub.verdict(AGENT, bad, clearVerdict)).toMatchObject({ ok: false });
-        expect(await stub.failure(AGENT, bad, "boom")).toBe(false);
+        expect(await stub.events(AGENT, bad, evs, JOB_URL)).toBe("forbidden");
+        expect(await stub.verdict(AGENT, bad, clearVerdict)).toBe("forbidden");
+        expect(await stub.verdict(AGENT, bad, { nope: 1 })).toBe("forbidden");
+        expect(await stub.failure(AGENT, bad, "boom")).toBe("forbidden");
         expect(await stub.transcriptStored(AGENT, bad)).toBe(false);
 
         const view = (await stub.view())!;
@@ -181,9 +195,9 @@ describe("RunDO", () => {
         for (const attempt of [nonce, inherited]) {
           expect(await stub.checkNonce(agentId, attempt)).toBe(false);
           expect(await stub.brief(agentId, attempt)).toBeNull();
-          expect(await stub.events(agentId, attempt, evs, JOB_URL)).toBe(false);
-          expect(await stub.verdict(agentId, attempt, clearVerdict)).toMatchObject({ ok: false });
-          expect(await stub.failure(agentId, attempt, "boom")).toBe(false);
+          expect(await stub.events(agentId, attempt, evs, JOB_URL)).toBe("forbidden");
+          expect(await stub.verdict(agentId, attempt, clearVerdict)).toBe("forbidden");
+          expect(await stub.failure(agentId, attempt, "boom")).toBe("forbidden");
           expect(await stub.transcriptStored(agentId, attempt)).toBe(false);
         }
         expect((await stub.view())!.log).toHaveLength(1);
@@ -247,8 +261,8 @@ describe("RunDO", () => {
   describe("events", () => {
     it("dedupes events by agent seq", async () => {
       const { stub, nonce } = await startRun();
-      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe(true);
-      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe(true);
+      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe("accepted");
+      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe("accepted");
       const lines = (await stub.view())!.log.filter((line) => line.agentId === AGENT);
       expect(lines).toHaveLength(evs.length);
       expect(lines.map((line) => line.text)).toEqual(["reading the diff", "Read orders.go"]);
@@ -274,22 +288,12 @@ describe("RunDO", () => {
       const line = (await stub.view())!.log.find((entry) => entry.agentId === AGENT);
       expect(line?.text).toHaveLength(2000);
     });
-
-    it("keeps the agent's lines after a stop without reviving the run", async () => {
-      const { stub, nonce } = await startRun();
-      await stub.stop("PR closed");
-      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe(true);
-      const view = (await stub.view())!;
-      expect(view.run.status).toBe("stopped");
-      expect(view.run.agents[0]?.status).toBe("stopped");
-      expect(view.log.filter((line) => line.agentId === AGENT)).toHaveLength(evs.length);
-    });
   });
 
   describe("verdict", () => {
     it("a valid verdict sweeps and updates the index", async () => {
       const { stub, nonce } = await startRun();
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("accepted");
       expect((await listRuns(env.DB))[0]?.status).toBe("swept");
       const view = (await stub.view())!;
       expect(view.run.agents[0]).toMatchObject({
@@ -301,7 +305,9 @@ describe("RunDO", () => {
 
     it("an invalid verdict marks the agent error and completes the sweep", async () => {
       const { stub, nonce } = await startRun();
-      expect(await stub.verdict(AGENT, nonce, { nope: 1 })).toMatchObject({ ok: false });
+      expect(await stub.verdict(AGENT, nonce, { nope: 1 })).toEqual({
+        invalid: expect.any(String),
+      });
       const view = (await stub.view())!;
       expect(view.run.agents[0]?.status).toBe("error");
       expect(view.run.status).toBe("swept");
@@ -310,7 +316,7 @@ describe("RunDO", () => {
     it("names the broken field without echoing the error object", async () => {
       const { stub, nonce } = await startRun();
       const result = await stub.verdict(AGENT, nonce, { ...clearVerdict, role: "corduroy" });
-      expect(result).toEqual({ ok: false, error: "role must be mainline" });
+      expect(result).toEqual({ invalid: "role must be mainline" });
       expect((await stub.view())!.run.agents[0]?.summary).toBe(
         "invalid verdict: role must be mainline",
       );
@@ -319,14 +325,14 @@ describe("RunDO", () => {
     it("rejects a verdict for another commit", async () => {
       const { stub, nonce } = await startRun();
       const result = await stub.verdict(AGENT, nonce, { ...clearVerdict, headSha: "other" });
-      expect(result).toEqual({ ok: false, error: "headSha must be head58" });
+      expect(result).toEqual({ invalid: "headSha must be head58" });
     });
   });
 
   describe("failure", () => {
     it("marks the agent error with the reason and completes the sweep", async () => {
       const { stub, nonce } = await startRun();
-      expect(await stub.failure(AGENT, nonce, "claude exited without a verdict")).toBe(true);
+      expect(await stub.failure(AGENT, nonce, "claude exited without a verdict")).toBe("accepted");
       const view = (await stub.view())!;
       expect(view.run.agents[0]).toMatchObject({
         status: "error",
@@ -336,6 +342,50 @@ describe("RunDO", () => {
       expect(
         view.log.some((line) => line.text === `${AGENT} failed · claude exited without a verdict`),
       ).toBe(true);
+    });
+  });
+
+  // "gone" is the forwarder's cue to stop claude: the run will never use what the agent sends.
+  describe("reports the run no longer wants", () => {
+    type Call = (stub: Stub, nonce: string) => Promise<unknown>;
+    const reports: [string, Call][] = [
+      ["events", (stub, nonce) => stub.events(AGENT, nonce, evs, JOB_URL)],
+      ["a verdict", (stub, nonce) => stub.verdict(AGENT, nonce, clearVerdict)],
+      ["an invalid verdict", (stub, nonce) => stub.verdict(AGENT, nonce, { nope: 1 })],
+      ["a failure", (stub, nonce) => stub.failure(AGENT, nonce, "boom")],
+    ];
+    const endings: [string, Call][] = [
+      ["the run was stopped", (stub) => stub.stop("PR closed")],
+      ["the agent gave its verdict", (stub, nonce) => stub.verdict(AGENT, nonce, clearVerdict)],
+      ["the agent reported a failure", (stub, nonce) => stub.failure(AGENT, nonce, "exited 1")],
+      ["the agent timed out", (stub) => timeOut(stub)],
+    ];
+
+    describe.each(endings)("once %s", (_ending, end) => {
+      it.each(reports)("answers %s with gone and changes nothing", async (_report, send) => {
+        const { stub, nonce } = await startRun();
+        await end(stub, nonce);
+        const before = await stub.view();
+        expect(await send(stub, nonce)).toBe("gone");
+        expect(await stub.view()).toEqual(before);
+      });
+    });
+
+    it("broadcasts nothing", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.stop("PR closed");
+      const { messages } = await connect(stub);
+      for (const [, send] of reports) await send(stub, nonce);
+      // A stopped run still takes the transcript; its broadcast comes after any the reports made.
+      await stub.transcriptStored(AGENT, nonce);
+      await vi.waitFor(() => expect(messages).toHaveLength(2));
+      expect(messages[1]).toMatchObject({ type: "run", run: { agents: [{ hasTranscript: true }] } });
+    });
+
+    it("still forbids a wrong nonce", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.stop("PR closed");
+      for (const [, send] of reports) expect(await send(stub, `${nonce}0`)).toBe("forbidden");
     });
   });
 
@@ -412,16 +462,6 @@ describe("RunDO", () => {
       expect((await listRuns(env.DB))[0]?.status).toBe("stopped");
     });
 
-    it("a verdict after the stop changes nothing", async () => {
-      const { stub, nonce } = await startRun();
-      await stub.stop("PR closed");
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
-      expect((await stub.view())!.run).toMatchObject({
-        status: "stopped",
-        agents: [{ status: "stopped" }],
-      });
-    });
-
     it("stopping a run that never started does nothing", async () => {
       const stub = runStub(env, "never-started");
       await stub.stop("PR closed");
@@ -481,15 +521,7 @@ describe("RunDO", () => {
 
     it("times out an agent that never finishes", async () => {
       const { stub } = await startRun();
-      await runInDurableObject(stub, async (_instance, state) => {
-        const run = (await state.storage.get<RunState>("state"))!;
-        const old = run.agents.map((agent) => ({
-          ...agent,
-          dispatchedAt: Date.now() - AGENT_TIMEOUT_MS - 1,
-        }));
-        await state.storage.put("state", { ...run, agents: old });
-      });
-      await runDurableObjectAlarm(stub);
+      await timeOut(stub);
       const view = (await stub.view())!;
       expect(view.run.agents[0]).toMatchObject({ status: "error", summary: "timed out" });
       expect(view.run.status).toBe("swept");
@@ -512,7 +544,7 @@ describe("RunDO", () => {
     it("retries a failed write on the next alarm", async () => {
       const { stub, nonce } = await startRun();
       await failIndexWrites(stub, 1);
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("accepted");
       expect(await indexedStatus()).toBe("on_the_hill");
       expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("run index write failed"));
 
@@ -532,11 +564,11 @@ describe("RunDO", () => {
       expect(await indexedStatus()).toBe("swept");
     });
 
-    it("retries when the agent repeats its report", async () => {
+    it("retries when the agent repeats its report, though the run is done with it", async () => {
       const { stub, nonce } = await startRun();
       await failIndexWrites(stub, 1);
       await stub.verdict(AGENT, nonce, clearVerdict);
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("gone");
       expect(await indexedStatus()).toBe("swept");
     });
 
@@ -633,8 +665,8 @@ describe("RunDO", () => {
       const { stub, nonce } = await startRun();
       const { ws } = await connect(stub);
       ws.close(1000, "done");
-      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe(true);
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await stub.events(AGENT, nonce, evs, JOB_URL)).toBe("accepted");
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("accepted");
     });
 
     it("a closed viewer socket fails neither the call nor the other viewers", async () => {
@@ -646,12 +678,12 @@ describe("RunDO", () => {
         state.getWebSockets()[1]!.close(1000, "closed");
         return instance.events(AGENT, nonce, evs, JOB_URL);
       });
-      expect(handled).toBe(true);
+      expect(handled).toBe("accepted");
       expect((await stub.view())!.run.agents[0]?.status).toBe("running");
       const gotLines = () =>
         viewers.filter(({ messages }) => messages.some((message) => message.type === "log"));
       await vi.waitFor(() => expect(gotLines()).toHaveLength(2));
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ ok: true });
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("accepted");
     });
 
     it("refuses a plain request", async () => {

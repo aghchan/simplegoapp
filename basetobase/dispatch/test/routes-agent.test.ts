@@ -430,6 +430,57 @@ describe("POST /agent/failure", () => {
   });
 });
 
+// 410 tells the forwarder to stop claude: nothing it sends will be used.
+describe("reports the run no longer wants", () => {
+  const reports: [string, string, Record<string, unknown>][] = [
+    ["events", "events", { events: [event] }],
+    ["a verdict", "verdict", { verdict: clearVerdict }],
+    ["an invalid verdict", "verdict", { verdict: { nope: 1 } }],
+    ["a failure", "failure", { reason: "boom" }],
+  ];
+
+  it.each(reports)("410 for %s once the run was stopped, changing nothing", async (...report) => {
+    const [, path, fields] = report;
+    const { runId, ids, stub } = await startRun();
+    await stub.stop("PR closed");
+    const before = await viewOf(runId);
+    const res = await post(path, { ...ids, ...fields });
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "no longer wanted" });
+    expect(await viewOf(runId)).toEqual(before);
+  });
+
+  it.each(reports)("410 for %s once the agent gave its verdict", async (...report) => {
+    const [, path, fields] = report;
+    const { runId, ids } = await startRun();
+    await post("verdict", { ...ids, verdict: clearVerdict });
+    const before = await viewOf(runId);
+    expect((await post(path, { ...ids, ...fields })).status).toBe(410);
+    expect(await viewOf(runId)).toEqual(before);
+  });
+
+  it.each(reports)("410 for %s once the agent reported a failure", async (...report) => {
+    const [, path, fields] = report;
+    const { ids } = await startRun();
+    await post("failure", { ...ids, reason: "claude exited 1" });
+    expect((await post(path, { ...ids, ...fields })).status).toBe(410);
+  });
+
+  it.each(reports)("still 403 for %s with a wrong nonce", async (...report) => {
+    const [, path, fields] = report;
+    const { ids, stub } = await startRun();
+    await stub.stop("PR closed");
+    expect((await post(path, { ...ids, ...fields, nonce: "wrong" })).status).toBe(403);
+  });
+
+  it.each(reports)("still 401 for %s without a token", async (...report) => {
+    const [, path, fields] = report;
+    const { ids, stub } = await startRun();
+    await stub.stop("PR closed");
+    expect((await post(path, { ...ids, ...fields }, { authorization: null })).status).toBe(401);
+  });
+});
+
 describe("PUT /agent/transcript", () => {
   const body = '{"type":"assistant"}\n{"type":"result"}\n';
 

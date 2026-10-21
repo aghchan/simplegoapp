@@ -40,6 +40,10 @@ const SNAPSHOT_LOG_LINES = 500;
 // A mapped copy, because an interface does not satisfy the SQL row type's index signature.
 type LogRow = Pick<LogLine, keyof LogLine>;
 
+// What became of an agent's report. "gone": the run was stopped or the agent has already finished,
+// so nothing more it sends will be used.
+export type Report = "accepted" | "forbidden" | "gone";
+
 // Owns one run: persists the machine's state, executes the effects it returns, and keeps the log.
 export class RunDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
@@ -66,11 +70,8 @@ export class RunDO extends DurableObject<Env> {
 
   // Null for a runner that should not start: it has the wrong nonce or the agent no longer matters.
   async brief(agentId: string, nonce: string): Promise<AgentBrief | null> {
-    const state = await this.authorize(agentId, nonce);
-    if (!state) return null;
-    await this.retryIndex();
-    if (!acceptsReports(state, agentId)) return null;
-    return briefOf(state, agentId, config);
+    const state = await this.admit(agentId, nonce);
+    return typeof state === "string" ? null : briefOf(state, agentId, config);
   }
 
   async events(
@@ -78,8 +79,9 @@ export class RunDO extends DurableObject<Env> {
     nonce: string,
     events: AgentEvent[],
     jobUrl: string,
-  ): Promise<boolean> {
-    if (!(await this.authorize(agentId, nonce))) return false;
+  ): Promise<Report> {
+    const admitted = await this.admit(agentId, nonce);
+    if (typeof admitted === "string") return admitted;
     const lines = events.flatMap((event) => {
       const line = this.appendLog({
         agentId,
@@ -93,16 +95,17 @@ export class RunDO extends DurableObject<Env> {
     // Ahead of the broadcast: a retry would dedupe to nothing, so this transition cannot be redone.
     await this.step((s, now) => onEvents(s, agentId, lines.length, now, jobUrl));
     if (lines.length > 0) this.broadcast({ type: "log", lines });
-    return true;
+    return "accepted";
   }
 
+  // `invalid` carries why the verdict failed validation; the agent is failed with that reason.
   async verdict(
     agentId: string,
     nonce: string,
     raw: unknown,
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
-    const state = await this.authorize(agentId, nonce);
-    if (!state) return { ok: false, error: "invalid nonce" };
+  ): Promise<Report | { invalid: string }> {
+    const state = await this.admit(agentId, nonce);
+    if (typeof state === "string") return state;
     const { role, prefix, headSha } = briefOf(state, agentId, config);
     let verdict: Verdict;
     try {
@@ -110,16 +113,17 @@ export class RunDO extends DurableObject<Env> {
     } catch (error) {
       if (!(error instanceof VerdictError)) throw error;
       await this.step((s, now) => onFailure(s, agentId, `invalid verdict: ${error.message}`, now));
-      return { ok: false, error: error.message };
+      return { invalid: error.message };
     }
     await this.step((s, now) => onVerdict(s, agentId, verdict, now));
-    return { ok: true };
+    return "accepted";
   }
 
-  async failure(agentId: string, nonce: string, reason: string): Promise<boolean> {
-    if (!(await this.authorize(agentId, nonce))) return false;
+  async failure(agentId: string, nonce: string, reason: string): Promise<Report> {
+    const admitted = await this.admit(agentId, nonce);
+    if (typeof admitted === "string") return admitted;
     await this.step((s, now) => onFailure(s, agentId, reason, now));
-    return true;
+    return "accepted";
   }
 
   async transcriptStored(agentId: string, nonce: string): Promise<boolean> {
@@ -181,6 +185,15 @@ export class RunDO extends DurableObject<Env> {
     // Compared even for an unknown agent, so timing does not tell which agent ids exist.
     const same = await sameSecret(expected ?? "", nonce);
     return expected !== undefined && same ? state : undefined;
+  }
+
+  // The run, if the caller is the agent and the run still wants its reports.
+  private async admit(agentId: string, nonce: string): Promise<RunState | "forbidden" | "gone"> {
+    if (!(await this.authorize(agentId, nonce))) return "forbidden";
+    await this.retryIndex();
+    // Reread: a stop may have landed while the nonce check or the index write awaited.
+    const state = await this.loaded();
+    return acceptsReports(state, agentId) ? state : "gone";
   }
 
   // Applies one machine step to the stored state. It rereads first: anything that awaited I/O

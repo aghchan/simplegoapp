@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { JWTVerifyGetKey } from "jose";
 import type { AgentEvent, EventKind } from "../../../shared/src/types.ts";
 import { verifyAgentToken } from "../auth/oidc.ts";
+import type { Report } from "../run/do.ts";
 import { runStub } from "../runs/index.ts";
 import { readBody, readJsonObject, reject } from "./request.ts";
 
@@ -12,6 +13,7 @@ const TRANSCRIPT_MAX_BYTES = 25 * 1024 * 1024;
 const EVENTS_MAX = 500;
 const FAILURE_REASON_MAX = 500;
 const FORBIDDEN = "forbidden";
+const NO_LONGER_WANTED = "no longer wanted";
 // A record rather than a list, so that the compiler checks it against EventKind.
 const KNOWN_KINDS: Record<EventKind, true> = {
   system: true,
@@ -60,20 +62,18 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     const events = parseEvents(body.events);
     // From the verified token, so the dashboard never links to a page the agent chose.
     const jobUrl = `https://github.com/${c.env.REPO}/actions/runs/${c.get("githubRunId")}`;
-    if (!(await runStub(c.env, runId).events(agentId, nonce, events, jobUrl))) {
-      reject(403, FORBIDDEN);
-    }
+    refuseUnlessAccepted(await runStub(c.env, runId).events(agentId, nonce, events, jobUrl));
     return c.body(null, 204);
   });
 
   routes.post("/verdict", async (c) => {
     const body = await readJsonObject(c.req.raw, JSON_MAX_BYTES);
     const { runId, agentId, nonce } = identify(body);
-    const run = runStub(c.env, runId);
-    // A wrong nonce is 403 whatever the verdict says; only a verdict that fails validation is 422.
-    if (!(await run.checkNonce(agentId, nonce))) reject(403, FORBIDDEN);
-    const result = await run.verdict(agentId, nonce, body.verdict);
-    return result.ok ? c.body(null, 204) : c.json({ error: result.error }, 422);
+    // The run checks the nonce, then whether it still wants the verdict, and only then reads it.
+    const result = await runStub(c.env, runId).verdict(agentId, nonce, body.verdict);
+    if (typeof result === "object") return c.json({ error: result.invalid }, 422);
+    refuseUnlessAccepted(result);
+    return c.body(null, 204);
   });
 
   routes.post("/failure", async (c) => {
@@ -81,7 +81,7 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     const { runId, agentId, nonce } = identify(body);
     if (typeof body.reason !== "string") reject(400, "reason must be a string");
     const reason = body.reason.slice(0, FAILURE_REASON_MAX);
-    if (!(await runStub(c.env, runId).failure(agentId, nonce, reason))) reject(403, FORBIDDEN);
+    refuseUnlessAccepted(await runStub(c.env, runId).failure(agentId, nonce, reason));
     return c.body(null, 204);
   });
 
@@ -98,6 +98,12 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
   });
 
   return routes;
+}
+
+// The forwarder takes 410 as its cue to stop claude, since nothing more it sends will be used.
+function refuseUnlessAccepted(report: Report): void {
+  if (report === "forbidden") reject(403, FORBIDDEN);
+  if (report === "gone") reject(410, NO_LONGER_WANTED);
 }
 
 function identify(source: Record<string, unknown>) {
