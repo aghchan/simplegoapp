@@ -520,6 +520,9 @@ The rating is display-only in v1. It does not change the panel or models
   - pauses all runs, since the quota is shared
   - stops the wind-hold clocks
   - re-dispatches the interrupted jobs after the reset
+- **Job colour = review outcome** (owner): a job is green only when its
+  patroller returned clear; hazards or a failure turn it red. A red job whose
+  verdict reached Dispatch is not an agent failure and is never retried.
 - **Failures:** each job has `timeout-minutes: 25` **(designer's call)**. A
   failed or timed-out job is retried once, then shows as an agent failure on
   the dashboard, and the huddle clock keeps running. The watchdog alarm
