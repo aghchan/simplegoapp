@@ -487,7 +487,7 @@ describe("RunView", () => {
     });
 
     describe("when it is not there yet", () => {
-      const NOT_YET = "Transcript not available yet — it can take a minute to appear.";
+      const NOT_YET = "Transcript not available. A new one can take a minute to appear; they expire after 30 days.";
 
       it("says it can take a minute, and fetches again on Try again", async () => {
         const user = userEvent.setup();

@@ -199,7 +199,8 @@ export function onTick(s: RunState, now: number): Transition {
   return closeSweepIfDone(next, now, logs);
 }
 
-// Cancelling jobs is deferred: a stopped agent's job may keep running until its own timeout.
+// Jobs are not cancelled through GitHub: a running agent stops on the 410 its next report gets,
+// and a queued one is refused its brief.
 export function stopRun(s: RunState, reason: string, now: number): Transition {
   if (s.status !== "on_the_hill") return unchanged(s);
   const stopped = `stopped · ${reason}`;

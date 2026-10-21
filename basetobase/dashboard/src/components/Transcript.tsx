@@ -55,7 +55,7 @@ export const Transcript = memo(function Transcript({
     case "missing":
       return (
         <div className="transcript-missing">
-          <p className="hint">Transcript not available yet — it can take a minute to appear.</p>
+          <p className="hint">Transcript not available. A new one can take a minute to appear; they expire after 30 days.</p>
           <button type="button" className="btn btn-small" onClick={tryAgain}>
             Try again
           </button>
