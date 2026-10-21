@@ -14,7 +14,7 @@
       "binding": "DB",
       "database_name": "basetobase",
       // Replace with the id printed by `wrangler d1 create basetobase`.
-      "database_id": "local-placeholder",
+      "database_id": "81befb0c-5399-425b-8584-369f370c8444",
       "migrations_dir": "dispatch/migrations"
     }
   ],
@@ -22,7 +22,7 @@
     {
       "binding": "TRANSCRIPTS",
       // Replace with the id printed by `npx wrangler kv namespace create basetobase-transcripts`.
-      "id": "local-placeholder"
+      "id": "4e34e13ae0a845539c1654771f0d03da"
     }
   ],
   "assets": {
@@ -36,7 +36,7 @@
     "REPO": "aghchan/simplegoapp",
     "AGENT_WORKFLOW": "basetobase-agent.yml",
     // Replace with the deployed origin, https://basetobase.<subdomain>.workers.dev.
-    "PUBLIC_URL": "http://localhost:8787",
+    "PUBLIC_URL": "https://basetobase.soulygrail.workers.dev",
     "GITHUB_API": "https://api.github.com"
   }
 }

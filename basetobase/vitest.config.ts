@@ -7,7 +7,7 @@ export default defineConfig({
       {
         test: {
           name: "node",
-          include: ["shared/test/**/*.test.ts", "forwarder/test/**/*.test.ts"],
+          include: ["shared/test/**/*.test.ts", "forwarder/test/**/*.test.ts", "scripts/test/**/*.test.ts"],
           environment: "node",
         },
       },

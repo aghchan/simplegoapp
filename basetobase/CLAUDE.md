@@ -2,27 +2,26 @@
 
 Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 
-- Own Go module (go.mod) keeps this tree out of `go ./...` and module zips. Never add Go code here.
-- One npm package. Units: shared/ (pure, no deps but picomatch), dispatch/ (Worker + RunDO), forwarder/ (Node on runners), dashboard/ (React SPA).
-- Relative imports with .ts extensions. Erasable TS only (forwarder runs via Node type stripping).
-- Run logic lives in dispatch/src/run/machine.ts as pure transitions returning effects; RunDO only persists and executes effects.
-- Commands: npm test · npm run typecheck · npm run dev · npm run deploy
-- `npm run dev` needs `basetobase/.dev.vars` (git-ignored) holding the six Worker secrets listed in `dispatch/src/env.ts`.
-- Transcripts live in Workers KV (`TRANSCRIPTS`, 30-day TTL), key `runs/{run}/{agent}.jsonl`. KV is eventually consistent: a fresh upload can 404 from another location for about 60 s.
-- PRs touching `unpatrolledGlobs` (config/basetobase.json: Base to Base's own files) are not patrolled until M5; the webhook answers `{"ignored":"unpatrolled"}`.
-- Dependency changes: `npx -y npm@11 install …` (npm 10 crashes on vitest 4.1 installs and churns lockfile libc entries).
-- `npm test` builds the dashboard first; `dashboard/dist` is the Worker's `assets` directory.
-- `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`), mounted in `dispatch/src/index.ts` by `createApp(deps)`.
-- Route bodies are read with `readBody`/`readJsonObject` (size-bounded); refusals go through `reject` (all in `routes/request.ts`).
-- Credentials: `agent` (OIDC) and `api` (session cookie) check in sub-app middleware; `github` verifies the HMAC in its handler; `auth` is the sign-in flow.
-- `POST /agent/{events,verdict,failure}` answer 410 `{"error":"no longer wanted"}`, changing nothing, once the run is stopped or the agent has finished; the forwarder stops claude on it.
+- Own Go module (go.mod) keeps this tree out of `go ./...` and module zips. No Go code here.
+- One npm package. Units: shared/ (pure; only dep picomatch), dispatch/ (Worker + RunDO), forwarder/ (Node on runners), dashboard/ (React SPA), scripts/ (owner-run Node tools).
+- Relative imports with `.ts` extensions. Erasable TS only.
+- Run logic: pure transitions returning effects in dispatch/src/run/machine.ts. RunDO only persists and executes effects.
+- Commands: `npm test` (builds the dashboard first; `dashboard/dist` is the Worker's assets) · `npm run typecheck` · `npm run dev` · `npm run deploy`.
+- `npm run dev` needs `basetobase/.dev.vars` (git-ignored) with the six secrets in `dispatch/src/env.ts`.
+- Dependency changes: `npx -y npm@11 install …`. npm 10 crashes on vitest 4.1 and churns lockfile libc entries.
+- Transcripts: Workers KV (`TRANSCRIPTS`, 30-day TTL), key `runs/{run}/{agent}.jsonl`. Eventually consistent: a fresh upload can 404 elsewhere for ~60 s.
+- `unpatrolledGlobs` (config/basetobase.json): PRs touching Base to Base's own files aren't patrolled until M5. The webhook answers `{"ignored":"unpatrolled"}`.
+- `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`), mounted by `createApp(deps)` in `dispatch/src/index.ts`.
+- Bodies via `readBody`/`readJsonObject` (size-bounded). Refusals via `reject` (`routes/request.ts`).
+- Credentials: `agent` (OIDC) and `api` (session cookie) in sub-app middleware; `github` checks the HMAC in its handler; `auth` is sign-in.
+- `POST /agent/{events,verdict,failure}` answer 410 `{"error":"no longer wanted"}`, changing nothing, once the run is stopped or the agent is done. The forwarder then stops claude.
 
 ## Deploy
 
 - `npm run deploy`.
-- The first deploy needs the owner setup in docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md Task 13: D1, KV, migrations, GitHub App, OAuth App, Worker secrets, repo secret and variable.
-- After any new migration: `npx wrangler d1 migrations apply basetobase --remote`.
-- Worker logs: Cloudflare dashboard → Workers Logs (`observability` is on in wrangler.jsonc), or live with `npx wrangler tail`.
+- First deploy: `npm run setup` on the owner's machine (`scripts/src/setup.ts`; rerunnable). Manual fallback: docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md, Task 13.
+- New migration: `npx wrangler d1 migrations apply basetobase --remote`.
+- Logs: Cloudflare dashboard → Workers Logs, or `npx wrangler tail`.
 
 ## Rollback
 
@@ -30,7 +29,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 
 ## Deploy cautions
 
-- `GITHUB_APP_PRIVATE_KEY` must be PKCS#8 (`openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem`); a PKCS#1 key fails fast with that command in the Worker log.
-- Pipe the key, never paste it: `npx wrangler secret put GITHUB_APP_PRIVATE_KEY < app.pkcs8.pem`. The interactive prompt reads one line, so a pasted PEM is stored as its header alone.
-- `PUBLIC_URL` must be the deployed URL with no trailing slash: it is the OIDC audience, compared byte for byte, and URLs are built as `${PUBLIC_URL}/auth/callback`. Left at localhost, every `/agent/*` call gets a bare 401.
-- Repo variable `BASETOBASE_URL` must equal `PUBLIC_URL`, also with no trailing slash.
+- `GITHUB_APP_PRIVATE_KEY` must be PKCS#8: `openssl pkcs8 -topk8 -nocrypt -in app.pem -out app.pkcs8.pem`. A PKCS#1 key fails fast, naming that command in the log.
+- Pipe the key: `npx wrangler secret put GITHUB_APP_PRIVATE_KEY < app.pkcs8.pem`. A pasted PEM stores only its first line.
+- `PUBLIC_URL`: the deployed URL, no trailing slash. It is the OIDC audience (compared byte for byte) and the base of `/auth/callback`. Left at localhost, every `/agent/*` call gets a bare 401.
+- Repo variable `BASETOBASE_URL` = `PUBLIC_URL`, exactly.

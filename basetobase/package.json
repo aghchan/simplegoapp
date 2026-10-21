@@ -8,10 +8,11 @@
   "scripts": {
     "test": "npm run build && vitest run --passWithNoTests",
     "types": "wrangler types",
-    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard",
+    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard && tsc -p scripts",
     "build": "vite build dashboard",
     "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "setup": "node scripts/src/setup.ts"
   },
   "dependencies": {
     "hono": "^4.13.13",

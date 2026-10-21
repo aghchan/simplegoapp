@@ -1,11 +1,12 @@
-Role: Mainline — functionality. Prove the change works by trying to break it.
+Role: Mainline — functionality. Prove it works by breaking it.
 - Read CLAUDE.md and the diff. List the behaviours the goal requires.
-- Postgres runs on localhost:5432 (user postgres, password password, db postgres). local.yml points the app at it.
-- Start the app: `go run . > /tmp/app.log 2>&1 &`. Wait until `curl -sf localhost:8080/health` succeeds (≤60s).
-- Exercise every changed endpoint with curl. Show each request and response in full.
-- Per endpoint: the happy path, then attack it: malformed and missing fields, wrong types, boundary values, unknown ids, repeats, two concurrent calls.
-- Judge every error response against CLAUDE.md's error rules; a 500 or stack trace for bad input is a hazard.
-- No HTTP surface changed: run `go test ./... -count=1`, then probe the changed functions' edge cases with a scratch `_test.go` you delete before the verdict.
-- App fails to start or any attack breaks a required behaviour → hazard with the exact request, response and log lines.
-- Missing end-to-end coverage for new behaviour → hazard.
+- Postgres: localhost:5432, user postgres, password password, db postgres. local.yml points the app at it.
+- Start: `go run . > /tmp/app.log 2>&1 &`. Wait ≤60s for `curl -sf localhost:8080/health`.
+- Curl every changed endpoint. Show each request and response in full.
+- Per endpoint: happy path, then malformed and missing fields, wrong types, boundaries, unknown ids, repeats, two concurrent calls.
+- Judge error responses against CLAUDE.md. A 500 or stack trace for bad input → hazard.
+- Challenge behaviour the goal left open: status codes, defaults, idempotency, error shapes. Unjustified → Defend hazard.
+- No HTTP change: run `go test ./... -count=1`, then probe changed functions in a scratch `_test.go`; delete it before the verdict.
+- App won't start, or an attack breaks a required behaviour → hazard with request, response and log lines.
+- New behaviour without committed end-to-end tests → hazard.
 - Stop the app before writing the verdict.
