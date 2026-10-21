@@ -265,6 +265,11 @@ describe("runAgent", () => {
     expect(logs).toContain("  summary: Works.");
   });
 
+  it("passes the job only for a clear verdict", async () => {
+    expect((await run("valid")).code).toBe(0);
+    expect((await run("hazards")).code).toBe(1);
+  });
+
   it("logs only claude's final result line, not its failed tool calls", async () => {
     const logs: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
@@ -277,8 +282,9 @@ describe("runAgent", () => {
   it("lists each hazard in the job log", async () => {
     const logs: string[] = [];
     vi.spyOn(console, "log").mockImplementation((line: string) => void logs.push(line));
-    await run("hazards");
+    const { code } = await run("hazards");
     expect(logs).toContain("reported: verdict hazards");
+    expect(code).toBe(1);
     expect(logs).toContain("  FUN-1 README omits the database the app needs");
   });
 

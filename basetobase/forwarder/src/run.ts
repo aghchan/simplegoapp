@@ -207,8 +207,8 @@ export async function runAgent(o: {
     if (unwanted) return 0;
     const outcome = await untilCancelled(report(reports, failure, verdictPath, retryDelaysMs));
     if (unwanted) return 0;
-    // A failed agent fails the job too, so GitHub never shows green for a review that did not run.
-    return drained && outcome === "verdict" && !pastDeadline ? 0 : 1;
+    // Green means the review passed: a hazards verdict or a failed agent fails the job.
+    return drained && outcome === "clear" && !pastDeadline ? 0 : 1;
   }
 
   async function finishCancelled(): Promise<number> {
@@ -362,7 +362,7 @@ async function report(
   failure: string | undefined,
   verdictPath: string,
   retryDelaysMs: number[],
-): Promise<"verdict" | "failure" | "undelivered"> {
+): Promise<"clear" | "hazards" | "failure" | "undelivered"> {
   const outcome = failure === undefined ? await readVerdict(verdictPath) : { failure };
   if ("failure" in outcome) {
     try {
@@ -381,7 +381,7 @@ async function report(
       client.verdict(outcome.verdict),
     );
     for (const line of verdictLines(outcome.verdict)) console.log(line);
-    return "verdict";
+    return isClear(outcome.verdict) ? "clear" : "hazards";
   } catch (error) {
     // Dispatch has already marked the agent as errored, so there is nothing left to report.
     if (error instanceof DispatchError && error.status === 422) {
@@ -448,6 +448,11 @@ function verdictLines(verdict: unknown): string[] {
     ...hazards.map((h) => `  ${text(h?.id)} ${text(h?.title)}`),
     ...(text(v.summary) ? [`  summary: ${text(v.summary)}`] : []),
   ];
+}
+
+// Dispatch accepted the verdict, so its status is "clear" or "hazards".
+function isClear(verdict: unknown): boolean {
+  return (verdict as { status?: unknown }).status === "clear";
 }
 
 // The stream's last line, which says how the session ended. Tool errors are mapped as errors too,
