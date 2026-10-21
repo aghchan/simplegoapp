@@ -1,5 +1,4 @@
 import { generateKeyPairSync } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   appManifest,
@@ -16,7 +15,32 @@ import {
   type AppConversion,
 } from "../src/setup-lib.ts";
 
-const WRANGLER = readFileSync(new URL("../../wrangler.jsonc", import.meta.url), "utf8");
+// wrangler.jsonc as committed before setup: the real file holds the owner's ids once setup has run.
+const WRANGLER = `{
+  "name": "basetobase",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "basetobase",
+      // Replace with the id printed by \`wrangler d1 create basetobase\`.
+      "database_id": "local-placeholder",
+      "migrations_dir": "dispatch/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "${KV_BINDING}",
+      // Replace with the id printed by \`npx wrangler kv namespace create basetobase-transcripts\`.
+      "id": "local-placeholder"
+    }
+  ],
+  "vars": {
+    "OWNER_LOGIN": "aghchan",
+    // Replace with the deployed origin, https://basetobase.<subdomain>.workers.dev.
+    "PUBLIC_URL": "http://localhost:8787"
+  }
+}
+`;
 const URL_ = "https://basetobase.owner.workers.dev";
 
 function pkcs1(): string {
