@@ -157,6 +157,49 @@ describe("POST /github/webhook", () => {
     });
   });
 
+  // Spec §8: until Base to Base can deploy itself, changes to it are not patrolled.
+  describe("Base to Base's own files", () => {
+    const listing =
+      (...files: Record<string, unknown>[]) =>
+      () =>
+        Response.json(files.map((file) => ({ additions: 1, deletions: 1, ...file })));
+    const docs = { filename: "docs/BEST_PRACTICES.md" };
+
+    it.each([
+      "basetobase/dispatch/src/run/machine.ts",
+      ".basetobase/patrol/mainline.md",
+      ".github/workflows/basetobase-agent.yml",
+      "BaseToBase/CLAUDE.md",
+    ])("ignores a PR touching %s, starting no run", async (filename) => {
+      dispatches = stubGitHub({ [FILES_PATH]: listing(docs, { filename }) });
+      const res = await deliver(opened());
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ignored: "unpatrolled" });
+      expect(await listRuns(env.DB)).toEqual([]);
+      expect(dispatches).toEqual([]);
+    });
+
+    it("ignores a PR that renames a file out of basetobase/", async () => {
+      const renamed = {
+        filename: "tools/machine.ts",
+        previous_filename: "basetobase/dispatch/src/run/machine.ts",
+        status: "renamed",
+      };
+      dispatches = stubGitHub({ [FILES_PATH]: listing(renamed) });
+      expect(await (await deliver(opened())).json()).toEqual({ ignored: "unpatrolled" });
+      expect(await listRuns(env.DB)).toEqual([]);
+    });
+
+    it.each([".github/workflows/ci.yml", "docs/basetobase/notes.md", "basetobase.md"])(
+      "patrols a PR touching %s",
+      async (filename) => {
+        dispatches = stubGitHub({ [FILES_PATH]: listing({ filename }) });
+        expect((await deliver(opened())).status).toBe(202);
+        expect(dispatches).toHaveLength(1);
+      },
+    );
+  });
+
   describe("ignored deliveries", () => {
     it.each([
       ["an event that is not a pull request", "ping", opened(), "event"],

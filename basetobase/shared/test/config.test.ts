@@ -13,6 +13,20 @@ describe("loadConfig", () => {
     const trailNames = { ...raw.trailNames, black: [] };
     expect(() => loadConfig({ ...raw, trailNames })).toThrow(/trailNames\.black/);
   });
+  it("requires the unpatrolled globs", () =>
+    expect(() => loadConfig({ ...raw, unpatrolledGlobs: undefined })).toThrow(
+      /unpatrolledGlobs must be an array/,
+    ));
+  it("rejects an unpatrolled glob that is not a string", () =>
+    expect(() => loadConfig({ ...raw, unpatrolledGlobs: ["basetobase/**", 7] })).toThrow(
+      /unpatrolledGlobs\[1\]/,
+    ));
+  it("leaves Base to Base's own files unpatrolled", () =>
+    expect(config.unpatrolledGlobs).toEqual([
+      "basetobase/**",
+      ".basetobase/**",
+      ".github/workflows/basetobase-*.yml",
+    ]));
 });
 
 describe("rosterEntry", () => {

@@ -24,6 +24,7 @@
     "go.mod",
     "basetobase/package.json"
   ],
+  "unpatrolledGlobs": ["basetobase/**", ".basetobase/**", ".github/workflows/basetobase-*.yml"],
   "thresholds": {
     "greenLines": 50,
     "greenFiles": 3,

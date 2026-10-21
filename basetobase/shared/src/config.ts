@@ -31,6 +31,8 @@ export interface B2BConfig {
   frontendGlobs: string[];
   riskGlobs: string[];
   infraGlobs: string[];
+  // A PR touching any of these is not patrolled at all.
+  unpatrolledGlobs: string[];
   thresholds: {
     greenLines: number;
     greenFiles: number;
@@ -53,6 +55,7 @@ export function loadConfig(raw: unknown): B2BConfig {
     frontendGlobs: asStringArray(root.frontendGlobs, "frontendGlobs"),
     riskGlobs: asStringArray(root.riskGlobs, "riskGlobs"),
     infraGlobs: asStringArray(root.infraGlobs, "infraGlobs"),
+    unpatrolledGlobs: asStringArray(root.unpatrolledGlobs, "unpatrolledGlobs"),
     thresholds: asThresholds(root.thresholds),
     trailNames: asTrailNames(root.trailNames),
     roster,
