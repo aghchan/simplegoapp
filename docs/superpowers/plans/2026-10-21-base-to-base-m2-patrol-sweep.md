@@ -35,6 +35,7 @@
 - `magic-carpet` and `bluebird` stay disabled until M5, since every frontend path is unpatrolled until then.
 - Every patroller is an adversarial reviewer (spec §6 Stance). The shared stance lives only in `.basetobase/patrol/_verdict.md`. Role templates add attacks for their own criteria and never soften the stance.
 - Templates: one imperative rule per line, no preamble, at most 40 lines each.
+- **Terse everywhere (owner).** Every text an agent reads is direct and terse: templates, prompt lines built in code, workflow steps, CLAUDE.md files, subagent briefs. That means one rule per line, with no preamble, rationale, hedging or politeness. Reviewers reject wording that adds no rule.
 
 **Tool allowlists** (passed as `claude --tools` with a comma-separated list)
 - Patrollers: `Bash,Read,Grep,Glob,Write`.
@@ -294,74 +295,75 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - `the verdict contract names evidence`: `_verdict.md` contains `"evidence":["E1"]` and the evidence item shape.
   - `enables the six backend patrollers`: `config.enabledRoles` equals the Global Constraints list.
 - [ ] **Step 2: Run** `npx vitest run --project node shared/test/templates.test.ts`. Expect FAIL.
-- [ ] **Step 3: Write the templates.** The text below is the decision. Keep each rule; the implementer may tighten wording but not drop a rule.
+- [ ] **Step 3: Write the templates.** The text below is the decision: copy it. Tighten wording only if a rule survives intact.
 
-  `_verdict.md`: keep the current text, and add these lines after the hazard-shape line:
+  `_verdict.md`: add these lines after the hazard-shape line:
 
   ```
-  - Hazard may add "evidence":["E1"] — ids from your evidence file. Every hazard cites evidence or file:line in its detail.
-  - Evidence: write {"items":[{"id":"E1","title":"<≤120 chars>","kind":"http"|"command","input":"<request or command>","output":"<response or output>"}]} to the evidence path below.
-  - Record every attack you ran there, failed attacks included. Input and output in full; Dispatch truncates.
+  - Hazard may add "evidence":["E1"]: ids from your evidence file.
+  - Evidence: write {"items":[{"id":"E1","title":"<≤120 chars>","kind":"http"|"command","input":"…","output":"…"}]} to the evidence path below.
+  - Record every attack there, failed ones too, in full. Dispatch truncates.
   ```
 
   `mainline.md`: add after the curl line:
 
   ```
-  - Record each request and response as an evidence item (kind "http"); each go test run as kind "command".
+  - Record each request/response as evidence (kind "http"), each go test run as kind "command".
   ```
 
   `granite-chief.md`:
 
   ```
   Role: Granite Chief — goal fit. Prove the change misses its goal.
-  - Read the goal in <pr_description> and the diff. List every behaviour the goal asks for, stated or implied.
-  - No judgeable goal (empty, vague, or a title that only restates the diff) → hazard.
-  - For each asked-for behaviour, find the code that delivers it. Missing or partial → hazard naming the behaviour.
-  - Implied cases count as asked for: empty input, absent records, repeat calls, the error the user will hit.
-  - Find what the diff adds that the goal never asked for: features, flags, refactors, dependencies, config. Unasked-for → hazard.
-  - Docs, CLAUDE.md files and api/v1/openapi.yml the change should have updated but didn't → hazard.
-  - Judge only goal fit; style, cost, scale and security belong to other patrollers.
+  - From <pr_description> and the diff, list every behaviour the goal asks for, stated or implied.
+  - No judgeable goal (empty, vague, or a title restating the diff) → hazard.
+  - Find the code for each behaviour. Missing or partial → hazard naming it.
+  - Implied cases count: empty input, absent records, repeat calls, the error a user will hit.
+  - Anything the goal didn't ask for (features, flags, refactors, dependencies, config) → hazard.
+  - Docs, CLAUDE.md files or api/v1/openapi.yml left stale → hazard.
+  - Goal fit only. Style, cost, scale and security belong to others.
   ```
 
   `gold-coast.md`:
 
   ```
   Role: Gold Coast — infra and cost. Prove the change costs money or breaks a free-tier limit.
-  - Owner rule: free hosting, no credit card. Limits: basetobase/config/basetobase.json → freeTier.
-  - List every new or changed service, dependency, config key, env var, migration, scheduled job, external call and workflow.
-  - For each, state what it needs and what it costs per request, per run and per month. Paid usage or a card requirement → hazard.
-  - For each freeTier pressure point the change touches, do the arithmetic at the owner's usage. Could exceed its allowance → hazard with the numbers.
-  - Per-request external calls, unbounded retries, polling loops, chatty logging: find the rate. Unbounded → hazard.
-  - A config key added to config.yml without a value in .basetobase/ci/local.yml and the docs → hazard.
-  - New dependencies that are heavy, unmaintained, or duplicate one already in go.mod → hazard.
+  - Rule: free hosting, no credit card. Limits: basetobase/config/basetobase.json → freeTier.
+  - List every new or changed service, dependency, config key, env var, migration, job, external call and workflow.
+  - For each: needs, and cost per request, run and month. Paid usage or a card requirement → hazard.
+  - Do the arithmetic for each freeTier pressure point touched. Could exceed its allowance → hazard with the numbers.
+  - Per-request external calls, retries, polling, chatty logging: find the rate. Unbounded → hazard.
+  - A config.yml key missing from .basetobase/ci/local.yml or the docs → hazard.
+  - A dependency that is heavy, unmaintained, or duplicates one in go.mod → hazard.
   ```
 
   `summit-six.md`:
 
   ```
   Role: Summit Six — scalability. Prove the change falls over under load or concurrency.
-  - Find every changed query, loop, cache, lock, goroutine and handler on a request path.
-  - Queries: unbounded results, no LIMIT or pagination, N+1 access, filters on unindexed columns → hazard with file:line.
-  - Concurrency: shared state without a lock, check-then-act, missing transactions, goroutine leaks → hazard.
-  - Prove races where you can: Postgres runs on localhost:5432 (user postgres, password password, db postgres).
-  - Run go test -race on the changed packages. Start the app (go run . > /tmp/app.log 2>&1 &; wait for curl -sf localhost:8080/health) and fire 20 concurrent requests at each changed endpoint.
-  - Work per request that grows with data, blocking calls without timeouts, unbounded memory or goroutines → hazard.
-  - Name each load assumption the code makes (rows, request rate, payload size). One that breaks at 10× → hazard.
+  - Find every changed query, loop, cache, lock, goroutine and request handler.
+  - Queries: unbounded results, no LIMIT or pagination, N+1, unindexed filters → hazard with file:line.
+  - Concurrency: unlocked shared state, check-then-act, missing transactions, goroutine leaks → hazard.
+  - Postgres: localhost:5432, user postgres, password password, db postgres.
+  - Run `go test -race` on changed packages. Start the app (`go run . > /tmp/app.log 2>&1 &`; wait for `curl -sf localhost:8080/health`). Fire 20 concurrent requests at each changed endpoint.
+  - Per-request work growing with data, calls without timeouts, unbounded memory or goroutines → hazard.
+  - Name each load assumption (rows, request rate, payload size). One that breaks at 10× → hazard.
+  - Stop the app before writing the verdict.
   ```
 
   `kt-22.md`:
 
   ```
-  Role: KT-22 — security. Attack the change as an outsider would.
-  - Map what the diff adds or changes: routes, inputs, auth checks, queries, file and network access, secrets, logs, errors.
-  - Start the app: Postgres on localhost:5432 (user postgres, password password, db postgres); go run . > /tmp/app.log 2>&1 &; wait for curl -sf localhost:8080/health.
-  - Attack every changed endpoint with curl: no credentials, forged credentials, another user's ids (IDOR).
-  - Send SQL injection, path traversal, header and JSON injection payloads, oversized and deeply nested bodies.
+  Role: KT-22 — security. Attack the change as an outsider.
+  - Map what the diff touches: routes, inputs, auth, queries, file and network access, secrets, logs, errors.
+  - Postgres: localhost:5432, user postgres, password password, db postgres. Start: `go run . > /tmp/app.log 2>&1 &`; wait for `curl -sf localhost:8080/health`.
+  - Curl every changed endpoint with no, forged and another user's credentials and ids (IDOR).
+  - Send SQL injection, path traversal, header and JSON injection, oversized and deeply nested bodies.
   - A successful attack → hazard with the exact request and response.
-  - Read every changed query for string-built SQL and every file, exec and URL call for caller-controlled input.
-  - Secrets anywhere in the repo, including the committed config.yml → hazard.
-  - Errors and logs that expose internals, tokens or personal data → hazard.
-  - Run go run golang.org/x/vuln/cmd/govulncheck@latest ./... ; a reachable vulnerability → hazard.
+  - Changed queries: string-built SQL → hazard. File, exec and URL calls on caller input → hazard.
+  - Secrets anywhere in the repo, including config.yml → hazard.
+  - Errors or logs exposing internals, tokens or personal data → hazard.
+  - `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`: a reachable vulnerability → hazard.
   - Stop the app before writing the verdict.
   ```
 
@@ -369,17 +371,17 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
 
   ```
   Role: Corduroy — code quality. Prove the change makes the codebase worse.
-  - Rules: the root and directory CLAUDE.md files, docs/BEST_PRACTICES.md, the Google Go Style Guide with the house exceptions (receivers named this).
-  - Dependency directions: domain/ never imports api/, pkg/http or apierror; pkg/ never imports domain/ or app/; main.go is the only composition root. Check with go list -deps; a violation → hazard.
-  - Run gofmt -l on changed files, go vet ./..., and go run honnef.co/go/tools/cmd/staticcheck@latest ./... ; a finding in changed code → hazard.
-  - SOLID and hexagonal: logic in handlers, adapters leaking into domain, types doing several jobs, interfaces wider than their callers → hazard with file:line.
-  - DRY: logic that duplicates an existing helper. Find the helper before flagging.
-  - Names that lie, dead or commented-out code, comments that restate code → hazard.
-  - New behaviour without unit tests, or tests that assert nothing → hazard.
-  - TypeScript: strict-mode escapes and any; agent templates: a line that adds no rule → hazard.
+  - Rules: root and directory CLAUDE.md files, docs/BEST_PRACTICES.md, Google Go Style Guide with house exceptions (receivers named `this`).
+  - Imports: domain/ never imports api/, pkg/http or apierror; pkg/ never imports domain/ or app/; main.go is the only composition root. Check with `go list -deps`.
+  - Run `gofmt -l` on changed files, `go vet ./...`, `go run honnef.co/go/tools/cmd/staticcheck@latest ./...`. A finding in changed code → hazard.
+  - SOLID and hexagonal: logic in handlers, adapters in domain, types with several jobs, interfaces wider than callers need → hazard with file:line.
+  - Duplicated logic → hazard. Find the existing helper first.
+  - Lying names, dead or commented-out code, comments restating code → hazard.
+  - New behaviour without unit tests, or tests asserting nothing → hazard.
+  - TypeScript: strict-mode escapes, `any`. Agent templates: a line adding no rule → hazard.
   ```
 
-  Set `enabledRoles` to the six roles, and update `shared/test/config.test.ts` where it pins the old list. In `.basetobase/CLAUDE.md`, change "one template per enabled patrol role" so it also says frontend-only roles get templates with M5.
+  Set `enabledRoles` to the six roles, and update `shared/test/config.test.ts` where it pins the old list. In `.basetobase/CLAUDE.md`, add: frontend-only roles get templates with M5.
 - [ ] **Step 4: Run** `npm test` and `npm run typecheck`. Expect PASS.
 - [ ] **Step 5: Commit**: `basetobase: adversarial templates for the backend patrol; six patrollers on`.
 

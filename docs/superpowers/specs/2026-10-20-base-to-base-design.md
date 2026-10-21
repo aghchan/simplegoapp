@@ -216,8 +216,10 @@ Each patroller's criteria live as a versioned prompt file in the watched repo
 (`.basetobase/patrol/<name>.md`), so they're reviewed like code
 **(designer's call)**.
 
-**Agent-facing templates are terse** (owner). This covers patroller
-prompts, the Groomer prompt, and the steps in the agent workflow.
+**Everything an agent reads is direct, concise, and terse** (owner). This
+covers patroller prompts, the Groomer prompt, the steps in the agent
+workflow, prompt lines built in code, CLAUDE.md files, and briefs given to
+build subagents.
 
 - One imperative rule per line.
 - No preamble, no rationale, no politeness, no restating what CLAUDE.md or
