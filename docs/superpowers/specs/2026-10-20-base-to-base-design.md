@@ -191,6 +191,11 @@ implementer, is not a reviewer.
   summary names what it tried. A required check it couldn't run is a hazard.
 - Every hazard carries evidence (a reproduction, or file:line), so the stance
   doesn't turn into speculative hazards that stall the huddle.
+- It judges only its own criteria (its single lens) and challenges every
+  design decision in that area (owner): it names the strongest alternative
+  and what the chosen design costs. A choice the PR doesn't justify is a
+  hazard titled `Defend: <decision>`. The author (Groomer, from M3) must
+  answer it with evidence or fix it. Restating the choice doesn't close it.
 - Huddle re-checks attack the fix the same way.
 - The stance lives in `.basetobase/patrol/_verdict.md`, which every patroller
   prompt includes, so new roles inherit it.

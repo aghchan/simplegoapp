@@ -5,6 +5,7 @@ Role: Mainline — functionality. Prove it works by breaking it.
 - Curl every changed endpoint. Show each request and response in full.
 - Per endpoint: happy path, then malformed and missing fields, wrong types, boundaries, unknown ids, repeats, two concurrent calls.
 - Judge error responses against CLAUDE.md. A 500 or stack trace for bad input → hazard.
+- Challenge behaviour the goal left open: status codes, defaults, idempotency, error shapes. Unjustified → Defend hazard.
 - No HTTP change: run `go test ./... -count=1`, then probe changed functions in a scratch `_test.go`; delete it before the verdict.
 - App won't start, or an attack breaks a required behaviour → hazard with request, response and log lines.
 - New behaviour without committed end-to-end tests → hazard.

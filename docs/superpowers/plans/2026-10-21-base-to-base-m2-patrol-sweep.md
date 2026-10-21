@@ -292,6 +292,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - `every enabled role has a template`: for each id in `config.enabledRoles`, the file `.basetobase/patrol/<id>.md` exists and its first line starts with `Role: <roster name> — `.
   - `templates stay terse`: every `.basetobase/patrol/*.md` has at most 40 non-empty lines.
   - `the shared stance comes first`: `_verdict.md` starts with `Stance: adversarial.`
+  - `every role challenges design`: every role template has exactly one line starting `- Challenge ` and ending `→ Defend hazard.`; `_verdict.md` contains `Defend: <decision>`.
   - `the verdict contract names evidence`: `_verdict.md` contains `"evidence":["E1"]` and the evidence item shape.
   - `enables the six backend patrollers`: `config.enabledRoles` equals the Global Constraints list.
 - [ ] **Step 2: Run** `npx vitest run --project node shared/test/templates.test.ts`. Expect FAIL.
@@ -320,6 +321,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - Find the code for each behaviour. Missing or partial → hazard naming it.
   - Implied cases count: empty input, absent records, repeat calls, the error a user will hit.
   - Anything the goal didn't ask for (features, flags, refactors, dependencies, config) → hazard.
+  - Challenge the approach: is there a simpler change that meets the goal? Unjustified scope or complexity → Defend hazard.
   - Docs, CLAUDE.md files or api/v1/openapi.yml left stale → hazard.
   - Goal fit only. Style, cost, scale and security belong to others.
   ```
@@ -333,6 +335,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - For each: needs, and cost per request, run and month. Paid usage or a card requirement → hazard.
   - Do the arithmetic for each freeTier pressure point touched. Could exceed its allowance → hazard with the numbers.
   - Per-request external calls, retries, polling, chatty logging: find the rate. Unbounded → hazard.
+  - Challenge each new service, dependency or config: why not an existing one, or none? Unjustified → Defend hazard.
   - A config.yml key missing from .basetobase/ci/local.yml or the docs → hazard.
   - A dependency that is heavy, unmaintained, or duplicates one in go.mod → hazard.
   ```
@@ -344,6 +347,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - Find every changed query, loop, cache, lock, goroutine and request handler.
   - Queries: unbounded results, no LIMIT or pagination, N+1, unindexed filters → hazard with file:line.
   - Concurrency: unlocked shared state, check-then-act, missing transactions, goroutine leaks → hazard.
+  - Challenge each data structure, query shape and locking choice: its cost at 10×, and why not the alternative. Unjustified → Defend hazard.
   - Postgres: localhost:5432, user postgres, password password, db postgres.
   - Run `go test -race` on changed packages. Start the app (`go run . > /tmp/app.log 2>&1 &`; wait for `curl -sf localhost:8080/health`). Fire 20 concurrent requests at each changed endpoint.
   - Per-request work growing with data, calls without timeouts, unbounded memory or goroutines → hazard.
@@ -361,6 +365,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - Send SQL injection, path traversal, header and JSON injection, oversized and deeply nested bodies.
   - A successful attack → hazard with the exact request and response.
   - Changed queries: string-built SQL → hazard. File, exec and URL calls on caller input → hazard.
+  - Challenge each trust decision: why is this input trusted, this check enough, this secret stored here? Unjustified → Defend hazard.
   - Secrets anywhere in the repo, including config.yml → hazard.
   - Errors or logs exposing internals, tokens or personal data → hazard.
   - `go run golang.org/x/vuln/cmd/govulncheck@latest ./...`: a reachable vulnerability → hazard.
@@ -376,6 +381,7 @@ These five cases aren't covered by the main-path tests. Each one is pinned by a 
   - Run `gofmt -l` on changed files, `go vet ./...`, `go run honnef.co/go/tools/cmd/staticcheck@latest ./...`. A finding in changed code → hazard.
   - SOLID and hexagonal: logic in handlers, adapters in domain, types with several jobs, interfaces wider than callers need → hazard with file:line.
   - Duplicated logic → hazard. Find the existing helper first.
+  - Challenge each new abstraction, interface and package boundary: what it buys, what it makes harder. Unjustified → Defend hazard.
   - Lying names, dead or commented-out code, comments restating code → hazard.
   - New behaviour without unit tests, or tests asserting nothing → hazard.
   - TypeScript: strict-mode escapes, `any`. Agent templates: a line adding no rule → hazard.
