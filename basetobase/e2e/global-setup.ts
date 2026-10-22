@@ -11,6 +11,8 @@ import { BASE_URL_ENV, GITHUB_URL_ENV, OWNER, REPO, SESSION_SECRET, WEBHOOK_SECR
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const WRANGLER = path.join(ROOT, "node_modules/wrangler/bin/wrangler.js");
+// The production Worker with the fake GitHub's OIDC keys; wrangler.jsonc has the rest.
+const ENTRY = "e2e/worker/index.ts";
 const LOG = path.join(os.tmpdir(), "basetobase-e2e-wrangler.log");
 const READY_TIMEOUT_MS = 90_000;
 const STOP_TIMEOUT_MS = 10_000;
@@ -18,10 +20,11 @@ const STOP_TIMEOUT_MS = 10_000;
 // `wrangler dev` on a fresh local D1/KV/DO state, its GitHub a fake one in this process. The
 // returned function is the teardown.
 export default async function globalSetup(): Promise<() => Promise<void>> {
-  const github = await startFakeGitHub();
-  const state = await mkdtemp(path.join(os.tmpdir(), "basetobase-e2e-"));
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
+  // Its agents' OIDC tokens are for the stack, as Actions' are for PUBLIC_URL.
+  const github = await startFakeGitHub({ audience: baseUrl });
+  const state = await mkdtemp(path.join(os.tmpdir(), "basetobase-e2e-"));
   // In .dev.vars format; passed with --env-file so that a developer's own .dev.vars is left alone.
   const vars = path.join(state, "e2e.dev.vars");
   await writeFile(
@@ -57,6 +60,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     [
       WRANGLER,
       "dev",
+      ENTRY,
       "--ip",
       "127.0.0.1",
       "--port",

@@ -1,6 +1,4 @@
-import { createHmac } from "node:crypto";
-import path from "node:path";
-import { expect, test, type Page, type TestInfo, type WebSocketRoute } from "@playwright/test";
+import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import type { RoleId } from "../shared/src/config.ts";
 import type {
   AgentSnapshot,
@@ -9,89 +7,33 @@ import type {
   RunSnapshot,
   RunSummary,
 } from "../shared/src/types.ts";
-import { SESSION_COOKIE, signSession } from "../dispatch/src/auth/session.ts";
 import {
-  BASE_URL_ENV,
-  GITHUB_URL_ENV,
-  INSTALLATION_ID,
-  OWNER,
-  REPO,
-  SESSION_SECRET,
-  WEBHOOK_SECRET,
-} from "./stack.ts";
+  baseURL,
+  expectNoReload,
+  group,
+  isRunsFetch,
+  LIVE_MS,
+  openRunsList,
+  prNumber,
+  screenshot,
+  signIn,
+} from "./dashboard.ts";
+import { brief, cancelled, checksOn, close, jobsOf, open, pullRequest } from "./github.ts";
+import { OWNER, REPO } from "./stack.ts";
 
-const baseURL = process.env[BASE_URL_ENV];
-const githubURL = process.env[GITHUB_URL_ENV];
-
-type CheckCall = { method: "POST" | "PATCH"; id: number; body: Record<string, unknown> };
-
-// The Base to Base check runs Dispatch posted for this PR's head, oldest first.
-async function checksFor(pr: number): Promise<CheckCall[]> {
-  const calls = (await (await fetch(`${githubURL}/__checks`)).json()) as CheckCall[];
-  const created = calls.find((c) => c.method === "POST" && c.body.head_sha === `e2e-head-${pr}`);
-  return created ? calls.filter((c) => c.id === created.id) : [];
-}
-const LIVE_MS = 3000;
 // The 5 s poll, plus its fetch.
 const POLLED_MS = 8000;
 
 test.use({ baseURL });
 
 test.beforeEach(async ({ context }) => {
-  // Hermetic: nothing leaves the machine.
-  await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
-  const session = await signSession(SESSION_SECRET, OWNER, Date.now());
-  await context.addCookies([{ name: SESSION_COOKIE, value: session, url: baseURL! }]);
+  await signIn(context);
 });
-
-// The stack is shared, so each test in each project has a pull request of its own.
-function prNumber(testInfo: TestInfo, n: number): number {
-  const project = testInfo.config.projects.findIndex((p) => p.name === testInfo.project.name);
-  return (project + 1) * 100 + n;
-}
 
 const prTitle = (pr: number) => `e2e: live update ${pr}`;
 
-async function pullRequestEvent(action: "opened" | "closed", pr: number): Promise<void> {
-  const body = JSON.stringify({
-    action,
-    installation: { id: INSTALLATION_ID },
-    repository: { full_name: REPO, default_branch: "main" },
-    pull_request: {
-      number: pr,
-      title: prTitle(pr),
-      body: null,
-      html_url: `https://github.com/${REPO}/pull/${pr}`,
-      draft: false,
-      user: { login: OWNER },
-      head: { ref: `e2e/${pr}`, sha: `e2e-head-${pr}`, repo: { full_name: REPO } },
-      base: { ref: "main", sha: "e2e-base", repo: { full_name: REPO } },
-    },
-  });
-  const signature = createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex");
-  const res = await fetch(`${baseURL}/github/webhook`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-GitHub-Event": "pull_request",
-      "X-Hub-Signature-256": `sha256=${signature}`,
-    },
-    body,
-  });
-  const answer = (await res.json()) as Record<string, unknown>;
-  if (action === "opened") expect(answer).toHaveProperty("runId");
-  else expect(answer).toMatchObject({ stopped: [expect.any(String)] });
-}
-
 const runLink = (page: Page, pr: number) =>
   page.getByRole("link", { name: new RegExp(`#${pr} ${prTitle(pr)}`) });
-
-const group = (page: Page, title: string) =>
-  page
-    .locator("section")
-    .filter({ has: page.getByRole("heading", { level: 2, name: title, exact: true }) });
-
-const isRunsFetch = (url: string) => new URL(url).pathname === "/api/runs";
 
 // Frames the page's lobby socket received.
 function lobbyFrames(page: Page): LobbyMessage[] {
@@ -101,33 +43,6 @@ function lobbyFrames(page: Page): LobbyMessage[] {
     ws.on("framereceived", ({ payload }) => frames.push(JSON.parse(String(payload))));
   });
   return frames;
-}
-
-// Resolves once the lobby socket is open: opening it is what makes the list fetch a second time.
-// Then marks the page, which a reload would wipe.
-async function openRunsList(page: Page): Promise<void> {
-  let fetches = 0;
-  const reopened = new Promise<void>((resolve) => {
-    page.on("response", (res) => {
-      if (isRunsFetch(res.url()) && ++fetches === 2) resolve();
-    });
-  });
-  await page.goto("/");
-  await reopened;
-  await page.evaluate(() => Object.assign(globalThis, { e2eMark: true }));
-}
-
-async function expectNoReload(page: Page): Promise<void> {
-  expect(await page.evaluate(() => Reflect.get(globalThis, "e2eMark"))).toBe(true);
-}
-
-async function screenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  const file = `${name}-${page.viewportSize()?.width}.png`;
-  const dir = process.env.E2E_SCREENSHOTS;
-  await page.screenshot({
-    path: dir ? path.join(dir, file) : testInfo.outputPath(file),
-    fullPage: true,
-  });
 }
 
 test("a: a pull request opened while the runs list is open appears in it", async ({
@@ -142,7 +57,7 @@ test("a: a pull request opened while the runs list is open appears in it", async
   });
 
   const sent = Date.now();
-  await pullRequestEvent("opened", pr);
+  await open(pullRequest(pr, prTitle(pr)));
   await expect(runLink(page, pr)).toBeVisible({ timeout: LIVE_MS });
   expect(Date.now() - sent).toBeLessThanOrEqual(LIVE_MS);
   await expect(group(page, "On the hill · running")).toContainText(`#${pr} `);
@@ -162,7 +77,11 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
 }, testInfo) => {
   const pr = prNumber(testInfo, 2);
   await openRunsList(page);
-  await pullRequestEvent("opened", pr);
+  const pull = pullRequest(pr, prTitle(pr));
+  const runId = await open(pull);
+  // The agent's job has started on GitHub.
+  const [job] = await jobsOf(runId);
+  await brief(job!);
   await runLink(page, pr).click();
   await expect(page.getByRole("heading", { level: 1, name: prTitle(pr) })).toBeVisible();
   await expect(
@@ -171,13 +90,13 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
   const steps = page.getByRole("group", { name: "Steps of the run" });
   await expect(steps).not.toContainText("Stopped");
   // The gate: the review's PR check is created in progress, never passing.
-  await expect.poll(async () => (await checksFor(pr))[0]?.body).toMatchObject({
+  await expect.poll(async () => (await checksOn(pull.head.sha))[0]?.body).toMatchObject({
     name: "Base to Base",
     status: "in_progress",
   });
 
   const sent = Date.now();
-  await pullRequestEvent("closed", pr);
+  expect(await close(pull)).toEqual({ landed: [], stopped: [runId], retitled: [] });
   await expect(steps).toContainText("Stopped", { timeout: LIVE_MS });
   await expect(
     group(page, "Closed").getByRole("link", { name: new RegExp(`#${pr} `) }),
@@ -187,10 +106,12 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
   expect(Date.now() - sent).toBeLessThanOrEqual(LIVE_MS);
   await expect(group(page, "On the hill · running")).not.toContainText(`#${pr} `);
   // A closed PR's check ends cancelled: it never reads as a pass.
-  await expect.poll(async () => (await checksFor(pr)).at(-1)?.body).toMatchObject({
+  await expect.poll(async () => (await checksOn(pull.head.sha)).at(-1)?.body).toMatchObject({
     status: "completed",
     conclusion: "cancelled",
   });
+  // And its agent's job, which had started, is cancelled on GitHub.
+  expect(await cancelled()).toContain(String(job!.id));
   await expectNoReload(page);
   await screenshot(page, testInfo, "b-run-view");
 });
@@ -212,15 +133,15 @@ test("c: with the lobby socket dropped, the list still updates by polling", asyn
   dropped = true;
   for (const ws of connected) await ws.close();
   const polled = page.waitForRequest((req) => isRunsFetch(req.url()), { timeout: POLLED_MS });
-  await pullRequestEvent("opened", pr);
+  await open(pullRequest(pr, prTitle(pr)));
   await polled;
   await expect(runLink(page, pr)).toBeVisible({ timeout: POLLED_MS });
   expect(connected).toHaveLength(1);
   await expectNoReload(page);
 });
 
-// A verdict needs a GitHub OIDC token, which the hermetic stack cannot mint, so this run is a
-// fixture: the stack serves the dashboard, page routes answer its API and sockets.
+// A fixture, so the list holds exactly these outcomes, a failed review among them: the stack serves
+// the dashboard, page routes answer its API and sockets. sync.spec.ts sweeps real runs.
 function hazardsRun(): { run: RunSnapshot; summaries: RunSummary[] } {
   const now = Date.now();
   const sweptAt = now - 60_000;
