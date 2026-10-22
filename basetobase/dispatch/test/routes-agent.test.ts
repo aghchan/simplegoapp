@@ -173,10 +173,33 @@ describe("GET /agent/brief", () => {
     );
   });
 
-  it("403 once the run was stopped", async () => {
-    const { ids, stub } = await startRun();
-    await stub.stop("PR closed");
-    expect((await get("brief", { query: ids })).status).toBe(403);
+  it("starts the agent's clocks, linking the job from the verified token", async () => {
+    const { runId, ids } = await startRun();
+    const token = await identity.token(agentClaims(env.PUBLIC_URL, { run_id: "12345" }));
+    const query = { ...ids, jobUrl: "https://evil.example/runs/1" };
+    await get("brief", { query, authorization: `Bearer ${token}` });
+    const agent = (await viewOf(runId)).run.agents[0]!;
+    expect(agent.briefedAt).toEqual(expect.any(Number));
+    expect(agent.jobUrl).toBe("https://github.com/aghchan/simplegoapp/actions/runs/12345");
+  });
+
+  // The agent's status tells the forwarder what colour the job should end.
+  it.each<[string, (ids: Record<string, string>) => Promise<unknown>, string]>([
+    ["the run was stopped", (ids) => runStub(env, ids.run_id!).stop("PR closed"), "stopped"],
+    [
+      "the agent gave its verdict",
+      (ids) => post("verdict", { ...ids, verdict: clearVerdict }),
+      "clear",
+    ],
+    ["the agent reported a failure", (ids) => post("failure", { ...ids, reason: "boom" }), "error"],
+  ])("410 with the agent's status once %s", async (_ending, end, status) => {
+    const { runId, ids } = await startRun();
+    await end(ids);
+    const before = await viewOf(runId);
+    const res = await get("brief", { query: ids });
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "no longer wanted", agent: status });
+    expect(await viewOf(runId)).toEqual(before);
   });
 
   it("403 for a run that does not exist, and does not create it", async () => {
@@ -446,7 +469,7 @@ describe("reports the run no longer wants", () => {
     const before = await viewOf(runId);
     const res = await post(path, { ...ids, ...fields });
     expect(res.status).toBe(410);
-    expect(await res.json()).toEqual({ error: "no longer wanted" });
+    expect(await res.json()).toEqual({ error: "no longer wanted", agent: "stopped" });
     expect(await viewOf(runId)).toEqual(before);
   });
 
@@ -455,7 +478,9 @@ describe("reports the run no longer wants", () => {
     const { runId, ids } = await startRun();
     await post("verdict", { ...ids, verdict: clearVerdict });
     const before = await viewOf(runId);
-    expect((await post(path, { ...ids, ...fields })).status).toBe(410);
+    const res = await post(path, { ...ids, ...fields });
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "no longer wanted", agent: "clear" });
     expect(await viewOf(runId)).toEqual(before);
   });
 
@@ -463,7 +488,9 @@ describe("reports the run no longer wants", () => {
     const [, path, fields] = report;
     const { ids } = await startRun();
     await post("failure", { ...ids, reason: "claude exited 1" });
-    expect((await post(path, { ...ids, ...fields })).status).toBe(410);
+    const res = await post(path, { ...ids, ...fields });
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: "no longer wanted", agent: "error" });
   });
 
   it.each(reports)("still 403 for %s with a wrong nonce", async (...report) => {

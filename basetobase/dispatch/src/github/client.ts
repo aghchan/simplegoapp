@@ -24,6 +24,7 @@ export interface GitHubClient {
   // The new check run's id.
   createCheckRun(repo: string, body: CheckRunCreate): Promise<number>;
   updateCheckRun(repo: string, id: number, body: CheckRunBody): Promise<void>;
+  cancelWorkflowRun(repo: string, runId: string): Promise<void>;
 }
 
 const DEFAULT_API_BASE = "https://api.github.com";
@@ -56,7 +57,8 @@ export function createGitHubClient(opts: {
     method: string,
     path: string,
     bearer: string,
-    init: { query?: string; json?: unknown } = {},
+    // `tolerate`: a refusal the caller takes as done.
+    init: { query?: string; json?: unknown; tolerate?: number } = {},
   ): Promise<Response> {
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
@@ -71,7 +73,7 @@ export function createGitHubClient(opts: {
       headers,
       body: init.json === undefined ? undefined : JSON.stringify(init.json),
     });
-    if (!response.ok) {
+    if (!response.ok && response.status !== init.tolerate) {
       await response.body?.cancel();
       throw new Error(`GitHub ${method} ${path} failed with status ${response.status}`);
     }
@@ -149,6 +151,14 @@ export function createGitHubClient(opts: {
     async updateCheckRun(repo, id, body) {
       const path = `/repos/${repo}/check-runs/${id}`;
       const response = await call("PATCH", path, await installationToken(), { json: body });
+      await response.body?.cancel();
+    },
+
+    async cancelWorkflowRun(repo, runId) {
+      const path = `/repos/${repo}/actions/runs/${runId}/cancel`;
+      // 409: the run has already finished, which is all a cancel asks for.
+      const token = await installationToken();
+      const response = await call("POST", path, token, { tolerate: 409 });
       await response.body?.cancel();
     },
   };

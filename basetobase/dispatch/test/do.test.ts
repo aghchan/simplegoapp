@@ -4,13 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Triage } from "../../shared/src/triage.ts";
 import type { AgentEvent, LiveMessage } from "../../shared/src/types.ts";
 import { runStub, listRuns } from "../src/runs/index.ts";
-import { AGENT_TIMEOUT_MS, STALL_MS, type RunState } from "../src/run/machine.ts";
+import { AGENT_TIMEOUT_MS, JOB_START_MS, STALL_MS, type RunState } from "../src/run/machine.ts";
 import { fakeFetch, prRef } from "./helpers.ts";
 
 const AGENT = "mainline-sweep-0";
 const JOB_URL = "https://github.com/aghchan/simplegoapp/actions/runs/99";
+const JOB = { githubRunId: "99", jobUrl: JOB_URL };
 const DISPATCH_PATH =
   "/repos/aghchan/simplegoapp/actions/workflows/basetobase-agent.yml/dispatches";
+const CANCEL_PATH = "/repos/aghchan/simplegoapp/actions/runs/99/cancel";
 
 const triage: Triage = {
   panels: ["backend"],
@@ -31,6 +33,11 @@ const clearVerdict = {
   hazards: [],
   summary: "No functional issues found.",
 };
+const hazardVerdict = {
+  ...clearVerdict,
+  status: "hazards",
+  hazards: [{ id: "FUN-1", title: "Cancel skips the owner check", detail: "d" }],
+};
 
 const CHECKS_PATH = "/repos/aghchan/simplegoapp/check-runs";
 const CHECK_ID = 501;
@@ -40,6 +47,8 @@ let dispatches: { ref: string; inputs: Record<string, string> }[];
 let checks: { method: string; body: Record<string, unknown> }[];
 // How GitHub answers each check-run call; a test replaces it to fail or hold one.
 let checkReply: (method: string) => Response | Promise<Response>;
+let cancels: number;
+let cancelReply: () => Response;
 
 const acceptCheck = (method: string) =>
   method === "POST"
@@ -66,6 +75,10 @@ function stubGitHub(
     },
     [`POST ${CHECKS_PATH}`]: recordCheck("POST"),
     [`PATCH ${CHECKS_PATH}/${CHECK_ID}`]: recordCheck("PATCH"),
+    [`POST ${CANCEL_PATH}`]: () => {
+      cancels++;
+      return cancelReply();
+    },
   });
   vi.spyOn(globalThis, "fetch").mockImplementation(github);
 }
@@ -119,17 +132,44 @@ async function failIndexWrites(stub: Stub, times: number): Promise<void> {
   });
 }
 
-// Backdates the agent's dispatch past the timeout and fires the alarm that fails it.
-async function timeOut(stub: Stub): Promise<void> {
+// Holds the run's D1 writes until `release` settles.
+async function holdIndexWrites(stub: Stub, release: Promise<void>): Promise<void> {
+  await runInDurableObject(stub, (instance) => {
+    const real = Reflect.get(instance, "env") as Env;
+    const db = {
+      prepare: (sql: string) => ({
+        bind: (...values: unknown[]) => ({
+          run: async () => {
+            await release;
+            return real.DB.prepare(sql).bind(...values).run();
+          },
+        }),
+      }),
+    } as unknown as D1Database;
+    Object.defineProperty(instance, "env", { value: { ...real, DB: db } });
+  });
+}
+
+type Clock = "dispatchedAt" | "briefedAt" | "lastEventAt";
+
+// Sets the agent's clocks `ms` back from now and fires the alarm.
+async function backdate(stub: Stub, clocks: Clock[], ms: number): Promise<boolean> {
   await runInDurableObject(stub, async (_instance, state) => {
     const run = (await state.storage.get<RunState>("state"))!;
+    const at = Date.now() - ms;
     const old = run.agents.map((agent) => ({
       ...agent,
-      dispatchedAt: Date.now() - AGENT_TIMEOUT_MS - 1,
+      ...Object.fromEntries(clocks.map((clock) => [clock, at])),
     }));
     await state.storage.put("state", { ...run, agents: old });
   });
-  await runDurableObjectAlarm(stub);
+  return runDurableObjectAlarm(stub);
+}
+
+// Briefs the agent and backdates the brief past the timeout, whose alarm fails it.
+async function timeOut(stub: Stub, nonce: string): Promise<void> {
+  await stub.brief(AGENT, nonce, JOB);
+  await backdate(stub, ["briefedAt"], AGENT_TIMEOUT_MS + 1);
 }
 
 function deferred<T>() {
@@ -143,6 +183,8 @@ beforeEach(async () => {
   dispatches = [];
   checks = [];
   checkReply = acceptCheck;
+  cancels = 0;
+  cancelReply = () => new Response(null, { status: 202 });
   stubGitHub();
 });
 
@@ -191,7 +233,7 @@ describe("RunDO", () => {
         const { stub, nonce } = await startRun();
         const bad = mangle(nonce);
         expect(await stub.checkNonce(AGENT, bad)).toBe(false);
-        expect(await stub.brief(AGENT, bad)).toBeNull();
+        expect(await stub.brief(AGENT, bad, JOB)).toBe("forbidden");
         expect(await stub.events(AGENT, bad, evs, JOB_URL)).toBe("forbidden");
         expect(await stub.verdict(AGENT, bad, clearVerdict)).toBe("forbidden");
         expect(await stub.verdict(AGENT, bad, { nope: 1 })).toBe("forbidden");
@@ -213,7 +255,7 @@ describe("RunDO", () => {
         const inherited = String(({} as Record<string, unknown>)[agentId] ?? nonce);
         for (const attempt of [nonce, inherited]) {
           expect(await stub.checkNonce(agentId, attempt)).toBe(false);
-          expect(await stub.brief(agentId, attempt)).toBeNull();
+          expect(await stub.brief(agentId, attempt, JOB)).toBe("forbidden");
           expect(await stub.events(agentId, attempt, evs, JOB_URL)).toBe("forbidden");
           expect(await stub.verdict(agentId, attempt, clearVerdict)).toBe("forbidden");
           expect(await stub.failure(agentId, attempt, "boom")).toBe("forbidden");
@@ -234,7 +276,7 @@ describe("RunDO", () => {
       const { stub, nonce } = await startRun();
       await stub.verdict(AGENT, nonce, clearVerdict);
       await stub.stop("PR closed");
-      expect(await stub.brief(AGENT, nonce)).toBeNull();
+      expect(await stub.brief(AGENT, nonce, JOB)).toEqual({ gone: "clear" });
       expect(await stub.checkNonce(AGENT, nonce)).toBe(true);
     });
 
@@ -254,7 +296,7 @@ describe("RunDO", () => {
   describe("brief", () => {
     it("returns the agent's brief for the right nonce", async () => {
       const { stub, nonce } = await startRun();
-      expect(await stub.brief(AGENT, nonce)).toMatchObject({
+      expect(await stub.brief(AGENT, nonce, JOB)).toMatchObject({
         role: "mainline",
         model: "sonnet",
         prefix: "FUN",
@@ -264,16 +306,47 @@ describe("RunDO", () => {
       });
     });
 
-    it("is refused once the run is stopped", async () => {
+    it("starts the agent's clocks and records its job", async () => {
       const { stub, nonce } = await startRun();
-      await stub.stop("PR closed");
-      expect(await stub.brief(AGENT, nonce)).toBeNull();
+      const before = Date.now();
+      await stub.brief(AGENT, nonce, JOB);
+      const { run, alarm } = await storedState(stub);
+      const agent = run.agents[0]!;
+      expect(agent.briefedAt).toBeGreaterThanOrEqual(before);
+      expect(agent.jobUrl).toBe(JOB_URL);
+      expect(run.jobRuns).toEqual({ [AGENT]: "99" });
+      expect(alarm).toBe(agent.briefedAt! + STALL_MS);
+      expect((await stub.view())!.run.agents[0]).not.toHaveProperty("jobRuns");
     });
 
-    it("is refused once the agent has reported", async () => {
+    it("restarts the clocks for a re-run of the job", async () => {
       const { stub, nonce } = await startRun();
-      await stub.verdict(AGENT, nonce, clearVerdict);
-      expect(await stub.brief(AGENT, nonce)).toBeNull();
+      await stub.brief(AGENT, nonce, JOB);
+      await stub.events(AGENT, nonce, evs, JOB_URL);
+      // The first attempt went quiet nine minutes ago: a minute short of a stall.
+      await backdate(stub, ["briefedAt", "lastEventAt"], STALL_MS - 60_000);
+      await stub.brief(AGENT, nonce, JOB);
+      const { run, alarm } = await storedState(stub);
+      expect(run.agents[0]).not.toHaveProperty("lastEventAt");
+      expect(alarm).toBe(run.agents[0]!.briefedAt! + STALL_MS);
+      expect(alarm).toBeGreaterThan(Date.now() + STALL_MS - 60_000);
+    });
+
+    it.each<[string, (stub: Stub, nonce: string) => Promise<unknown>, string]>([
+      ["the run is stopped", (stub) => stub.stop("PR closed"), "stopped"],
+      [
+        "the agent gave its verdict",
+        (stub, nonce) => stub.verdict(AGENT, nonce, clearVerdict),
+        "clear",
+      ],
+      ["the agent failed", (stub, nonce) => stub.failure(AGENT, nonce, "boom"), "error"],
+    ])("is refused once %s, with the agent's status", async (_ending, end, status) => {
+      const { stub, nonce } = await startRun();
+      await end(stub, nonce);
+      const before = await stub.view();
+      expect(await stub.brief(AGENT, nonce, JOB)).toEqual({ gone: status });
+      expect(await stub.view()).toEqual(before);
+      expect((await storedState(stub)).run.jobRuns).toBeUndefined();
     });
   });
 
@@ -373,19 +446,34 @@ describe("RunDO", () => {
       ["an invalid verdict", (stub, nonce) => stub.verdict(AGENT, nonce, { nope: 1 })],
       ["a failure", (stub, nonce) => stub.failure(AGENT, nonce, "boom")],
     ];
-    const endings: [string, Call][] = [
-      ["the run was stopped", (stub) => stub.stop("PR closed")],
-      ["the agent gave its verdict", (stub, nonce) => stub.verdict(AGENT, nonce, clearVerdict)],
-      ["the agent reported a failure", (stub, nonce) => stub.failure(AGENT, nonce, "exited 1")],
-      ["the agent timed out", (stub) => timeOut(stub)],
+    // Each with the status the agent was left in, which decides the colour of its job.
+    const endings: [string, Call, string][] = [
+      ["the run was stopped", (stub) => stub.stop("PR closed"), "stopped"],
+      [
+        "the agent gave its verdict",
+        (stub, nonce) => stub.verdict(AGENT, nonce, clearVerdict),
+        "clear",
+      ],
+      [
+        "the agent gave a verdict with hazards",
+        (stub, nonce) => stub.verdict(AGENT, nonce, hazardVerdict),
+        "hazards",
+      ],
+      [
+        "the agent reported a failure",
+        (stub, nonce) => stub.failure(AGENT, nonce, "exited 1"),
+        "error",
+      ],
+      ["the agent timed out", (stub, nonce) => timeOut(stub, nonce), "error"],
+      ["the PR merged", (stub) => stub.land("abc1234def"), "stopped"],
     ];
 
-    describe.each(endings)("once %s", (_ending, end) => {
+    describe.each(endings)("once %s", (_ending, end, status) => {
       it.each(reports)("answers %s with gone and changes nothing", async (_report, send) => {
         const { stub, nonce } = await startRun();
         await end(stub, nonce);
         const before = await stub.view();
-        expect(await send(stub, nonce)).toBe("gone");
+        expect(await send(stub, nonce)).toEqual({ gone: status });
         expect(await stub.view()).toEqual(before);
       });
     });
@@ -486,17 +574,128 @@ describe("RunDO", () => {
       await stub.stop("PR closed");
       expect(await stub.view()).toBeNull();
     });
+
+    it("stops a swept run, leaving its check as the sweep concluded it", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.verdict(AGENT, nonce, hazardVerdict);
+      await stub.stop("superseded by head59");
+      const view = (await stub.view())!;
+      expect(view.run).toMatchObject({ status: "stopped", outcome: "hazards" });
+      expect(view.log.at(-1)).toMatchObject({ text: "stopped · superseded by head59" });
+      expect(await listRuns(env.DB)).toMatchObject([{ status: "stopped", outcome: "hazards" }]);
+      expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH"]);
+      expect(checks[1]).toMatchObject({ body: { conclusion: "failure" } });
+    });
+
+    it("cancels the job of an agent still out", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
+      await stub.stop("PR closed");
+      expect(cancels).toBe(1);
+    });
+
+    it("cancels nothing for an agent whose job never started", async () => {
+      const { stub } = await startRun();
+      await stub.stop("PR closed");
+      expect(cancels).toBe(0);
+    });
+
+    it("takes a job that had already finished as cancelled", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      cancelReply = () => new Response(null, { status: 409 });
+      const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
+      await stub.stop("PR closed");
+      expect(cancels).toBe(1);
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    // A job the cancel misses stops on the 410 its next report gets.
+    it("logs a cancel GitHub refuses and does not retry it", async () => {
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      cancelReply = () => new Response("leaky response body", { status: 500 });
+      const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
+      await stub.stop("PR closed");
+      expect((await stub.view())!.run.status).toBe("stopped");
+      expect(consoleError).toHaveBeenCalledOnce();
+      const logged = String(consoleError.mock.calls[0]![0]);
+      expect(logged).toContain(`GitHub POST ${CANCEL_PATH} failed with status 500`);
+      expect(logged).not.toContain("leaky");
+      expect((await storedState(stub)).alarm).toBeNull();
+      await stub.view();
+      expect(cancels).toBe(1);
+    });
+  });
+
+  describe("land", () => {
+    it("lands a swept run on the merge commit and indexes it", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await stub.land("abc1234def");
+      const view = (await stub.view())!;
+      expect(view.run).toMatchObject({
+        status: "landed",
+        mergeSha: "abc1234def",
+        outcome: "clear",
+      });
+      expect(view.log.at(-1)).toMatchObject({ text: "landed · merged as abc1234" });
+      expect(await listRuns(env.DB)).toMatchObject([{ status: "landed", outcome: "clear" }]);
+    });
+
+    it("leaves the check of a finished review as it was", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await stub.land("abc1234def");
+      expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH"]);
+    });
+
+    it("ends the check and cancels the job when merged mid-review", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
+      await stub.land("abc1234def");
+      expect(checks.at(-1)).toMatchObject({
+        method: "PATCH",
+        body: {
+          status: "completed",
+          conclusion: "cancelled",
+          output: { title: "Merged before the review finished" },
+        },
+      });
+      expect(cancels).toBe(1);
+      expect((await storedState(stub)).alarm).toBeNull();
+    });
+
+    it("does nothing the second time", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      await stub.land("abc1234def");
+      const before = await stub.view();
+      await stub.land("abc1234def");
+      expect(await stub.view()).toEqual(before);
+    });
+  });
+
+  describe("retitle", () => {
+    it("retitles the run and its index row, keeping the goal", async () => {
+      const { stub } = await startRun();
+      const { goal } = (await stub.view())!.run;
+      await stub.retitle("orders: cancel endpoint");
+      expect((await stub.view())!.run).toMatchObject({ prTitle: "orders: cancel endpoint", goal });
+      expect(await listRuns(env.DB)).toMatchObject([{ prTitle: "orders: cancel endpoint" }]);
+    });
   });
 
   describe("alarm", () => {
-    it("is set when the run starts", async () => {
+    it("is set when the run starts, for the job to start", async () => {
       const { stub } = await startRun();
       const { run, alarm } = await storedState(stub);
-      expect(alarm).toBe(run.agents[0]!.dispatchedAt! + STALL_MS);
+      expect(alarm).toBe(run.agents[0]!.dispatchedAt! + JOB_START_MS);
     });
 
     it("moves with the agent's last event", async () => {
       const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
       await stub.events(AGENT, nonce, evs, JOB_URL);
       const { run, alarm } = await storedState(stub);
       expect(alarm).toBe(run.agents[0]!.lastEventAt! + STALL_MS);
@@ -523,29 +722,33 @@ describe("RunDO", () => {
     });
 
     it("stalls a silent agent and keeps watching for its timeout", async () => {
-      const { stub } = await startRun();
-      await runInDurableObject(stub, async (_instance, state) => {
-        const run = (await state.storage.get<RunState>("state"))!;
-        const silent = run.agents.map((agent) => ({
-          ...agent,
-          dispatchedAt: Date.now() - STALL_MS - 1,
-        }));
-        await state.storage.put("state", { ...run, agents: silent });
-      });
-      expect(await runDurableObjectAlarm(stub)).toBe(true);
+      const { stub, nonce } = await startRun();
+      await stub.brief(AGENT, nonce, JOB);
+      expect(await backdate(stub, ["briefedAt"], STALL_MS + 1)).toBe(true);
       const { run, alarm } = await storedState(stub);
       expect(run.agents[0]?.status).toBe("stalled");
-      expect(alarm).toBe(run.agents[0]!.dispatchedAt! + AGENT_TIMEOUT_MS);
+      expect(alarm).toBe(run.agents[0]!.briefedAt! + AGENT_TIMEOUT_MS);
     });
 
     it("times out an agent that never finishes", async () => {
-      const { stub } = await startRun();
-      await timeOut(stub);
+      const { stub, nonce } = await startRun();
+      await timeOut(stub, nonce);
       const view = (await stub.view())!;
       expect(view.run.agents[0]).toMatchObject({ status: "error", summary: "timed out" });
       expect(view.run.status).toBe("swept");
       expect((await listRuns(env.DB))[0]?.status).toBe("swept");
       expect((await storedState(stub)).alarm).toBeNull();
+    });
+
+    it("fails an agent whose job never started on GitHub", async () => {
+      const { stub } = await startRun();
+      await backdate(stub, ["dispatchedAt"], JOB_START_MS + 1);
+      const view = (await stub.view())!;
+      expect(view.run.agents[0]).toMatchObject({
+        status: "error",
+        summary: "job never started on GitHub",
+      });
+      expect(checks.at(-1)).toMatchObject({ body: { conclusion: "failure" } });
     });
   });
 
@@ -587,7 +790,7 @@ describe("RunDO", () => {
       const { stub, nonce } = await startRun();
       await failIndexWrites(stub, 1);
       await stub.verdict(AGENT, nonce, clearVerdict);
-      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("gone");
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toEqual({ gone: "clear" });
       expect(await indexedStatus()).toBe("swept");
     });
 
@@ -634,12 +837,86 @@ describe("RunDO", () => {
       expect(await listRuns(env.DB)).toEqual([]);
       const pending = await storedState(stub);
       expect(pending.alarm).toBeLessThanOrEqual(Date.now() + 60_000);
-      expect(pending.alarm).toBeLessThan(pending.run.agents[0]!.dispatchedAt! + STALL_MS);
+      expect(pending.alarm).toBeLessThan(pending.run.agents[0]!.dispatchedAt! + JOB_START_MS);
 
       await stub.view();
       expect(await indexedStatus()).toBe("on_the_hill");
       const settled = await storedState(stub);
-      expect(settled.alarm).toBe(settled.run.agents[0]!.dispatchedAt! + STALL_MS);
+      expect(settled.alarm).toBe(settled.run.agents[0]!.dispatchedAt! + JOB_START_MS);
+    });
+  });
+
+  // A reset can come between storing a change and making the writes it owes.
+  describe("owed writes", () => {
+    const marks = (stub: Stub) =>
+      runInDurableObject(stub, async (_instance, state) => ({
+        index: await state.storage.get("indexPending"),
+        check: await state.storage.get("checkPending"),
+        alarm: await state.storage.getAlarm(),
+      }));
+
+    it("are stored with the change, and the retry alarm set, before any is made", async () => {
+      const { stub, nonce } = await startRun();
+      const release = deferred<void>();
+      await holdIndexWrites(stub, release.promise);
+      const verdict = stub.verdict(AGENT, nonce, clearVerdict);
+      await vi.waitFor(async () => expect((await storedState(stub)).run.status).toBe("swept"));
+      const owed = await marks(stub);
+      expect(owed.index).toBeDefined();
+      expect(owed.check).toBe(owed.index);
+      expect(owed.alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+      release.resolve();
+      expect(await verdict).toBe("accepted");
+      expect(await marks(stub)).toEqual({ index: undefined, check: undefined, alarm: null });
+    });
+
+    it("keep the check's mark until GitHub has taken the write", async () => {
+      const { stub, nonce } = await startRun();
+      const release = deferred<void>();
+      checkReply = async (method) => {
+        if (method === "PATCH") await release.promise;
+        return acceptCheck(method);
+      };
+      const verdict = stub.verdict(AGENT, nonce, clearVerdict);
+      await vi.waitFor(() => expect(checks).toHaveLength(2));
+      expect((await marks(stub)).check).toBeDefined();
+      release.resolve();
+      await verdict;
+      expect((await marks(stub)).check).toBeUndefined();
+    });
+
+    it("left behind by a reset are made by the alarm", async () => {
+      const { stub } = await startRun();
+      await runInDurableObject(stub, async (_instance, state) => {
+        const run = (await state.storage.get<RunState>("state"))!;
+        await state.storage.put({
+          state: { ...run, prTitle: "orders: cancel endpoint" },
+          indexPending: "lost",
+          checkPending: "lost",
+        });
+        await state.storage.setAlarm(Date.now() + 60_000);
+      });
+      await runDurableObjectAlarm(stub);
+      expect(await listRuns(env.DB)).toMatchObject([{ prTitle: "orders: cancel endpoint" }]);
+      expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH"]);
+      const owed = await marks(stub);
+      expect(owed).toMatchObject({ index: undefined, check: undefined });
+      const { dispatchedAt } = (await storedState(stub)).run.agents[0]!;
+      expect(owed.alarm).toBe(dispatchedAt! + JOB_START_MS);
+    });
+
+    it("do not hold a caller up behind a check write GitHub is slow to take", async () => {
+      const { stub, nonce } = await startRun();
+      const release = deferred<void>();
+      checkReply = async (method) => {
+        if (method === "PATCH") await release.promise;
+        return acceptCheck(method);
+      };
+      const failure = stub.failure(AGENT, nonce, "boom");
+      await vi.waitFor(() => expect(checks).toHaveLength(2));
+      expect(await stub.view()).toMatchObject({ run: { status: "swept" } });
+      release.resolve();
+      await failure;
     });
   });
 

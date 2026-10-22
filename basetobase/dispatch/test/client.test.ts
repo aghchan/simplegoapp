@@ -204,6 +204,37 @@ describe("workflow dispatch", () => {
   });
 });
 
+describe("workflow run cancel", () => {
+  const CANCEL_PATH = `/repos/${REPO}/actions/runs/99/cancel`;
+
+  it("cancelWorkflowRun posts the run's cancel", async () => {
+    const { f, client } = setup({
+      [`POST ${CANCEL_PATH}`]: () => Response.json({}, { status: 202 }),
+    });
+    await client.cancelWorkflowRun(REPO, "99");
+    const [req] = callsTo(f, CANCEL_PATH);
+    expect(req!.method).toBe("POST");
+    expect(req!.headers.get("authorization")).toBe(`Bearer ${INSTALLATION_TOKEN}`);
+  });
+
+  // GitHub answers 409 for a run that has already finished, which is all a cancel asks for.
+  it("takes a 409 as done", async () => {
+    const { client } = setup({
+      [`POST ${CANCEL_PATH}`]: () =>
+        new Response("Cannot cancel a workflow run that is completed.", { status: 409 }),
+    });
+    await expect(client.cancelWorkflowRun(REPO, "99")).resolves.toBeUndefined();
+  });
+
+  it("carries the status and path of any other refusal, nothing else", async () => {
+    const { client } = setup({
+      [`POST ${CANCEL_PATH}`]: () => new Response("leaky response body", { status: 403 }),
+    });
+    const error = await rejection(client.cancelWorkflowRun(REPO, "99"));
+    expect(error.message).toBe(`GitHub POST ${CANCEL_PATH} failed with status 403`);
+  });
+});
+
 describe("check runs", () => {
   const CHECKS_PATH = `/repos/${REPO}/check-runs`;
   const body = {
