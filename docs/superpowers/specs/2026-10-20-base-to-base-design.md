@@ -154,7 +154,11 @@ config)**:
 - a PR touching both → both panels, run together
 
 Run terminal states: **Open** (deployed), **Stopped** (owner stopped it or
-closed the PR), **Failed** (deploy failed — sits in Needs you). **Wind hold**
+closed the PR), **Failed** (deploy failed — sits in Needs you).
+**Landed (built ahead of M4):** until Send it exists, the owner merges by hand
+and a run whose PR GitHub merged is **Landed**: Drop in done, Send it skipped,
+violet on the dashboard. Runs follow GitHub's state both ways
+(docs/superpowers/specs/2026-10-21-base-to-base-github-sync.md). **Wind hold**
 is not terminal: it waits for the owner (§7).
 
 ## 6. The patrol
@@ -414,6 +418,10 @@ every mutating action require it **(designer's call)**.
 
 **Quality bar:** WCAG AA contrast, real buttons and links, works at phone
 width, live updates without reload.
+
+**Runs list (built):** groups *Wind hold · needs you*, *On the hill*,
+*Swept*, *Landed*, *Closed*. One entry per PR, filed by its latest run; earlier
+runs collapse beneath it. `/` opens the newest run.
 
 **Live updates (built):** the run view over its run's socket; the runs list
 over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while
