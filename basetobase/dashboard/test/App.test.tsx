@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RunSummary } from "../../shared/src/types.ts";
+import type { RunStatus, RunSummary } from "../../shared/src/types.ts";
 import { App } from "../src/App.tsx";
 import * as api from "../src/api.ts";
 import { FakeWebSocket, makeRun } from "./fixtures.ts";
@@ -148,6 +148,32 @@ describe("App", () => {
       ).toBeVisible();
       expect(fetchesOf("/api/runs/r1")).toBe(1);
     });
+
+    // Dispatch keeps the newest open run on the PR's head, so a race can leave a run it stopped
+    // newer than the one that is live or landed.
+    it.each<[RunStatus]>([["on_the_hill"], ["landed"]])(
+      "shows a PR's %s run, not a newer one Dispatch stopped",
+      async (status) => {
+        const stopped: RunSummary = {
+          ...RUNS[0]!,
+          id: "r2",
+          runName: "Home Run",
+          status: "stopped",
+          createdAt: 5,
+          updatedAt: 5,
+        };
+        signedIn([{ ...RUNS[0]!, status, createdAt: 4, updatedAt: 4 }, stopped]);
+        render(<App />);
+        expect(
+          await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+        ).toBeVisible();
+        expect(screen.getByRole("link", { name: /Red Dog Face/ })).toHaveAttribute(
+          "aria-current",
+          "page",
+        );
+        expect(fetchesOf("/api/runs/r2")).toBe(0);
+      },
+    );
 
     it("shows no run when there are none", async () => {
       signedIn([]);
