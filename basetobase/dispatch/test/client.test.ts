@@ -1,6 +1,6 @@
 import { jwtVerify } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createGitHubClient } from "../src/github/client.ts";
+import { createGitHubClient, repoInstallationId } from "../src/github/client.ts";
 import { fakeFetch, rsaKeyPair } from "./helpers.ts";
 
 const REPO = "aghchan/simplegoapp";
@@ -155,33 +155,214 @@ describe("pull request files", () => {
   });
 });
 
-describe("pull request head", () => {
+describe("pull request state", () => {
   const PULL_PATH = `/repos/${REPO}/pulls/58`;
+  // GET /pulls/{n} as GitHub answers it for an open PR, trimmed to what is read and a little more.
+  const pull = (over: Record<string, unknown> = {}) => ({
+    number: 58,
+    state: "open",
+    draft: false,
+    merged: false,
+    merge_commit_sha: "testmerge58",
+    title: "orders: add cancel endpoint",
+    head: { ref: "claude/orders-cancel", sha: "head59" },
+    base: { ref: "main", sha: "base58", repo: { default_branch: "main" } },
+    ...over,
+  });
+  const reading = (reply: unknown) =>
+    setup({ [`GET ${PULL_PATH}`]: () => Response.json(reply) }).client.pullState(REPO, 58);
 
-  it("pullHeadSha reads the PR's current head", async () => {
-    const { f, client } = setup({
-      [`GET ${PULL_PATH}`]: () => Response.json({ number: 58, head: { sha: "head59" } }),
+  // An open PR's merge_commit_sha is GitHub's test merge, never a merge.
+  it("pullState reads the PR as GitHub has it now", async () => {
+    const { f, client } = setup({ [`GET ${PULL_PATH}`]: () => Response.json(pull()) });
+    expect(await client.pullState(REPO, 58)).toStrictEqual({
+      state: "open",
+      draft: false,
+      merged: false,
+      headSha: "head59",
+      baseRef: "main",
+      defaultBranch: "main",
+      title: "orders: add cancel endpoint",
     });
-    expect(await client.pullHeadSha(REPO, 58)).toBe("head59");
     expect(callsTo(f, PULL_PATH)[0]!.headers.get("authorization")).toBe(
       `Bearer ${INSTALLATION_TOKEN}`,
     );
   });
 
+  it("reads a merged PR's merge commit", async () =>
+    expect(
+      await reading(pull({ state: "closed", merged: true, merge_commit_sha: "merge58" })),
+    ).toMatchObject({ state: "closed", merged: true, mergeSha: "merge58" }));
+
+  it("reads a draft into another base", async () => {
+    const base = { ref: "feat-a", repo: { default_branch: "main" } };
+    expect(await reading(pull({ draft: true, base }))).toMatchObject({
+      draft: true,
+      baseRef: "feat-a",
+      defaultBranch: "main",
+    });
+  });
+
   it.each([
-    ["no head", { number: 58 }],
-    ["a head without a sha", { head: {} }],
-    ["an empty sha", { head: { sha: "" } }],
+    ["no head", pull({ head: undefined })],
+    ["an empty head sha", pull({ head: { sha: "" } })],
+    ["an unknown state", pull({ state: "merged" })],
+    ["no base ref", pull({ base: { repo: { default_branch: "main" } } })],
+    ["no default branch", pull({ base: { ref: "main", repo: {} } })],
+    ["a non-boolean draft", pull({ draft: "false" })],
+    ["no merged flag", pull({ merged: undefined })],
+    ["a merge without its commit", pull({ state: "closed", merged: true, merge_commit_sha: null })],
+    ["no title", pull({ title: undefined })],
+    ["no body at all", "nope"],
   ])("throws on a response with %s", async (_label, reply) => {
-    const { client } = setup({ [`GET ${PULL_PATH}`]: () => Response.json(reply) });
-    const error = await rejection(client.pullHeadSha(REPO, 58));
+    const error = await rejection(reading(reply));
     expect(error.message).toBe(`GitHub GET ${PULL_PATH} returned an unexpected response`);
   });
 
   it("throws with the status when GitHub refuses", async () => {
     const { client } = setup({ [`GET ${PULL_PATH}`]: () => new Response("nope", { status: 404 }) });
-    const error = await rejection(client.pullHeadSha(REPO, 58));
+    const error = await rejection(client.pullState(REPO, 58));
     expect(error.message).toBe(`GitHub GET ${PULL_PATH} failed with status 404`);
+  });
+});
+
+describe("open pull requests", () => {
+  const PULLS_PATH = `/repos/${REPO}/pulls`;
+  // One entry of GET /pulls, trimmed.
+  const listed = (over: Record<string, unknown> = {}) => ({
+    number: 58,
+    state: "open",
+    title: "orders: add cancel endpoint",
+    body: "Let a customer cancel their own pending order.",
+    html_url: `https://github.com/${REPO}/pull/58`,
+    draft: false,
+    user: { login: "aghchan" },
+    head: { ref: "claude/orders-cancel", sha: "head58", repo: { full_name: REPO } },
+    base: { ref: "main", sha: "base58", repo: { full_name: REPO, default_branch: "main" } },
+    ...over,
+  });
+  const listing = (...entries: unknown[]) =>
+    setup({ [`GET ${PULLS_PATH}`]: () => Response.json(entries) }).client.listOpenPulls(REPO);
+
+  it("listOpenPulls reads the first 100 open PRs", async () => {
+    const { f, client } = setup({ [`GET ${PULLS_PATH}`]: () => Response.json([listed()]) });
+    expect(await client.listOpenPulls(REPO)).toStrictEqual([
+      {
+        number: 58,
+        title: "orders: add cancel endpoint",
+        body: "Let a customer cancel their own pending order.",
+        url: `https://github.com/${REPO}/pull/58`,
+        branch: "claude/orders-cancel",
+        headSha: "head58",
+        headRepo: REPO,
+        baseSha: "base58",
+        baseRef: "main",
+        defaultBranch: "main",
+        author: "aghchan",
+        draft: false,
+      },
+    ]);
+    const [req] = callsTo(f, PULLS_PATH);
+    expect(new URL(req!.url).search).toBe("?state=open&per_page=100");
+    expect(req!.headers.get("authorization")).toBe(`Bearer ${INSTALLATION_TOKEN}`);
+  });
+
+  it("gives a PR without a description an empty body", async () =>
+    expect(await listing(listed({ body: null }))).toMatchObject([{ body: "" }]));
+
+  // It cannot be shown to be ours, so the cron counts it as a fork.
+  it("leaves out a head repository that is gone", async () => {
+    const [open] = await listing(listed({ head: { ref: "x", sha: "head58", repo: null } }));
+    expect(open).not.toHaveProperty("headRepo");
+  });
+
+  it("reads an empty list", async () => expect(await listing()).toEqual([]));
+
+  it.each([
+    ["an object", { pulls: [] }],
+    ["an entry without a number", [listed({ number: undefined })]],
+    ["an entry without a head sha", [listed({ head: { ref: "x", repo: null } })]],
+    ["an entry without a default branch", [listed({ base: { ref: "main", sha: "b", repo: {} } })]],
+    ["an entry without an author", [listed({ user: null })]],
+    ["an entry with a non-boolean draft", [listed({ draft: null })]],
+  ])("throws on a response that is %s", async (_label, reply) => {
+    const { client } = setup({ [`GET ${PULLS_PATH}`]: () => Response.json(reply) });
+    const error = await rejection(client.listOpenPulls(REPO));
+    expect(error.message).toBe(`GitHub GET ${PULLS_PATH} returned an unexpected response`);
+  });
+});
+
+describe("check runs on a commit", () => {
+  const COMMIT_CHECKS_PATH = `/repos/${REPO}/commits/head58/check-runs`;
+
+  // Another App's check of the same name does not vouch for the head.
+  it("hasCheckRun asks for this App's check runs of that name", async () => {
+    const { f, client } = setup({
+      [`GET ${COMMIT_CHECKS_PATH}`]: () => Response.json({ total_count: 1, check_runs: [{}] }),
+    });
+    expect(await client.hasCheckRun(REPO, "head58", "Base to Base")).toBe(true);
+    const [req] = callsTo(f, COMMIT_CHECKS_PATH);
+    const query = new URL(req!.url).searchParams;
+    expect(Object.fromEntries(query)).toEqual({ check_name: "Base to Base", app_id: APP_ID });
+    expect(req!.headers.get("authorization")).toBe(`Bearer ${INSTALLATION_TOKEN}`);
+  });
+
+  it("is false when there are none", async () => {
+    const { client } = setup({
+      [`GET ${COMMIT_CHECKS_PATH}`]: () => Response.json({ total_count: 0, check_runs: [] }),
+    });
+    expect(await client.hasCheckRun(REPO, "head58", "Base to Base")).toBe(false);
+  });
+
+  it("throws on a response without a count", async () => {
+    const { client } = setup({ [`GET ${COMMIT_CHECKS_PATH}`]: () => Response.json({}) });
+    const error = await rejection(client.hasCheckRun(REPO, "head58", "Base to Base"));
+    expect(error.message).toBe(`GitHub GET ${COMMIT_CHECKS_PATH} returned an unexpected response`);
+  });
+});
+
+describe("the App's installation", () => {
+  const INSTALLATION_PATH = `/repos/${REPO}/installation`;
+  const lookUp = (routes: Routes, privateKeyPem = keys.privatePem) => {
+    const f = fakeFetch(routes);
+    const found = repoInstallationId({ appId: APP_ID, privateKeyPem, fetch: f }, REPO);
+    return { f, found };
+  };
+
+  // No installation token exists until the installation is known.
+  it("repoInstallationId reads it with the App's own JWT", async () => {
+    const { f, found } = lookUp({ [`GET ${INSTALLATION_PATH}`]: () => Response.json({ id: 7 }) });
+    expect(await found).toBe(INSTALLATION_ID);
+    expect(f.calls).toHaveLength(1);
+    const bearer = f.calls[0]!.headers.get("authorization")!.replace("Bearer ", "");
+    const { payload } = await jwtVerify(bearer, keys.publicKey, { algorithms: ["RS256"] });
+    expect(payload.iss).toBe(APP_ID);
+  });
+
+  it.each([
+    ["no id", {}],
+    ["a string id", { id: "7" }],
+  ])("throws on a response with %s", async (_label, reply) => {
+    const { found } = lookUp({ [`GET ${INSTALLATION_PATH}`]: () => Response.json(reply) });
+    expect((await rejection(found)).message).toBe(
+      `GitHub GET ${INSTALLATION_PATH} returned an unexpected response`,
+    );
+  });
+
+  it("throws with the status when the App is not installed", async () => {
+    const { found } = lookUp({
+      [`GET ${INSTALLATION_PATH}`]: () => new Response("Not Found", { status: 404 }),
+    });
+    expect((await rejection(found)).message).toBe(
+      `GitHub GET ${INSTALLATION_PATH} failed with status 404`,
+    );
+  });
+
+  it("rejects a PKCS#1 key with the conversion command, before any request", async () => {
+    const pkcs1 = "-----BEGIN RSA PRIVATE KEY-----\nQUJD\n-----END RSA PRIVATE KEY-----\n";
+    const { f, found } = lookUp({}, pkcs1);
+    expect((await rejection(found)).message).toBe(PKCS1_MESSAGE);
+    expect(f.calls).toHaveLength(0);
   });
 });
 

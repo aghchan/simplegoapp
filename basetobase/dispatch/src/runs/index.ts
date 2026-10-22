@@ -1,8 +1,25 @@
 import type { Rating } from "../../../shared/src/config.ts";
-import type { RunSnapshot, RunSummary, StepId, StepSnapshot } from "../../../shared/src/types.ts";
+import type {
+  RunSnapshot,
+  RunStatus,
+  RunSummary,
+  StepId,
+  StepSnapshot,
+} from "../../../shared/src/types.ts";
 import type { RunDO } from "../run/do.ts";
 
 const DEFAULT_LIST_LIMIT = 50;
+// Open runs still speak for their PR: a later push, close or merge must reach them.
+const OPEN = "status IN ('on_the_hill', 'swept')";
+
+// A PR's run as its reconcile reads it from the index.
+export interface IndexedRun {
+  id: string;
+  headSha: string;
+  status: RunStatus;
+  prTitle: string;
+  createdAt: number;
+}
 
 export function runStub(env: Env, runId: string): DurableObjectStub<RunDO> {
   return env.RUNS.get(env.RUNS.idFromName(runId));
@@ -72,18 +89,59 @@ export async function activeRunNames(db: D1Database, rating: Rating): Promise<st
   return results.map((row) => row.runName);
 }
 
-export async function findActiveRuns(
+export async function findOpenRuns(
   db: D1Database,
   repo: string,
   prNumber: number,
-): Promise<{ id: string; headSha: string }[]> {
+): Promise<IndexedRun[]> {
+  return prRuns(db, repo, prNumber, true);
+}
+
+export async function findPrRuns(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+): Promise<IndexedRun[]> {
+  return prRuns(db, repo, prNumber, false);
+}
+
+export async function openRunPrs(db: D1Database): Promise<{ repo: string; prNumber: number }[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, head_sha AS headSha FROM runs
-       WHERE repo = ? AND pr_number = ? AND status = 'on_the_hill'`,
+      `SELECT DISTINCT repo, pr_number AS prNumber FROM runs WHERE ${OPEN}
+       ORDER BY repo, pr_number`,
+    )
+    .all<{ repo: string; prNumber: number }>();
+  return results;
+}
+
+// Any run, whatever became of it.
+export async function hasRunOnHead(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+  headSha: string,
+): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT 1 FROM runs WHERE repo = ? AND pr_number = ? AND head_sha = ? LIMIT 1")
+    .bind(repo, prNumber, headSha)
+    .first();
+  return row !== null;
+}
+
+async function prRuns(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+  openOnly: boolean,
+): Promise<IndexedRun[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, head_sha AS headSha, status, pr_title AS prTitle, created_at AS createdAt
+       FROM runs WHERE repo = ? AND pr_number = ? ${openOnly ? `AND ${OPEN}` : ""}`,
     )
     .bind(repo, prNumber)
-    .all<{ id: string; headSha: string }>();
+    .all<IndexedRun>();
   return results;
 }
 
