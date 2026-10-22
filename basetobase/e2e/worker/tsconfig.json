@@ -1,0 +1,12 @@
+{
+  // The Worker the e2e stack runs: Workers types, as dispatch/ has them, not the browser's.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "ESNext.Disposable"],
+    "types": ["../../worker-configuration.d.ts"],
+    // worker-configuration.d.ts rejects the main module's createApp export; dispatch/ skips it too.
+    "skipLibCheck": true
+  },
+  // env.ts declares the secrets on Env.
+  "include": [".", "../../dispatch/src/env.ts"]
+}
