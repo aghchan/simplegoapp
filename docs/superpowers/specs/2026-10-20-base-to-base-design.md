@@ -360,6 +360,12 @@ summit check on the new merge ref first. Merge method: squash
   manual fallback (`wrangler rollback`). PRs that touch `basetobase/` are
   not patrolled or auto-deployed until milestone 5 (§17); until then Base to
   Base is deployed by hand.
+  **Auto-deploy (built ahead of M5):** basetobase-ci deploys main itself once
+  its tests pass: migrations, `wrangler deploy` tagged with the commit, then
+  `GET /health` must show that commit healthy within two minutes, or it rolls
+  back to the version that served before. The token lives in a GitHub
+  environment only protected branches can use. Patrolling `basetobase/` PRs
+  stays M5.
 
 Adapters are chosen by changed paths (monorepo): Go changes deploy to
 Render, `basetobase/` changes deploy to Cloudflare, and a PR touching both

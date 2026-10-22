@@ -149,3 +149,65 @@ function escapeHtml(text: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
+
+// The deploy job's Cloudflare token (basetobase-ci, environment production): Workers to ship the
+// Worker, D1 to migrate, account settings to find the account. Nothing else.
+export const DEPLOY_ENVIRONMENT = "production";
+export const DEPLOY_TOKEN_NAME = "Base to Base deploy";
+export const DEPLOY_TOKEN_PERMISSIONS = [
+  { key: "workers_scripts", type: "edit" },
+  { key: "d1", type: "edit" },
+  { key: "account_settings", type: "read" },
+];
+
+// Cloudflare's form for a user token, filled in. Encoded as its own template links are.
+export function deployTokenUrl(): string {
+  const keys = encodeURIComponent(JSON.stringify(DEPLOY_TOKEN_PERMISSIONS));
+  const name = encodeURIComponent(DEPLOY_TOKEN_NAME);
+  return `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${keys}&accountId=%2A&zoneId=all&name=${name}`;
+}
+
+// What setup reads with the pasted token, to say which permission is missing before a deploy does.
+export const DEPLOY_PROBES = [
+  {
+    what: "Workers",
+    permission: "Workers Scripts · Edit",
+    path: (account: string) => `/accounts/${account}/workers/scripts`,
+  },
+  { what: "D1", permission: "D1 · Edit", path: (account: string) => `/accounts/${account}/d1/database` },
+];
+
+// One run of URL-safe characters. A cut-off or wrapped paste fails here, not in a deploy job.
+export function looksLikeCloudflareToken(token: string): boolean {
+  return /^[A-Za-z0-9_-]{30,}$/.test(token);
+}
+
+// Cloudflare's API answers { success, result, errors }.
+function resultOf(body: unknown): unknown {
+  if (typeof body !== "object" || body === null) return undefined;
+  const { success, result } = body as { success?: unknown; result?: unknown };
+  return success === true ? result : undefined;
+}
+
+// GET /user/tokens/verify
+export function tokenIsActive(body: unknown): boolean {
+  const result = resultOf(body);
+  return typeof result === "object" && result !== null && (result as { status?: unknown }).status === "active";
+}
+
+// GET /accounts
+export function accountsOf(body: unknown): { id: string; name: string }[] {
+  const result = resultOf(body);
+  if (!Array.isArray(result)) return [];
+  return result.flatMap((account: { id?: unknown; name?: unknown }) =>
+    typeof account.id === "string" && typeof account.name === "string"
+      ? [{ id: account.id, name: account.name }]
+      : [],
+  );
+}
+
+// Only protected branches (main) may deploy, so a workflow on a pull request's branch, an agent's
+// included, never reads the environment's secrets.
+export function productionEnvironment() {
+  return { deployment_branch_policy: { protected_branches: true, custom_branch_policies: false } };
+}

@@ -23,9 +23,9 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 - Runs → GitHub: stopping or landing a run cancels each live agent's Actions run (`cancelWorkflowRun`; best effort, 409 counts as done). The in-progress check is rewritten after every verdict or failure.
 - Owed writes: `commit()` stores the state with revisioned index/check marks and arms a 60 s retry alarm; a mark clears only after its write succeeds and no newer commit set it. The index mark also waits for the lobby.
 - Review outcome: `reviewOutcome` (machine.ts) is the one source for the check, `RunSnapshot.outcome`, the sweep step's `outcome`, the index row (`runs.outcome`, migration 0002) and every dashboard pass/fail signal. Success/green only for `clear`; `none` (no patrollers) is neutral grey. Never derive pass/fail elsewhere.
-- `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`), mounted by `createApp(deps)` in `dispatch/src/index.ts`.
+- `dispatch/src/routes/`: one Hono sub-app per surface (`github`, `agent`, `auth`, `api`, `health`), mounted by `createApp(deps)` in `dispatch/src/index.ts`.
 - Bodies via `readBody`/`readJsonObject` (size-bounded). Refusals via `reject` (`routes/request.ts`).
-- Credentials: `agent` (OIDC) and `api` (session cookie) in sub-app middleware; `github` checks the HMAC in its handler; `auth` is sign-in.
+- Credentials: `agent` (OIDC) and `api` (session cookie) in sub-app middleware; `github` checks the HMAC in its handler; `auth` is sign-in; `health` is public and names only the version.
 - `GET /agent/brief` and `POST /agent/{events,verdict,failure}` answer 410 `{"error":"no longer wanted","agent":"<AgentStatus>"}`, changing nothing, once the run is stopped or landed or the agent is done. 403 is a wrong nonce only. The forwarder stops claude and exits by `agent`: `clear` or `stopped` 0, anything else 1.
 - Agent clocks start at the brief (`onBriefed`) and reset on every re-run of the job. A dispatched job that never asks for its brief fails after 30 min (`JOB_START_MS`); no stall before the brief.
 - Agent jobs: the Actions run is titled `Base to Base · <run> · <agent>`, the job named by agent id. Its last step (`if: failure() || cancelled()`) posts `/agent/failure` (`job failed|cancelled before the agent reported`) with curl and jq; like `/brief`, it links the job from the verified token, for a job that died before its brief. Event seq is offset per attempt (`(GITHUB_RUN_ATTEMPT − 1) × 1 000 000`) so a re-run's events survive the log's dedupe.
@@ -33,15 +33,18 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 
 ## Deploy
 
-- `npm run deploy`.
+- Automatic: a push to main that passes basetobase-ci deploys itself (jobs `plan` and `deploy`; `scripts/src/ci-deploy.ts`). `plan` asks the live Worker's `GET /health` which commit it runs and skips when that commit, a newer one, or the same Worker code (`WORKER_PATHSPEC`, by exclusion) is live. `deploy` applies D1 migrations, deploys tagged with the commit, and waits ≤120 s for `/health` to show it healthy; otherwise it rolls back to the version that served before and fails.
+- `GET /health` (public, never cached): `{ok, version, tag}` from the `CF_VERSION_METADATA` binding plus a D1 ping; 503 when D1 is unreachable. Routed worker-first (`run_worker_first`), or the dashboard's page would answer it.
+- Secrets: environment `production` holds `CLOUDFLARE_API_TOKEN` (Workers Scripts and D1 edit, account settings read) and variable `CLOUDFLARE_ACCOUNT_ID`. Only protected branches may deploy to it, so no pull request's workflow reads them. Set up by `npm run setup:deploy` (also `npm run setup`'s last step).
+- By hand: `npm run deploy` (untagged, so the next automatic deploy always ships), or Actions → basetobase-ci → Run workflow on main.
 - First deploy: `npm run setup` on the owner's machine (`scripts/src/setup.ts`; rerunnable). Manual fallback: docs/superpowers/plans/2026-10-20-base-to-base-m1-skeleton.md, Task 13.
-- New migration: `npm run migrate`.
+- New migration: `npm run migrate`, or let the deploy job apply it. Migrations run before the new code and a rollback leaves them, so each must also suit the version serving before it.
 - `deploy` and `migrate` re-run `wrangler login` and retry once when the Cloudflare login has expired (`scripts/src/wrangler.ts`). A `CLOUDFLARE_API_TOKEN` in the shell never expires and skips login.
 - Logs: Cloudflare dashboard → Workers Logs, or `npx wrangler tail`.
 
 ## Rollback
 
-- `npx wrangler rollback`.
+- Automatic when a deploy never serves a healthy `/health`. By hand: `npx wrangler rollback [version-id]`. Neither undoes D1 migrations, and neither can cross a Durable Object migration.
 
 ## Deploy cautions
 

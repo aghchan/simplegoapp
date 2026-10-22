@@ -1,12 +1,9 @@
 // One-time owner setup (plan M1 Task 13 Step 1), run on the owner's machine: `npm run setup`.
 // Rerunnable: each step skips what already exists.
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
 import {
   appIdFrom,
   appManifest,
@@ -21,7 +18,6 @@ import {
   manifestPage,
   publicUrlOf,
   REPO,
-  tokenFrom,
   withDatabaseId,
   withKvId,
   withPublicUrl,
@@ -29,9 +25,8 @@ import {
   workersDevUrl,
   type AppConversion,
 } from "./setup-lib.ts";
+import { ask, askHidden, CommandError, has, openBrowser, ROOT, sh, step, yes } from "./io.ts";
 
-const ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const PASTE_SETTLE_MS = 300;
 const CONFIG = `${ROOT}wrangler.jsonc`;
 
 async function main(): Promise<void> {
@@ -122,6 +117,10 @@ async function main(): Promise<void> {
     const protect = ["api", "-X", "PUT", `repos/${REPO}/branches/main/protection`, "--input", "-"];
     await sh("gh", protect, { input: JSON.stringify(branchProtection(appId)), capture: true });
     console.log(`main merges only once the App's "${CHECK_NAME}" check passes.`);
+
+    // Needs the protection above: only protected branches may deploy.
+    step("Auto-deploy");
+    await sh("node", ["scripts/src/setup-deploy.ts"]);
   }
 
   step("Check");
@@ -146,15 +145,6 @@ async function deploy(): Promise<string> {
     console.log("\nNo workers.dev subdomain yet. Answer y and pick one.");
     await sh("npx", ["wrangler", "deploy"]);
     return captured();
-  }
-}
-
-class CommandError extends Error {
-  readonly output: string;
-
-  constructor(message: string, output: string) {
-    super(message);
-    this.output = output;
   }
 }
 
@@ -195,107 +185,12 @@ async function createApp(publicUrl: string): Promise<AppConversion> {
   return (await res.json()) as AppConversion;
 }
 
-function sh(
-  cmd: string,
-  args: string[],
-  o: { input?: string; capture?: boolean; echo?: boolean; teeStderr?: boolean } = {},
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
-      cwd: ROOT,
-      stdio: [
-        o.input === undefined ? "inherit" : "pipe",
-        o.capture ? "pipe" : "inherit",
-        o.teeStderr ? "pipe" : "inherit",
-      ],
-    });
-    let out = "";
-    child.stdout?.on("data", (chunk: Buffer) => {
-      out += chunk.toString();
-      if (o.echo) process.stdout.write(chunk);
-    });
-    // JSON-listing commands keep stderr out of `out`: wrangler's warnings would break the parse.
-    child.stderr?.on("data", (chunk: Buffer) => {
-      out += chunk.toString();
-      process.stderr.write(chunk);
-    });
-    if (o.input !== undefined) child.stdin?.end(o.input);
-    child.on("error", reject);
-    child.on("close", (status) =>
-      status === 0 ? resolve(out) : reject(new CommandError(`${cmd} ${args.join(" ")} exited ${status}`, out)),
-    );
-  });
-}
-
-async function has(cmd: string, args: string[]): Promise<boolean> {
-  try {
-    await sh(cmd, args, { capture: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function openBrowser(url: string): void {
-  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-  spawn(opener, [url], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
-}
-
-async function ask(question: string): Promise<string> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    return await rl.question(`${question} `);
-  } finally {
-    rl.close();
-  }
-}
-
-async function yes(question: string): Promise<boolean> {
-  return /^y/i.test(await ask(`${question} [y/N]`));
-}
-
 async function askAppId(): Promise<number> {
   for (;;) {
     const id = appIdFrom(await ask("Base to Base App ID (App settings page):"));
     if (id !== undefined) return id;
     console.log("Digits only.");
   }
-}
-
-// Reads input without echoing it, so the token never shows on screen or in scrollback. A token
-// copied from a wrapped terminal line arrives with line breaks inside one paste, so Enter only ends
-// the input once nothing more arrives for PASTE_SETTLE_MS; whitespace is dropped (tokens have none).
-function askHidden(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    process.stdout.write(question);
-    const stdin = process.stdin;
-    let value = "";
-    let settle: ReturnType<typeof setTimeout> | undefined;
-    const done = () => {
-      stdin.off("data", onData);
-      stdin.setRawMode?.(false);
-      stdin.pause();
-      process.stdout.write("\n");
-      resolve(tokenFrom(value));
-    };
-    const onData = (chunk: string) => {
-      clearTimeout(settle);
-      for (const c of chunk) {
-        if (c === "\u0003") process.exit(130);
-        if (c === "\u007f") value = value.slice(0, -1);
-        else value += c;
-      }
-      if (/[\r\n]$/.test(value)) settle = setTimeout(done, PASTE_SETTLE_MS);
-    };
-    stdin.setRawMode?.(true);
-    stdin.setEncoding("utf8");
-    stdin.resume();
-    stdin.on("data", onData);
-  });
-}
-
-function step(name: string): void {
-  console.log(`\n== ${name}`);
 }
 
 main().catch((error: unknown) => {

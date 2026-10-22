@@ -1,14 +1,19 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  accountsOf,
   appIdFrom,
   appManifest,
   branchProtection,
   d1Id,
+  DEPLOY_PROBES,
+  deployTokenUrl,
   KV_BINDING,
   kvId,
   looksLikeClaudeToken,
+  looksLikeCloudflareToken,
   manifestPage,
+  productionEnvironment,
   publicUrlOf,
   tokenFrom,
   withDatabaseId,
@@ -17,6 +22,7 @@ import {
   workerSecrets,
   workersDevUrl,
   type AppConversion,
+  tokenIsActive,
 } from "../src/setup-lib.ts";
 
 // wrangler.jsonc as committed before setup: the real file holds the owner's ids once setup has run.
@@ -193,5 +199,56 @@ describe("Claude token input", () => {
     expect(looksLikeClaudeToken(token.slice(0, 20))).toBe(false);
     expect(looksLikeClaudeToken("ghp_notaclaudetoken0000000000000000000000000000")).toBe(false);
     expect(looksLikeClaudeToken("")).toBe(false);
+  });
+});
+
+describe("deploy token", () => {
+  it("opens Cloudflare's token form with only what the deploy job needs", () => {
+    const url = new URL(deployTokenUrl());
+    expect(url.origin + url.pathname).toBe("https://dash.cloudflare.com/profile/api-tokens");
+    expect(JSON.parse(url.searchParams.get("permissionGroupKeys") ?? "")).toEqual([
+      { key: "workers_scripts", type: "edit" },
+      { key: "d1", type: "edit" },
+      { key: "account_settings", type: "read" },
+    ]);
+    expect(url.searchParams.get("accountId")).toBe("*");
+    expect(url.searchParams.get("zoneId")).toBe("all");
+    expect(url.searchParams.get("name")).toBe("Base to Base deploy");
+    // Encoded as Cloudflare's own template links are: no `+` for a space.
+    expect(deployTokenUrl()).toContain("name=Base%20to%20Base%20deploy");
+  });
+
+  it("takes a pasted token and refuses a cut-off or wrapped one", () => {
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPqRsTuVwXyZ0123456789abcd")).toBe(true);
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPq")).toBe(false);
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPqRsTu VwXyZ0123456789abcd")).toBe(false);
+    expect(looksLikeCloudflareToken("")).toBe(false);
+  });
+
+  it("reads Cloudflare's answers", () => {
+    expect(tokenIsActive({ success: true, result: { id: "t", status: "active" } })).toBe(true);
+    expect(tokenIsActive({ success: true, result: { id: "t", status: "disabled" } })).toBe(false);
+    expect(tokenIsActive({ success: false, errors: [{ code: 1000, message: "Invalid API Token" }] })).toBe(false);
+    expect(tokenIsActive(undefined)).toBe(false);
+    expect(
+      accountsOf({ success: true, result: [{ id: "a1", name: "Owner's account", type: "standard" }] }),
+    ).toEqual([{ id: "a1", name: "Owner's account" }]);
+    expect(accountsOf({ success: true, result: [{ name: "no id" }] })).toEqual([]);
+    expect(accountsOf({ success: false, errors: [] })).toEqual([]);
+  });
+
+  it("probes the account with what each permission reads", () => {
+    expect(DEPLOY_PROBES.map((probe) => [probe.path("a1"), probe.permission])).toEqual([
+      ["/accounts/a1/workers/scripts", "Workers Scripts · Edit"],
+      ["/accounts/a1/d1/database", "D1 · Edit"],
+    ]);
+  });
+});
+
+describe("productionEnvironment", () => {
+  it("lets only protected branches deploy, so a pull request's workflow never reads its secrets", () => {
+    expect(productionEnvironment()).toEqual({
+      deployment_branch_policy: { protected_branches: true, custom_branch_policies: false },
+    });
   });
 });

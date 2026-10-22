@@ -7,6 +7,7 @@ import { agentRoutes } from "./routes/agent.ts";
 import { apiRoutes } from "./routes/api.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { githubRoutes } from "./routes/github.ts";
+import { healthRoutes } from "./routes/health.ts";
 import { RunDO } from "./run/do.ts";
 
 export interface Deps {
@@ -20,6 +21,7 @@ export function createApp(deps: Deps): Hono<{ Bindings: Env }> {
   app.route("/agent", agentRoutes(deps.agentKey));
   app.route("/auth", authRoutes());
   app.route("/api", apiRoutes());
+  app.route("/health", healthRoutes());
   app.notFound((c) => c.json({ error: "not found" }, 404));
   return app;
 }
