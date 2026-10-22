@@ -114,9 +114,13 @@ function flaky<R>(failures: number, error: Error, result: R) {
 }
 
 const unavailable = (what: string) => new DispatchError(`${what} → 503`, 503);
-const gone = (what: string) => new DispatchError(`${what} → 410: {"error":"no longer wanted"}`, 410);
-const unwantedLine = (what: string) =>
-  `Dispatch no longer wants reports (run stopped or agent finished): ${what} → 410: {"error":"no longer wanted"}`;
+// Dispatch's 410 names the agent's status there, which the job's exit follows.
+const gone = (what: string, agent?: string) => {
+  const answer = JSON.stringify({ error: "no longer wanted", agent });
+  return new DispatchError(`${what} → 410: ${answer}`, 410, agent);
+};
+const unwantedLine = (what: string, agent?: string) =>
+  `Dispatch has this agent as ${agent ?? "unknown"} and no longer wants reports: ${gone(what, agent).message}`;
 const never = () => new Promise<never>(() => {});
 const quickBatches = {
   batcher: (send: (b: AgentEvent[]) => Promise<void>) => createBatcher(send, { intervalMs: 5 }),
@@ -151,6 +155,23 @@ describe("runAgent", () => {
     expect(c.transcripts).toHaveLength(1);
     expect(c.failures).toEqual([]);
   });
+
+  // Dispatch drops an event whose seq it already holds for the agent: a re-run numbering from 0
+  // again would lose its first events.
+  it("numbers a re-run's events from (attempt − 1) × 1 000 000", async () => {
+    const { c } = await run("valid", {}, {}, { runAttempt: "3" });
+    const seqs = c.events.flat().map((e) => e.seq);
+    expect(seqs.length).toBeGreaterThan(0);
+    expect(seqs).toEqual(seqs.map((_, i) => 2_000_000 + i));
+  });
+
+  it.each(["1", "", "0", "-2", "1.5", "two"])(
+    "numbers events from 0 for run attempt %j",
+    async (runAttempt) => {
+      const { c } = await run("valid", {}, {}, { runAttempt });
+      expect(c.events.flat()[0]?.seq).toBe(0);
+    },
+  );
 
   it("maps the stream, keeps the raw transcript, and reports events, then transcript, then verdict", async () => {
     const { c } = await run("valid");
@@ -358,19 +379,39 @@ describe("runAgent", () => {
       expect(errors.at(-1)).toBe("fetching the brief failed: GET /agent/brief → 503");
     });
 
-    it("is refused for a stopped run or a finished agent: exit 0 and nothing else sent", async () => {
+    // A re-run of a finished agent's job, or a job that started after its run was stopped.
+    it.each([
+      ["clear", 0],
+      ["stopped", 0],
+      ["hazards", 1],
+      ["error", 1],
+      ["running", 1],
+      [undefined, 1],
+    ])("is refused with the agent %s in Dispatch: exit %i, nothing else sent", async (agent, exitCode) => {
       const argsFile = join(root, "args.json");
+      const refused = flaky(Infinity, gone("GET /agent/brief", agent), brief);
+      const { c, code } = await run("valid", { FAKE_ARGS_FILE: argsFile }, { brief: refused.fn });
+      expect(code).toBe(exitCode);
+      expect(refused.calls.count).toBe(1);
+      expect(c.order).toEqual([]);
+      await expect(readFile(argsFile)).rejects.toThrow();
+      expect(errors).toEqual([
+        `Dispatch has this agent as ${agent ?? "unknown"} and no longer wants it; a re-run reviews ` +
+          `nothing, push to the pull request for a new run: ${gone("GET /agent/brief", agent).message}`,
+      ]);
+    });
+
+    it("fails without retrying when Dispatch refuses the nonce", async () => {
       const refused = flaky(
         Infinity,
         new DispatchError("GET /agent/brief → 403: forbidden", 403),
         brief,
       );
-      const { c, code } = await run("valid", { FAKE_ARGS_FILE: argsFile }, { brief: refused.fn });
-      expect(code).toBe(0);
+      const { c, code } = await run("valid", {}, { brief: refused.fn });
+      expect(code).toBe(1);
       expect(refused.calls.count).toBe(1);
       expect(c.order).toEqual([]);
-      await expect(readFile(argsFile)).rejects.toThrow();
-      expect(errors).toEqual(["the agent is no longer wanted: GET /agent/brief → 403: forbidden"]);
+      expect(errors).toEqual(["fetching the brief failed: GET /agent/brief → 403: forbidden"]);
     });
 
     it("is not retried after another permanent answer", async () => {
@@ -526,7 +567,7 @@ describe("runAgent", () => {
   });
 
   describe("when Dispatch no longer wants reports", () => {
-    it("stops claude on a 410 for events, sends nothing more, uploads the transcript, exits 0", async () => {
+    it("stops claude on a 410 for events, sends nothing more, uploads the transcript, exits 0 for a stopped agent", async () => {
       const pidFile = join(root, "pid");
       let eventCalls = 0;
       const { c, code } = await run(
@@ -535,7 +576,7 @@ describe("runAgent", () => {
         {
           events: async () => {
             eventCalls++;
-            throw gone("POST /agent/events");
+            throw gone("POST /agent/events", "stopped");
           },
         },
         quickBatches,
@@ -545,8 +586,34 @@ describe("runAgent", () => {
       expect(c.verdicts).toEqual([]);
       expect(c.failures).toEqual([]);
       expect(c.transcripts).toEqual([await streamText()]);
-      expect(errors).toEqual([unwantedLine("POST /agent/events")]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events", "stopped")]);
       expect(alive(await readPid(pidFile))).toBe(false);
+    });
+
+    // Dispatch's own deadline failed the agent while the job was still working.
+    it("exits 1 on a 410 for events once Dispatch has failed the agent", async () => {
+      const pidFile = join(root, "pid");
+      const { c, code } = await run(
+        "valid",
+        { FAKE_HANG: "1", FAKE_PID_FILE: pidFile },
+        { events: async () => Promise.reject(gone("POST /agent/events", "error")) },
+        quickBatches,
+      );
+      expect(code).toBe(1);
+      expect(c.order).toEqual(["transcript"]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events", "error")]);
+      expect(alive(await readPid(pidFile))).toBe(false);
+    });
+
+    it("exits 1 on a 410 that does not name the agent's status", async () => {
+      const { c, code } = await run(
+        "valid",
+        {},
+        { events: async () => Promise.reject(gone("POST /agent/events")) },
+      );
+      expect(code).toBe(1);
+      expect(c.order).toEqual(["transcript"]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events")]);
     });
 
     it("kills claude with SIGKILL when it ignores SIGTERM past the grace period", async () => {
@@ -554,7 +621,7 @@ describe("runAgent", () => {
       const { c, code } = await run(
         "valid",
         { FAKE_HANG: "1", FAKE_IGNORE_TERM: "1", FAKE_PID_FILE: pidFile },
-        { events: async () => Promise.reject(gone("POST /agent/events")) },
+        { events: async () => Promise.reject(gone("POST /agent/events", "stopped")) },
         { ...quickBatches, killGraceMs: 50 },
       );
       expect(code).toBe(0);
@@ -566,44 +633,70 @@ describe("runAgent", () => {
       const { c, code } = await run(
         "valid",
         {},
-        { events: async () => Promise.reject(gone("POST /agent/events")) },
+        { events: async () => Promise.reject(gone("POST /agent/events", "stopped")) },
       );
       expect(code).toBe(0);
       expect(c.order).toEqual(["transcript"]);
-      expect(errors).toEqual([unwantedLine("POST /agent/events")]);
+      expect(errors).toEqual([unwantedLine("POST /agent/events", "stopped")]);
     });
 
-    it("exits 0 on a 410 for a retried verdict whose first answer was lost", async () => {
-      let verdictCalls = 0;
-      const { c, code } = await run(
-        "valid",
-        {},
-        {
-          verdict: async () => {
-            verdictCalls++;
-            throw verdictCalls === 1
-              ? unavailable("POST /agent/verdict")
-              : gone("POST /agent/verdict");
+    // The first answer was lost, so Dispatch most likely has this very verdict, and says which.
+    it.each([
+      ["valid", "clear", 0],
+      ["hazards", "hazards", 1],
+      ["valid", "error", 1],
+    ] as const)(
+      "exits by Dispatch's status on a 410 for a retried verdict (%s verdict, agent %s): %i",
+      async (verdict, agent, exitCode) => {
+        let verdictCalls = 0;
+        const { c, code } = await run(
+          verdict,
+          {},
+          {
+            verdict: async () => {
+              verdictCalls++;
+              throw verdictCalls === 1
+                ? unavailable("POST /agent/verdict")
+                : gone("POST /agent/verdict", agent);
+            },
           },
-        },
-      );
-      expect(code).toBe(0);
-      expect(verdictCalls).toBe(2);
-      expect(c.failures).toEqual([]);
-      expect(errors).toEqual([
-        "reporting the verdict failed, retrying in 1 ms: POST /agent/verdict → 503",
-        unwantedLine("POST /agent/verdict"),
-      ]);
-    });
+        );
+        expect(code).toBe(exitCode);
+        expect(verdictCalls).toBe(2);
+        expect(c.failures).toEqual([]);
+        expect(errors).toEqual([
+          "reporting the verdict failed, retrying in 1 ms: POST /agent/verdict → 503",
+          unwantedLine("POST /agent/verdict", agent),
+        ]);
+      },
+    );
 
-    it("exits 0 on a 410 for the failure report", async () => {
+    it.each([
+      ["error", 1],
+      ["stopped", 0],
+    ])("exits by Dispatch's status on a 410 for the failure report (agent %s): %i", async (agent, exitCode) => {
       const { code } = await run(
         "none",
         {},
-        { failure: async () => Promise.reject(gone("POST /agent/failure")) },
+        { failure: async () => Promise.reject(gone("POST /agent/failure", agent)) },
       );
-      expect(code).toBe(0);
-      expect(errors).toEqual([unwantedLine("POST /agent/failure")]);
+      expect(code).toBe(exitCode);
+      expect(errors).toEqual([unwantedLine("POST /agent/failure", agent)]);
+    });
+
+    it("still exits 1 when a cancel's failure report gets a 410", async () => {
+      const signals = new EventEmitter();
+      const r = recorder({
+        failure: async () => Promise.reject(gone("POST /agent/failure", "stopped")),
+      });
+      const running = start("valid", { FAKE_HANG: "1" }, r.client, { ...quickBatches, signals });
+      await until(() => r.c.events.length > 0);
+      signals.emit("SIGTERM");
+      expect(await running).toBe(1);
+      expect(errors).toEqual([
+        "SIGTERM received: stopping claude",
+        unwantedLine("POST /agent/failure", "stopped"),
+      ]);
     });
   });
 

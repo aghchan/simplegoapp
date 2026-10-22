@@ -1,6 +1,8 @@
 # Dispatch starts this workflow with workflow_dispatch; nothing else triggers it.
 # vars.BASETOBASE_URL must equal Dispatch's PUBLIC_URL byte for byte: it is the OIDC audience.
 name: basetobase-agent
+# The Actions list names the Dispatch run and agent each run serves.
+run-name: Base to Base · ${{ inputs.run_id }} · ${{ inputs.agent_id }}
 on:
   workflow_dispatch:
     inputs:
@@ -29,6 +31,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   agent:
+    name: ${{ inputs.agent_id }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -77,3 +80,38 @@ jobs:
           B2B_REPO_DIR: ${{ github.workspace }}/repo
           B2B_TEMPLATES_DIR: ${{ github.workspace }}/b2b
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      # A job that ends before the forwarder reported (a setup step failed, the forwarder never got
+      # a brief or was killed, the job was cancelled) would leave the agent to Dispatch's deadlines.
+      # The token request and the body mirror forwarder/src/client.ts. A 410 means the agent had
+      # already reported. Secrets stay off argv and out of the log: headers come in through a file
+      # descriptor, the body from the environment.
+      - name: Report the job's end to Dispatch
+        if: failure() || cancelled()
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          AGENT_ID: ${{ inputs.agent_id }}
+          NONCE: ${{ inputs.nonce }}
+          DISPATCH_URL: ${{ vars.BASETOBASE_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          case "$JOB_STATUS" in
+            failure) ended=failed ;;
+            *) ended=$JOB_STATUS ;;
+          esac
+          export REASON="job $ended before the agent reported"
+          audience=$(jq -rn 'env.DISPATCH_URL | @uri')
+          token=$(curl -sS --fail --max-time 15 --retry 2 \
+            -H @<(printf 'Authorization: bearer %s\n' "$ACTIONS_ID_TOKEN_REQUEST_TOKEN") \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience" | jq -er '.value')
+          status=$(jq -cn '{run_id: env.RUN_ID, agent_id: env.AGENT_ID, nonce: env.NONCE, reason: env.REASON}' |
+            curl -sS --max-time 15 --retry 2 -o /dev/null -w '%{http_code}' \
+              -H @<(printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$token") \
+              --data-binary @- "${DISPATCH_URL%/}/agent/failure")
+          case "$status" in
+            2??) echo "reported: failure · $REASON" ;;
+            410) echo "Dispatch already had this agent's report" ;;
+            *) echo "reporting the failure failed: POST /agent/failure → $status" >&2; exit 1 ;;
+          esac

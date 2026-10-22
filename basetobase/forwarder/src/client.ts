@@ -18,11 +18,14 @@ export interface DispatchClient {
 export class DispatchError extends Error {
   readonly status: number;
   readonly permanent: boolean;
+  // On a 410, the agent's status in Dispatch: the job's exit follows it.
+  readonly agent: string | undefined;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, agent?: string) {
     super(message);
     this.status = status;
     this.permanent = status >= 400 && status < 500 && status !== 408 && status !== 429;
+    this.agent = agent;
   }
 }
 
@@ -73,10 +76,12 @@ export function createDispatchClient(o: {
       response = await attempt(true);
     }
     if (!response.ok) {
-      const answer = (await response.text().catch(() => "")).trim().slice(0, ERROR_BODY_MAX);
+      const text = await response.text().catch(() => "");
+      const answer = text.trim().slice(0, ERROR_BODY_MAX);
       throw new DispatchError(
         `${method} ${url.pathname} → ${response.status}${answer && `: ${answer}`}`,
         response.status,
+        response.status === 410 ? agentOf(text) : undefined,
       );
     }
     return response;
@@ -105,6 +110,16 @@ export function createDispatchClient(o: {
       });
     },
   };
+}
+
+// From the whole body: the error message keeps only its start.
+function agentOf(text: string): string | undefined {
+  try {
+    const { agent } = JSON.parse(text) as { agent?: unknown };
+    return typeof agent === "string" ? agent : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function networkReason(error: unknown): string {

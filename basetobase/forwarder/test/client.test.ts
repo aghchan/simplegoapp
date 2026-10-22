@@ -156,6 +156,35 @@ describe("createDispatchClient", () => {
     );
   });
 
+  it("reads the agent's status in Dispatch from a 410", async () => {
+    const gone = Response.json({ error: "no longer wanted", agent: "hazards" }, { status: 410 });
+    const error = await clientOver(gone).client.brief().catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 410, permanent: true, agent: "hazards" });
+    expect((error as Error).message).toBe(
+      'GET /agent/brief → 410: {"error":"no longer wanted","agent":"hazards"}',
+    );
+  });
+
+  it("reads the agent's status from a 410 longer than the error message keeps", async () => {
+    const gone = Response.json(
+      { error: "no longer wanted", detail: "x".repeat(300), agent: "clear" },
+      { status: 410 },
+    );
+    const error = await clientOver(gone).client.verdict({}).catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 410, agent: "clear" });
+  });
+
+  it.each([
+    ["a 410 without one", Response.json({ error: "no longer wanted" }, { status: 410 })],
+    ["a 410 that is not JSON", status(410, "gone")],
+    ["a 410 whose JSON is not an object", status(410, "null")],
+    ["another refusal", Response.json({ error: "forbidden", agent: "clear" }, { status: 403 })],
+  ])("leaves the agent's status unknown for %s", async (_name, answer) => {
+    const error = await clientOver(answer).client.events(events).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(DispatchError);
+    expect((error as DispatchError).agent).toBeUndefined();
+  });
+
   it("does not retry a network error as permanent", async () => {
     const { client } = clientOver(
       new TypeError("fetch failed", { cause: new Error("connect ECONNREFUSED 127.0.0.1:1") }),
