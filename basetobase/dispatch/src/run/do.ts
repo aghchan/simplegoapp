@@ -4,6 +4,7 @@ import type { Triage } from "../../../shared/src/triage.ts";
 import type {
   AgentBrief,
   AgentEvent,
+  AgentStatus,
   EventKind,
   LiveMessage,
   LogLine,
@@ -11,7 +12,7 @@ import type {
   Verdict,
 } from "../../../shared/src/types.ts";
 import { parseVerdict, VerdictError } from "../../../shared/src/verdict.ts";
-import { createGitHubClient } from "../github/client.ts";
+import { createGitHubClient, type GitHubClient } from "../github/client.ts";
 import type { PullRequestRef } from "../github/webhook.ts";
 import { announce } from "../lobby/do.ts";
 import { summaryOf, upsertRun } from "../runs/index.ts";
@@ -19,11 +20,14 @@ import {
   briefOf,
   checkRunOf,
   createRun,
+  landRun,
   nextAlarm,
+  onBriefed,
   onCheckCreated,
   onDispatched,
   onEvents,
   onFailure,
+  onRetitled,
   onTick,
   onTranscript,
   onVerdict,
@@ -35,6 +39,8 @@ import {
 } from "./machine.ts";
 
 const STATE_KEY = "state";
+// Marks for the index and check writes a commit owes, stored with its state. Each holds the
+// commit's revision, so a write that lands after a newer commit leaves that commit's mark set.
 const INDEX_PENDING_KEY = "indexPending";
 const CHECK_PENDING_KEY = "checkPending";
 const RETRY_MS = 60_000;
@@ -44,14 +50,20 @@ const SNAPSHOT_LOG_LINES = 500;
 // A mapped copy, because an interface does not satisfy the SQL row type's index signature.
 type LogRow = Pick<LogLine, keyof LogLine>;
 
-// What became of an agent's report. "gone": the run was stopped or the agent has already finished,
-// so nothing more it sends will be used.
-export type Report = "accepted" | "forbidden" | "gone";
+// The run was stopped or the agent has already finished, so nothing more it sends will be used.
+// The agent's status decides the colour of its job.
+export type Gone = { gone: AgentStatus };
+
+// What became of an agent's report.
+export type Report = "accepted" | "forbidden" | Gone;
 
 // Owns one run: persists the machine's state, executes the effects it returns, and keeps the log.
 export class RunDO extends DurableObject<Env> {
   // Check syncs run one at a time: two creates in flight together would post two check runs.
   private checkSyncs: Promise<void> = Promise.resolve();
+  // Check syncs this instance has yet to finish: a commit's own, until its effects are done, and a
+  // retry's. While one is owed a retry is not needed, and would wait on GitHub behind it.
+  private checksOwed = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -75,10 +87,17 @@ export class RunDO extends DurableObject<Env> {
     return (await this.authorize(agentId, nonce)) !== undefined;
   }
 
-  // Null for a runner that should not start: it has the wrong nonce or the agent no longer matters.
-  async brief(agentId: string, nonce: string): Promise<AgentBrief | null> {
-    const state = await this.admit(agentId, nonce);
-    return typeof state === "string" ? null : briefOf(state, agentId, config);
+  // The brief for a job GitHub has started, whose clocks start here; a refusal for a runner that
+  // should not start, because it has the wrong nonce or the agent no longer matters.
+  async brief(
+    agentId: string,
+    nonce: string,
+    job: { githubRunId: string; jobUrl: string },
+  ): Promise<AgentBrief | "forbidden" | Gone> {
+    const admitted = await this.admit(agentId, nonce);
+    if (admitted === "forbidden" || "gone" in admitted) return admitted;
+    await this.step((s, now) => onBriefed(s, agentId, now, job));
+    return briefOf(admitted, agentId, config);
   }
 
   async events(
@@ -88,7 +107,7 @@ export class RunDO extends DurableObject<Env> {
     jobUrl: string,
   ): Promise<Report> {
     const admitted = await this.admit(agentId, nonce);
-    if (typeof admitted === "string") return admitted;
+    if (admitted === "forbidden" || "gone" in admitted) return admitted;
     const lines = events.flatMap((event) => {
       const line = this.appendLog({
         agentId,
@@ -112,7 +131,7 @@ export class RunDO extends DurableObject<Env> {
     raw: unknown,
   ): Promise<Report | { invalid: string }> {
     const state = await this.admit(agentId, nonce);
-    if (typeof state === "string") return state;
+    if (state === "forbidden" || "gone" in state) return state;
     const { role, prefix, headSha } = briefOf(state, agentId, config);
     let verdict: Verdict;
     try {
@@ -128,7 +147,7 @@ export class RunDO extends DurableObject<Env> {
 
   async failure(agentId: string, nonce: string, reason: string): Promise<Report> {
     const admitted = await this.admit(agentId, nonce);
-    if (typeof admitted === "string") return admitted;
+    if (admitted === "forbidden" || "gone" in admitted) return admitted;
     await this.step((s, now) => onFailure(s, agentId, reason, now));
     return "accepted";
   }
@@ -141,6 +160,14 @@ export class RunDO extends DurableObject<Env> {
 
   async stop(reason: string): Promise<void> {
     await this.step((s, now) => stopRun(s, reason, now));
+  }
+
+  async land(mergeSha: string): Promise<void> {
+    await this.step((s, now) => landRun(s, mergeSha, now));
+  }
+
+  async retitle(title: string): Promise<void> {
+    await this.step((s, now) => onRetitled(s, title, now));
   }
 
   async view(): Promise<{ run: RunSnapshot; log: LogLine[] } | null> {
@@ -195,12 +222,14 @@ export class RunDO extends DurableObject<Env> {
   }
 
   // The run, if the caller is the agent and the run still wants its reports.
-  private async admit(agentId: string, nonce: string): Promise<RunState | "forbidden" | "gone"> {
+  private async admit(agentId: string, nonce: string): Promise<RunState | "forbidden" | Gone> {
     if (!(await this.authorize(agentId, nonce))) return "forbidden";
     await this.retryPending();
     // Reread: a stop may have landed while the nonce check or the index write awaited.
     const state = await this.loaded();
-    return acceptsReports(state, agentId) ? state : "gone";
+    if (acceptsReports(state, agentId)) return state;
+    // The nonce matched, so the run has the agent.
+    return { gone: state.agents.find((agent) => agent.id === agentId)!.status };
   }
 
   // Applies one machine step to the stored state. It rereads first: anything that awaited I/O
@@ -213,11 +242,25 @@ export class RunDO extends DurableObject<Env> {
     if (transition.state !== state) await this.commit(transition);
   }
 
+  // The state goes in with the marks for the writes it owes, and the alarm is armed before any
+  // is made, so a reset at any point leaves them to be retried.
   private async commit({ state, effects }: Transition): Promise<void> {
-    await this.ctx.storage.put(STATE_KEY, state);
-    // Before the effects: one may commit a newer state, whose alarm must be the one left set.
-    await this.arm(state);
-    for (const effect of effects) await this.execute(effect);
+    const revision = crypto.randomUUID();
+    const owes = (type: Effect["type"]) => effects.some((effect) => effect.type === type);
+    const owesCheck = owes("check");
+    if (owesCheck) this.checksOwed++;
+    try {
+      await this.ctx.storage.put({
+        [STATE_KEY]: state,
+        ...(owes("index") ? { [INDEX_PENDING_KEY]: revision } : {}),
+        ...(owesCheck ? { [CHECK_PENDING_KEY]: revision } : {}),
+      });
+      // Before the effects: one may commit a newer state, whose alarm must be the one left set.
+      await this.arm(state);
+      for (const effect of effects) await this.execute(effect);
+    } finally {
+      if (owesCheck) this.checksOwed--;
+    }
   }
 
   // The machine's next deadline, pulled in to the retry delay while an index or check write is
@@ -232,41 +275,46 @@ export class RunDO extends DurableObject<Env> {
     else await this.ctx.storage.setAlarm(Math.min(...times));
   }
 
-  // Once a run is over nothing else would write its index row again, so a failed write is
-  // remembered and retried by the alarm and by the next call into the run.
+  // Writes the run's index row while a mark says one is owed. Once a run is over nothing else
+  // would write it again, so the mark stays until the row and the lobby's copy of it have gone
+  // out; the alarm and the next call into the run retry it.
   private async index(): Promise<void> {
-    const state = await this.loaded();
-    // Cleared before the write and set again if it fails: a failure overlapping another write
-    // is never forgotten.
-    await this.ctx.storage.delete(INDEX_PENDING_KEY);
-    const snapshot = snapshotOf(state);
-    let written = true;
+    // Read before the state: a commit after this read sets the mark again.
+    const revision = await this.ctx.storage.get(INDEX_PENDING_KEY);
+    if (revision === undefined) return;
+    const snapshot = snapshotOf(await this.loaded());
     try {
       await upsertRun(this.env.DB, snapshot);
+      // An open runs list hears of the run only from the lobby.
+      if (await announce(this.env, summaryOf(snapshot))) {
+        await this.settle(INDEX_PENDING_KEY, revision);
+      }
     } catch (error) {
-      written = false;
       console.error(`run index write failed: ${error instanceof Error ? error.message : error}`);
-      await this.ctx.storage.put(INDEX_PENDING_KEY, true);
     }
     await this.arm(await this.loaded());
-    if (written) await announce(this.env, summaryOf(snapshot));
   }
 
-  private async retryIndex(): Promise<void> {
-    if (await this.ctx.storage.get(INDEX_PENDING_KEY)) await this.index();
+  // Clears a mark once its write has gone out, unless a newer commit has set it since.
+  private async settle(key: string, revision: unknown): Promise<void> {
+    if ((await this.ctx.storage.get(key)) === revision) await this.ctx.storage.delete(key);
   }
 
   private async retryPending(): Promise<void> {
-    await this.retryIndex();
+    await this.index();
     await this.retryCheck();
   }
 
-  // Rechecked when its turn comes: a sync queued ahead of it may already have sent the state.
   private async retryCheck(): Promise<void> {
-    if (!(await this.ctx.storage.get(CHECK_PENDING_KEY))) return;
-    await this.queueCheck(async () => {
-      if (await this.ctx.storage.get(CHECK_PENDING_KEY)) await this.syncCheck();
-    });
+    if ((await this.ctx.storage.get(CHECK_PENDING_KEY)) === undefined || this.checksOwed > 0) {
+      return;
+    }
+    this.checksOwed++;
+    try {
+      await this.queueCheck(() => this.syncCheck());
+    } finally {
+      this.checksOwed--;
+    }
   }
 
   private queueCheck(task: () => Promise<void>): Promise<void> {
@@ -301,38 +349,60 @@ export class RunDO extends DurableObject<Env> {
       case "check":
         await this.queueCheck(() => this.syncCheck());
         return;
+      case "cancel":
+        await this.cancel(effect.agentId);
+        return;
     }
   }
 
-  // Sends the run's current state to its check run, creating it the first time. Like the index, a
-  // failed write is logged and remembered, and the alarm or the next call into the run retries it:
-  // the last change of a run has no later check effect to send it.
+  // Sends the run's current state to its check run, creating it the first time, while a mark says
+  // a sync is owed. Like the index, the mark stays until GitHub has taken the write, and the alarm
+  // or the next call into the run retries it: the last change of a run has no later check effect
+  // to send it.
   private async syncCheck(): Promise<void> {
-    await this.ctx.storage.delete(CHECK_PENDING_KEY);
+    const revision = await this.ctx.storage.get(CHECK_PENDING_KEY);
+    if (revision === undefined) return;
     try {
       const state = await this.loaded();
       const body = checkRunOf(state, this.env.PUBLIC_URL);
-      // Built here because the factory throws on a key it cannot use.
-      const github = createGitHubClient({
-        appId: this.env.GITHUB_APP_ID,
-        privateKeyPem: this.env.GITHUB_APP_PRIVATE_KEY,
-        installationId: state.installationId,
-        fetch: (input, init) => fetch(input, init),
-        apiBase: this.env.GITHUB_API,
-      });
+      const github = this.github(state);
       if (state.checkRunId !== undefined) {
         await github.updateCheckRun(state.repo, state.checkRunId, body);
       } else {
         const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
-        // Not through step(): it retries a pending check, which would wait on this queue.
+        // Stored as is: the id has no effects to run, and nothing a viewer sees changes.
         await this.ctx.storage.put(STATE_KEY, onCheckCreated(await this.loaded(), id).state);
       }
+      await this.settle(CHECK_PENDING_KEY, revision);
     } catch (error) {
       // The client's messages carry a status and path only, never a token or key.
       console.error(`check run: ${error instanceof Error ? error.message : String(error)}`);
-      await this.ctx.storage.put(CHECK_PENDING_KEY, true);
     }
     await this.arm(await this.loaded());
+  }
+
+  // Best effort, never retried: a job the cancel misses stops on the 410 its next report gets.
+  private async cancel(agentId: string): Promise<void> {
+    const state = await this.loaded();
+    const githubRunId = state.jobRuns?.[agentId];
+    if (githubRunId === undefined) return;
+    try {
+      await this.github(state).cancelWorkflowRun(this.env.REPO, githubRunId);
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      console.error(`cancelling ${agentId}'s job: ${why}`);
+    }
+  }
+
+  // Built for each call, inside the caller's try: the factory throws on a key it cannot use.
+  private github(state: RunState): GitHubClient {
+    return createGitHubClient({
+      appId: this.env.GITHUB_APP_ID,
+      privateKeyPem: this.env.GITHUB_APP_PRIVATE_KEY,
+      installationId: state.installationId,
+      fetch: (input, init) => fetch(input, init),
+      apiBase: this.env.GITHUB_API,
+    });
   }
 
   private async dispatch(agentId: string): Promise<void> {
@@ -345,14 +415,7 @@ export class RunDO extends DurableObject<Env> {
   // The failure reason, or undefined once GitHub accepted the dispatch.
   private async startWorkflow(state: RunState, agentId: string): Promise<string | undefined> {
     try {
-      // Built here because the factory throws on a key it cannot use.
-      const github = createGitHubClient({
-        appId: this.env.GITHUB_APP_ID,
-        privateKeyPem: this.env.GITHUB_APP_PRIVATE_KEY,
-        installationId: state.installationId,
-        fetch: (input, init) => fetch(input, init),
-        apiBase: this.env.GITHUB_API,
-      });
+      const github = this.github(state);
       await github.dispatchWorkflow(this.env.REPO, this.env.AGENT_WORKFLOW, state.defaultBranch, {
         run_id: state.id,
         agent_id: agentId,

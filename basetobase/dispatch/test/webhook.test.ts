@@ -5,10 +5,12 @@ import { prPayload, prRef, sign } from "./helpers.ts";
 const ID = { owner: "aghchan", repo: "aghchan/simplegoapp" };
 const enc = (text: string): ArrayBuffer => new TextEncoder().encode(text).slice().buffer;
 const MALFORMED = { kind: "ignore", reason: "payload" };
+const closed = () => prPayload({ action: "closed" });
 
-// The default payload with the field at a dotted path replaced; undefined removes it.
-function tamper(path: string, value: unknown): unknown {
-  const payload = structuredClone(prPayload());
+// The payload (the default one unless given) with the field at a dotted path replaced; undefined
+// removes it.
+function tamper(path: string, value: unknown, base: unknown = prPayload()): unknown {
+  const payload = structuredClone(base) as Record<string, unknown>;
   const keys = path.split(".");
   const last = keys.pop() as string;
   let node: Record<string, unknown> = payload;
@@ -86,10 +88,14 @@ describe("toTrigger", () => {
       branch: "claude/orders-cancel",
       headSha: "head58",
       baseSha: "base58",
+      baseRef: "main",
+      draft: false,
       defaultBranch: "main",
       author: "aghchan",
       installationId: 7,
     }));
+  it("a plain start is no retarget", () =>
+    expect(toTrigger("pull_request", prPayload(), ID)).toMatchObject({ retarget: false }));
   it("ready_for_review starts", () =>
     expect(toTrigger("pull_request", prPayload({ action: "ready_for_review" }), ID).kind).toBe(
       "start",
@@ -103,11 +109,17 @@ describe("toTrigger", () => {
     }));
   it("dispatches from the repository default branch, not the PR target branch", () => {
     const t = toTrigger("pull_request", tamper("pull_request.base.ref", "release"), ID);
-    expect(t).toMatchObject({ kind: "start", pr: { defaultBranch: "main" } });
+    expect(t).toMatchObject({ kind: "start", pr: { defaultBranch: "main", baseRef: "release" } });
   });
+  // The route reads the PR's live state: a draft's push still supersedes the old head's runs.
+  it.each(["opened", "synchronize"])("a draft's %s starts, carrying the flag", (action) =>
+    expect(toTrigger("pull_request", prPayload({ action, draft: true }), ID)).toMatchObject({
+      kind: "start",
+      pr: { draft: true },
+    }),
+  );
 
   it.each([
-    ["draft", { draft: true }],
     ["fork", { headRepo: "eve/simplegoapp" }],
     ["author", { author: "eve" }],
     ["repo", { repo: "aghchan/other" }],
@@ -119,46 +131,110 @@ describe("toTrigger", () => {
       kind: "ignore",
       reason: "fork",
     }));
-  it("checks the repo before the fork, author and draft", () => {
-    const over = { repo: "aghchan/other", author: "eve", draft: true };
+  it("checks the repo before the fork and the author", () => {
+    const over = { repo: "aghchan/other", author: "eve", headRepo: "eve/other" };
     expect(toTrigger("pull_request", prPayload(over), ID)).toEqual({
       kind: "ignore",
       reason: "repo",
     });
   });
 
-  it("closed stops", () =>
-    expect(toTrigger("pull_request", prPayload({ action: "closed" }), ID)).toEqual({
-      kind: "stop",
+  it("closed asks the route to look, with the installation to look with", () =>
+    expect(toTrigger("pull_request", closed(), ID)).toEqual({
+      kind: "closed",
       repo: ID.repo,
       prNumber: 58,
+      installationId: 7,
     }));
-  it("a close in another repo never addresses this repo", () =>
+  // A late delivery may describe a PR that has since been reopened, so GitHub is read instead.
+  it.each([true, false])("closed leaves the payload's merged (%s) out", (merged) =>
+    expect(toTrigger("pull_request", tamper("pull_request.merged", merged, closed()), ID)).toEqual(
+      toTrigger("pull_request", closed(), ID),
+    ),
+  );
+  it("a close in another repo is ignored", () =>
     expect(
       toTrigger("pull_request", prPayload({ action: "closed", repo: "aghchan/other" }), ID),
-    ).toEqual({ kind: "stop", repo: "aghchan/other", prNumber: 58 }));
-  it("closed needs only the repo and the number", () => {
+    ).toEqual({ kind: "ignore", reason: "repo" }));
+  // Deleting the head repository closes the PR, and its run must still hear of it.
+  it.each([
+    ["a fork", { headRepo: "eve/simplegoapp" }],
+    ["another author", { author: "eve" }],
+  ])("a close of %s still asks the route to look", (_label, over) =>
+    expect(toTrigger("pull_request", prPayload({ action: "closed", ...over }), ID)).toMatchObject({
+      kind: "closed",
+    }),
+  );
+  it("closed needs only the repo, the number and the installation", () => {
     const payload = {
       action: "closed",
+      installation: { id: 7 },
       repository: { full_name: ID.repo },
       pull_request: { number: 58 },
     };
     expect(toTrigger("pull_request", payload, ID)).toEqual({
-      kind: "stop",
+      kind: "closed",
       repo: ID.repo,
       prNumber: 58,
+      installationId: 7,
     });
   });
   it("synchronize starts, like opened", () =>
     expect(toTrigger("pull_request", prPayload({ action: "synchronize" }), ID)).toEqual(
       toTrigger("pull_request", prPayload(), ID),
     ));
-  it("synchronize on a draft is ignored", () =>
-    expect(
-      toTrigger("pull_request", prPayload({ action: "synchronize", draft: true }), ID),
-    ).toEqual({ kind: "ignore", reason: "draft" }));
-  it("edited is ignored", () =>
-    expect(toTrigger("pull_request", prPayload({ action: "edited" }), ID)).toEqual({
+
+  describe("edited", () => {
+    const edited = (changes: unknown, over: Record<string, unknown> = {}) =>
+      tamper("changes", changes, prPayload({ action: "edited", ...over }));
+    const base = { ref: { from: "feat-a" }, sha: { from: "basefeat" } };
+    const title = { from: "orders: cancel" };
+
+    // The head's check vouched for another diff: a fresh sweep, even on the same head.
+    it("a new base starts a retarget", () =>
+      expect(toTrigger("pull_request", edited({ base }), ID)).toEqual({
+        kind: "start",
+        pr: prRef(),
+        retarget: true,
+      }));
+    it("a new title retitles the PR's runs", () =>
+      expect(toTrigger("pull_request", edited({ title }), ID)).toEqual({
+        kind: "retitle",
+        repo: ID.repo,
+        prNumber: 58,
+        title: "orders: add cancel endpoint",
+      }));
+    // The new run takes its title from the event.
+    it("a new base and title is a retarget", () =>
+      expect(toTrigger("pull_request", edited({ base, title }), ID)).toMatchObject({
+        kind: "start",
+        retarget: true,
+      }));
+    it.each([
+      ["only a new body", { body: { from: "old" } }],
+      ["no changes", {}],
+      ["no changes object", undefined],
+    ])("%s is ignored", (_label, changes) =>
+      expect(toTrigger("pull_request", edited(changes), ID)).toEqual({
+        kind: "ignore",
+        reason: "action",
+      }),
+    );
+    it.each([
+      ["fork", { headRepo: "eve/simplegoapp" }],
+      ["author", { author: "eve" }],
+      ["repo", { repo: "aghchan/other" }],
+    ])("a retitle filters by %s, as a start does", (reason, over) =>
+      expect(toTrigger("pull_request", edited({ title }, over), ID)).toEqual({
+        kind: "ignore",
+        reason,
+      }),
+    );
+  });
+
+  // Without a push the run's head is still the PR's; the cron's reconcile stops it.
+  it("converted_to_draft is ignored", () =>
+    expect(toTrigger("pull_request", prPayload({ action: "converted_to_draft" }), ID)).toEqual({
       kind: "ignore",
       reason: "action",
     }));
@@ -188,6 +264,7 @@ describe("toTrigger", () => {
       "pull_request.head.ref",
       "pull_request.head.sha",
       "pull_request.base.sha",
+      "pull_request.base.ref",
       "pull_request.user.login",
       "pull_request.draft",
     ])("ignores a payload without %s", (path) =>
@@ -217,6 +294,10 @@ describe("toTrigger", () => {
         { action: "closed", repository: { full_name: ID.repo }, pull_request: { number: "58" } },
       ],
       ["no repository", { action: "closed", pull_request: { number: 58 } }],
+      [
+        "no installation",
+        { action: "closed", repository: { full_name: ID.repo }, pull_request: { number: 58 } },
+      ],
     ])("ignores a close with %s", (_label, payload) =>
       expect(toTrigger("pull_request", payload, ID)).toEqual(MALFORMED),
     );

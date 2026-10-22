@@ -1,8 +1,9 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import type { JWTVerifyGetKey } from "jose";
 import type { AgentEvent, EventKind } from "../../../shared/src/types.ts";
 import { verifyAgentToken } from "../auth/oidc.ts";
-import type { Report } from "../run/do.ts";
+import type { Gone, Report } from "../run/do.ts";
 import { runStub } from "../runs/index.ts";
 import { readBody, readJsonObject, reject } from "./request.ts";
 
@@ -54,8 +55,10 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
 
   routes.get("/brief", async (c) => {
     const { runId, agentId, nonce } = identify(c.req.query());
-    const brief = await runStub(c.env, runId).brief(agentId, nonce);
-    if (!brief) reject(403, FORBIDDEN);
+    const githubRunId = c.get("githubRunId");
+    const job = { githubRunId, jobUrl: jobUrlOf(c.env, githubRunId) };
+    const brief = await runStub(c.env, runId).brief(agentId, nonce, job);
+    if (brief === "forbidden" || "gone" in brief) refuse(brief);
     return c.json(brief);
   });
 
@@ -63,8 +66,7 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     const body = await readJsonObject(c.req.raw, JSON_MAX_BYTES);
     const { runId, agentId, nonce } = identify(body);
     const events = parseEvents(body.events);
-    // From the verified token, so the dashboard never links to a page the agent chose.
-    const jobUrl = `https://github.com/${c.env.REPO}/actions/runs/${c.get("githubRunId")}`;
+    const jobUrl = jobUrlOf(c.env, c.get("githubRunId"));
     refuseUnlessAccepted(await runStub(c.env, runId).events(agentId, nonce, events, jobUrl));
     return c.body(null, 204);
   });
@@ -74,7 +76,9 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     const { runId, agentId, nonce } = identify(body);
     // The run checks the nonce, then whether it still wants the verdict, and only then reads it.
     const result = await runStub(c.env, runId).verdict(agentId, nonce, body.verdict);
-    if (typeof result === "object") return c.json({ error: result.invalid }, 422);
+    if (typeof result === "object" && "invalid" in result) {
+      return c.json({ error: result.invalid }, 422);
+    }
     refuseUnlessAccepted(result);
     return c.body(null, 204);
   });
@@ -105,10 +109,21 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
   return routes;
 }
 
-// The forwarder takes 410 as its cue to stop claude, since nothing more it sends will be used.
+// From the verified token, so the dashboard never links to a page the agent chose.
+function jobUrlOf(env: Env, githubRunId: string): string {
+  return `https://github.com/${env.REPO}/actions/runs/${githubRunId}`;
+}
+
 function refuseUnlessAccepted(report: Report): void {
-  if (report === "forbidden") reject(403, FORBIDDEN);
-  if (report === "gone") reject(410, NO_LONGER_WANTED);
+  if (report !== "accepted") refuse(report);
+}
+
+// The forwarder takes 410 as its cue to stop claude, since nothing more it sends will be used,
+// and ends its job by the agent's status.
+function refuse(refusal: "forbidden" | Gone): never {
+  if (refusal === "forbidden") reject(403, FORBIDDEN);
+  const body = { error: NO_LONGER_WANTED, agent: refusal.gone };
+  throw new HTTPException(410, { res: Response.json(body, { status: 410 }) });
 }
 
 function identify(source: Record<string, unknown>) {

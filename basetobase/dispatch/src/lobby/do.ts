@@ -35,11 +35,14 @@ export function lobbyStub(env: Env): DurableObjectStub<LobbyDO> {
   return env.LOBBY.get(env.LOBBY.idFromName("lobby"));
 }
 
-// Never throws: a lobby that is down must not fail the run that reported.
-export async function announce(env: Env, run: RunSummary): Promise<void> {
+// Never throws: a lobby that is down must not fail the run that reported. False when the lobby
+// did not hear it, so the caller can send it again.
+export async function announce(env: Env, run: RunSummary): Promise<boolean> {
   try {
     await lobbyStub(env).summary(run);
+    return true;
   } catch (error) {
     console.error(`lobby notify failed: ${error instanceof Error ? error.message : error}`);
+    return false;
   }
 }

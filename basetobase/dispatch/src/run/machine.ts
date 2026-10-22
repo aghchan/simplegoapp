@@ -20,6 +20,8 @@ import type { PullRequestRef } from "../github/webhook.ts";
 
 export const STALL_MS = 600_000;
 export const AGENT_TIMEOUT_MS = 1_800_000;
+// From dispatch to the brief: GitHub's queue and the job's setup.
+export const JOB_START_MS = 1_800_000;
 // Branch protection on main requires a check of this name.
 export const CHECK_NAME = "Base to Base";
 // GitHub refuses a summary over 65 535 characters.
@@ -37,16 +39,20 @@ export interface RunState extends Omit<RunSnapshot, "outcome"> {
   stalledLogged: string[];
   // The run's check run on the PR head, once GitHub has created it.
   checkRunId?: number;
+  // Each briefed agent's GitHub Actions run, so a stop or a merge can cancel its job.
+  jobRuns?: Record<string, string>;
 }
 
-// "check" mirrors the run's current state onto its check run. It comes last, so GitHub never
-// holds up the run's own work or the dashboard.
+// "check" mirrors the run's current state onto its check run. It comes after the run's own work
+// and the dashboard, so GitHub never holds them up. "cancel" asks GitHub to cancel an agent's job;
+// best effort, it comes after the check.
 export type Effect =
   | { type: "dispatch"; agentId: string }
   | { type: "log"; text: string }
   | { type: "index" }
   | { type: "broadcast" }
-  | { type: "check" };
+  | { type: "check" }
+  | { type: "cancel"; agentId: string };
 
 export interface Transition {
   state: RunState;
@@ -160,11 +166,34 @@ export function onEvents(
   const patch: Partial<AgentSnapshot> = {
     status: "running",
     lastEventAt: now,
-    // The watchdog clocks run from dispatch, so an agent that skipped onDispatched needs one.
+    // An agent whose events beat its dispatch result was dispatched all the same.
     dispatchedAt: agent.dispatchedAt ?? now,
   };
   if (!agent.jobUrl && jobUrl) patch.jobUrl = jobUrl;
   return broadcast(patchAgent(s, agentId, patch, now));
+}
+
+// The agent's job has reached Dispatch, so GitHub has started it: its clocks run from here. A
+// re-run of the job is a fresh attempt, so its clocks start again.
+export function onBriefed(
+  s: RunState,
+  agentId: string,
+  now: number,
+  job: { githubRunId: string; jobUrl: string },
+): Transition {
+  const agent = liveAgent(s, agentId);
+  if (!agent) return unchanged(s);
+  const { lastEventAt: _, ...rest } = agent;
+  const briefed: AgentSnapshot = {
+    ...rest,
+    briefedAt: now,
+    // Watched for a stall again; it was the last attempt that went quiet.
+    status: agent.status === "stalled" ? "running" : agent.status,
+  };
+  if (!agent.jobUrl && job.jobUrl) briefed.jobUrl = job.jobUrl;
+  const agents = s.agents.map((candidate) => (candidate.id === agentId ? briefed : candidate));
+  const jobRuns = { ...s.jobRuns, [agentId]: job.githubRunId };
+  return broadcast({ ...s, agents, jobRuns, updatedAt: now });
 }
 
 export function onVerdict(s: RunState, agentId: string, v: Verdict, now: number): Transition {
@@ -197,6 +226,7 @@ export function onTranscript(s: RunState, agentId: string): Transition {
 export function onTick(s: RunState, now: number): Transition {
   if (s.status !== "on_the_hill") return unchanged(s);
   let next = s;
+  let failures = 0;
   const logs: Effect[] = [];
   for (const agent of s.agents) {
     const due = deadlinesOf(agent, s.createdAt).find((deadline) => now >= deadline.at);
@@ -205,34 +235,76 @@ export function onTick(s: RunState, now: number): Transition {
       due.failure === undefined
         ? stalled(next, agent.id, now)
         : failed(next, agent.id, due.failure, now);
+    if (due.failure !== undefined) failures++;
     next = change.state;
     logs.push(...change.effects);
   }
   if (next === s) return unchanged(s);
+  // A stall shows on the dashboard only: the check has nothing new to say.
+  if (failures === 0) return { state: next, effects: [...logs, { type: "broadcast" }] };
   return closeSweepIfDone(next, now, logs);
 }
 
-// Jobs are not cancelled through GitHub: a running agent stops on the 410 its next report gets,
-// and a queued one is refused its brief.
+// A stopped run's live jobs are cancelled on GitHub. One GitHub has yet to start is refused its
+// brief, and one the cancel misses stops on the 410 its next report gets.
 export function stopRun(s: RunState, reason: string, now: number): Transition {
-  if (s.status !== "on_the_hill") return unchanged(s);
   const stopped = `stopped · ${reason}`;
-  const steps = s.steps.map(
-    (step): StepSnapshot =>
-      step.status === "active" ? { ...step, status: "stopped", finishedAt: now } : step,
-  );
-  const agents = s.agents.map((agent): AgentSnapshot => {
-    if (isTerminal(agent)) return agent;
-    return { ...agent, status: "stopped", summary: stopped, finishedAt: now };
-  });
+  // Its agents are all in. The sweep's conclusion on GitHub stands, so the check is left alone.
+  if (s.status === "swept") {
+    return {
+      state: { ...s, status: "stopped", updatedAt: now },
+      effects: [{ type: "log", text: stopped }, { type: "index" }, { type: "broadcast" }],
+    };
+  }
+  if (s.status !== "on_the_hill") return unchanged(s);
+  const { state, cancels } = halted(s, stopped, now);
   return {
-    state: { ...s, status: "stopped", steps, agents, updatedAt: now },
+    state: { ...state, status: "stopped" },
     effects: [
       { type: "log", text: stopped },
       { type: "index" },
       { type: "broadcast" },
       { type: "check" },
+      ...cancels,
     ],
+  };
+}
+
+// GitHub merged the PR on the run's head. Until M4 deploys, that is the end of the line.
+export function landRun(s: RunState, mergeSha: string, now: number): Transition {
+  if (s.status === "landed") return unchanged(s);
+  const sha7 = mergeSha.slice(0, 7);
+  const { state: halt, cancels } = halted(s, "stopped · PR merged", now);
+  let state: RunState = { ...halt, status: "landed", mergeSha };
+  state = skipIfPending(state, "huddle", "No huddle until M3.");
+  state = skipIfPending(state, "summit", "No summit check until M4.");
+  state = patchStep(state, "drop_in", {
+    status: "done",
+    startedAt: now,
+    finishedAt: now,
+    notes: [`Merged on GitHub as ${sha7}.`],
+  });
+  state = patchStep(state, "send_it", { status: "skipped", notes: ["Deploy is manual until M4."] });
+  // Merged mid-review, the check still reads in progress. A finished sweep's conclusion stands.
+  const check: Effect[] = reviewOutcome(state) === "pending" ? [{ type: "check" }] : [];
+  return {
+    state,
+    effects: [
+      { type: "log", text: `landed · merged as ${sha7}` },
+      { type: "index" },
+      { type: "broadcast" },
+      ...check,
+      ...cancels,
+    ],
+  };
+}
+
+// The PR's title changed on GitHub. The goal stays as the agents were briefed.
+export function onRetitled(s: RunState, title: string, now: number): Transition {
+  if (s.prTitle === title) return unchanged(s);
+  return {
+    state: { ...s, prTitle: title, updatedAt: now },
+    effects: [{ type: "index" }, { type: "broadcast" }],
   };
 }
 
@@ -247,11 +319,14 @@ export function checkRunOf(s: RunState, publicUrl: string): CheckRunBody {
   const details = `${publicUrl}/runs/${s.id}`;
   const base = { name: CHECK_NAME, details_url: details };
   const output = (title: string) => ({ title, summary: checkSummary(s, details) });
-  // Its sweep never finished, so its outcome is pending; the check must still end.
-  if (s.status === "stopped") {
-    return { ...base, status: "completed", conclusion: "cancelled", output: output("Stopped") };
+  const outcome = reviewOutcome(s);
+  // The review will never finish, so its outcome stays pending; the check must still end. A
+  // finished sweep keeps its conclusion whatever became of the run.
+  if (outcome === "pending" && (s.status === "stopped" || s.status === "landed")) {
+    const title = s.status === "landed" ? "Merged before the review finished" : "Stopped";
+    return { ...base, status: "completed", conclusion: "cancelled", output: output(title) };
   }
-  switch (reviewOutcome(s)) {
+  switch (outcome) {
     case "pending":
       return { ...base, status: "in_progress", output: output(`${s.runName} · patrol sweep`) };
     // Neutral passes the required check, as for an unpatrolled PR, but never reads as a success.
@@ -314,6 +389,7 @@ export function snapshotOf(s: RunState): RunSnapshot {
     goal: s.goal,
     status: s.status,
     outcome,
+    ...(s.mergeSha === undefined ? {} : { mergeSha: s.mergeSha }),
     steps: s.steps.map((step) => (step.id === "sweep" ? { ...step, outcome } : step)),
     agents: s.agents,
     createdAt: s.createdAt,
@@ -353,17 +429,22 @@ function liveAgent(s: RunState, id: string): AgentSnapshot | undefined {
   return agent && !isTerminal(agent) ? agent : undefined;
 }
 
-// When onTick must act on the agent, most severe first.
+// When onTick must act on the agent, most severe first. The brief comes first: a job briefed
+// before its dispatch result came in is running all the same.
 function deadlinesOf(agent: AgentSnapshot, createdAt: number): Deadline[] {
   if (isTerminal(agent)) return [];
+  if (agent.briefedAt !== undefined) {
+    const timeout = { at: agent.briefedAt + AGENT_TIMEOUT_MS, failure: "timed out" };
+    // A stall already applied must not be scheduled again, or its alarm would re-fire forever.
+    if (agent.status === "stalled") return [timeout];
+    return [timeout, { at: (agent.lastEventAt ?? agent.briefedAt) + STALL_MS }];
+  }
   // A lost dispatch result (the Durable Object can reset mid-call) would leave it queued forever.
   if (agent.dispatchedAt === undefined) {
     return [{ at: createdAt + STALL_MS, failure: "never dispatched" }];
   }
-  const timeout = { at: agent.dispatchedAt + AGENT_TIMEOUT_MS, failure: "timed out" };
-  // A stall already applied must not be scheduled again, or its alarm would re-fire forever.
-  if (agent.status === "stalled") return [timeout];
-  return [timeout, { at: (agent.lastEventAt ?? agent.dispatchedAt) + STALL_MS }];
+  // Time in GitHub's queue is not the agent's: nothing stalls before the brief.
+  return [{ at: agent.dispatchedAt + JOB_START_MS, failure: "job never started on GitHub" }];
 }
 
 function unchanged(s: RunState): Transition {
@@ -386,6 +467,30 @@ function patchAgent(
 
 function patchStep(s: RunState, id: StepId, patch: Partial<StepSnapshot>): RunState {
   return { ...s, steps: s.steps.map((step) => (step.id === id ? { ...step, ...patch } : step)) };
+}
+
+function skipIfPending(s: RunState, id: StepId, note: string): RunState {
+  const step = s.steps.find((candidate) => candidate.id === id);
+  if (step?.status !== "pending") return s;
+  return patchStep(s, id, { status: "skipped", notes: [note] });
+}
+
+// The agents still out stopped with `summary`, the step they were on with them, and a cancel for
+// each of their jobs GitHub has started.
+function halted(s: RunState, summary: string, now: number): { state: RunState; cancels: Effect[] } {
+  const steps = s.steps.map(
+    (step): StepSnapshot =>
+      step.status === "active" ? { ...step, status: "stopped", finishedAt: now } : step,
+  );
+  const live = s.agents.filter((agent) => !isTerminal(agent));
+  const agents = s.agents.map((agent): AgentSnapshot => {
+    if (isTerminal(agent)) return agent;
+    return { ...agent, status: "stopped", summary, finishedAt: now };
+  });
+  const cancels = live
+    .filter((agent) => s.jobRuns?.[agent.id] !== undefined)
+    .map((agent): Effect => ({ type: "cancel", agentId: agent.id }));
+  return { state: { ...s, steps, agents, updatedAt: now }, cancels };
 }
 
 function failed(s: RunState, id: string, reason: string, now: number): Transition {
@@ -469,10 +574,11 @@ function counted(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-// `earned` are the effects the caller's own change produced; they come first.
+// `earned` are the effects the caller's own change produced; they come first. An agent's report
+// changes the check's tally even while the sweep is open.
 function closeSweepIfDone(s: RunState, now: number, earned: Effect[] = []): Transition {
   const swept = sweptState(s, now);
-  if (!swept) return { state: s, effects: [...earned, { type: "broadcast" }] };
+  if (!swept) return { state: s, effects: [...earned, { type: "broadcast" }, { type: "check" }] };
   const sweeps = swept.agents.filter((agent) => agent.step === "sweep");
   const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
   // A sweep with errors must not read as clean: an agent that never reported found no hazards.

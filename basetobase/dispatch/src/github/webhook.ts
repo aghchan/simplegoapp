@@ -7,14 +7,21 @@ export interface PullRequestRef {
   branch: string;
   headSha: string;
   baseSha: string;
+  // The branch the PR merges into.
+  baseRef: string;
+  // As the event saw it. The routes act on the PR's live state instead.
+  draft: boolean;
   defaultBranch: string;
   author: string;
   installationId: number;
 }
 
+// "closed" carries no PR state: a late delivery may describe a PR since reopened, so the route
+// reads GitHub. `retarget`: the PR's base changed, so a run on its head reviewed another diff.
 export type Trigger =
-  | { kind: "start"; pr: PullRequestRef }
-  | { kind: "stop"; repo: string; prNumber: number }
+  | { kind: "start"; pr: PullRequestRef; retarget: boolean }
+  | { kind: "closed"; repo: string; prNumber: number; installationId: number }
+  | { kind: "retitle"; repo: string; prNumber: number; title: string }
   | { kind: "ignore"; reason: string };
 
 interface Identity {
@@ -62,24 +69,31 @@ function pullRequestTrigger(payload: Fields, id: Identity): Trigger {
   const pull = fields(payload.pull_request);
   if (action === "closed") {
     const repo = text(fields(payload.repository).full_name);
-    return { kind: "stop", repo, prNumber: positiveInteger(pull.number) };
+    const prNumber = positiveInteger(pull.number);
+    const installationId = positiveInteger(fields(payload.installation).id);
+    // No fork or author filter: deleting the head repository closes the PR too.
+    if (repo !== id.repo) return ignore("repo");
+    return { kind: "closed", repo, prNumber, installationId };
   }
-  if (!STARTING_ACTIONS.includes(action)) return ignore("action");
+  const changes = fields(payload.changes);
+  const retarget = action === "edited" && changes.base !== undefined;
+  const retitle = action === "edited" && !retarget && changes.title !== undefined;
+  if (!STARTING_ACTIONS.includes(action) && !retarget && !retitle) return ignore("action");
 
   const pr = pullRequestRef(payload);
-  const draft = flag(pull.draft);
   if (pr.repo !== id.repo) return ignore("repo");
   // A missing or deleted head repository cannot be shown to be ours, so it counts as a fork.
   if (fields(fields(pull.head).repo).full_name !== pr.repo) return ignore("fork");
   if (pr.author !== id.owner) return ignore("author");
-  if (draft) return ignore("draft");
-  return { kind: "start", pr };
+  if (retitle) return { kind: "retitle", repo: pr.repo, prNumber: pr.number, title: pr.title };
+  return { kind: "start", pr, retarget };
 }
 
 function pullRequestRef(payload: Fields): PullRequestRef {
   const repository = fields(payload.repository);
   const pull = fields(payload.pull_request);
   const head = fields(pull.head);
+  const base = fields(pull.base);
   return {
     repo: text(repository.full_name),
     number: positiveInteger(pull.number),
@@ -89,7 +103,9 @@ function pullRequestRef(payload: Fields): PullRequestRef {
     url: text(pull.html_url),
     branch: text(head.ref),
     headSha: text(head.sha),
-    baseSha: text(fields(pull.base).sha),
+    baseSha: text(base.sha),
+    baseRef: text(base.ref),
+    draft: flag(pull.draft),
     defaultBranch: text(repository.default_branch),
     author: text(fields(pull.user).login),
     installationId: positiveInteger(fields(payload.installation).id),
