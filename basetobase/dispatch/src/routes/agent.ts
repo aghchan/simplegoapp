@@ -88,7 +88,9 @@ export function agentRoutes(getKey: JWTVerifyGetKey): Hono<AgentEnv> {
     const { runId, agentId, nonce } = identify(body);
     if (typeof body.reason !== "string") reject(400, "reason must be a string");
     const reason = body.reason.slice(0, FAILURE_REASON_MAX);
-    refuseUnlessAccepted(await runStub(c.env, runId).failure(agentId, nonce, reason));
+    // The job's failure step may be the first Dispatch hears of a job that died before its brief.
+    const jobUrl = jobUrlOf(c.env, c.get("githubRunId"));
+    refuseUnlessAccepted(await runStub(c.env, runId).failure(agentId, nonce, reason, jobUrl));
     return c.body(null, 204);
   });
 

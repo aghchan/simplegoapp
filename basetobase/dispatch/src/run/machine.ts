@@ -39,6 +39,10 @@ export interface RunState extends Omit<RunSnapshot, "outcome"> {
   stalledLogged: string[];
   // The run's check run on the PR head, once GitHub has created it.
   checkRunId?: number;
+  // Asks to post the check afresh since the last repost was made: GitHub reads the newest check
+  // run of a name, and a run stopped on this run's head may have posted its own after this one's.
+  // A count, so an ask made while a repost is in flight is not lost.
+  checkReposts?: number;
   // Each briefed agent's GitHub Actions run, so a stop or a merge can cancel its job.
   jobRuns?: Record<string, string>;
 }
@@ -207,10 +211,20 @@ export function onVerdict(s: RunState, agentId: string, v: Verdict, now: number)
   return closeSweepIfDone(reported, now);
 }
 
-export function onFailure(s: RunState, agentId: string, reason: string, now: number): Transition {
-  if (!liveAgent(s, agentId)) return unchanged(s);
+// `jobUrl`: the job that reported it. A job that failed before its brief has no link yet.
+export function onFailure(
+  s: RunState,
+  agentId: string,
+  reason: string,
+  now: number,
+  jobUrl = "",
+): Transition {
+  const agent = liveAgent(s, agentId);
+  if (!agent) return unchanged(s);
   const failure = failed(s, agentId, reason, now);
-  return closeSweepIfDone(failure.state, now, failure.effects);
+  const linked =
+    !agent.jobUrl && jobUrl ? patchAgent(failure.state, agentId, { jobUrl }, now) : failure.state;
+  return closeSweepIfDone(linked, now, failure.effects);
 }
 
 // Unlike the other handlers this ignores the run's and the agent's status: runners upload their
@@ -312,6 +326,45 @@ export function onRetitled(s: RunState, title: string, now: number): Transition 
 export function onCheckCreated(s: RunState, id: number): Transition {
   if (s.checkRunId !== undefined) return unchanged(s);
   return { state: { ...s, checkRunId: id }, effects: [] };
+}
+
+// A run stopped on this run's head may have posted its check after this one's. Only an open run
+// still speaks for the head. Takes no clock: nothing a viewer sees changes.
+export function askCheckRepost(s: RunState): Transition {
+  if (s.status !== "on_the_hill" && s.status !== "swept") return unchanged(s);
+  return { state: { ...s, checkReposts: (s.checkReposts ?? 0) + 1 }, effects: [{ type: "check" }] };
+}
+
+// The repost made for `asked` asks has created check run `id`. Later asks stay owed: their stop
+// may have posted after it. Takes no clock.
+export function onCheckReposted(s: RunState, id: number, asked: number): Transition {
+  const { checkReposts, ...rest } = s;
+  const owed = checkReposts === undefined || checkReposts === asked ? {} : { checkReposts };
+  return { state: { ...rest, ...owed, checkRunId: id }, effects: [] };
+}
+
+// Whether a check sync writes anything. A review that ended pending before GitHub created its
+// check gets none: created now, its cancelled check could be newer on the head than the check of
+// the run that replaced it.
+export function wantsCheck(s: RunState): boolean {
+  const ended = s.status === "stopped" || s.status === "landed";
+  return s.checkRunId !== undefined || !ended || reviewOutcome(s) !== "pending";
+}
+
+// The check run a repost replaced. GitHub reads only the newest, so this is for a reader.
+export function replacedCheckOf(s: RunState, publicUrl: string): CheckRunBody {
+  const details = `${publicUrl}/runs/${s.id}`;
+  const link = `[Open ${s.runName} on the dashboard](${details})`;
+  return {
+    name: CHECK_NAME,
+    details_url: details,
+    status: "completed",
+    conclusion: "skipped",
+    output: {
+      title: "Replaced by a newer check run",
+      summary: `${s.runName} posted its check again on this commit.\n\n${link}`,
+    },
+  };
 }
 
 // The check run for the run's current state, without the commit (creating it adds head_sha).

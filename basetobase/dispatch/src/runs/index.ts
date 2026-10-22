@@ -115,18 +115,23 @@ export async function openRunPrs(db: D1Database): Promise<{ repo: string; prNumb
   return results;
 }
 
-// Any run, whatever became of it.
-export async function hasRunOnHead(
+// The PR's runs on the head: "open" while any still speaks for the PR, "ended" once every one has
+// stopped or landed, "none" without a run.
+export async function runsOnHead(
   db: D1Database,
   repo: string,
   prNumber: number,
   headSha: string,
-): Promise<boolean> {
+): Promise<"open" | "ended" | "none"> {
   const row = await db
-    .prepare("SELECT 1 FROM runs WHERE repo = ? AND pr_number = ? AND head_sha = ? LIMIT 1")
+    .prepare(
+      `SELECT MAX(${OPEN}) AS open FROM runs WHERE repo = ? AND pr_number = ? AND head_sha = ?`,
+    )
     .bind(repo, prNumber, headSha)
-    .first();
-  return row !== null;
+    .first<{ open: number | null }>();
+  const open = row?.open ?? null;
+  if (open === null) return "none";
+  return open === 1 ? "open" : "ended";
 }
 
 async function prRuns(

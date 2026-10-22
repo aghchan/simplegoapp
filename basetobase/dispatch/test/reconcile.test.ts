@@ -167,6 +167,44 @@ describe("reconcilePr", () => {
     });
   });
 
+  // GitHub reads the newest check run of a name, and a run stopped on the head may have posted
+  // its cancelled check after the kept run's.
+  describe("a run stopped on the kept run's head", () => {
+    let checkCalls: { method: string; body: Record<string, unknown> }[];
+    const record = (method: string) => async (req: Request) => {
+      checkCalls.push({ method, body: await req.json() });
+      return Response.json({ id: 1 }, { status: method === "POST" ? 201 : 200 });
+    };
+
+    beforeEach(() => {
+      checkCalls = [];
+      dispatches = stubGitHub({
+        [`POST /repos/${REPO}/check-runs`]: record("POST"),
+        [`PATCH /repos/${REPO}/check-runs/1`]: record("PATCH"),
+      });
+    });
+
+    it("has the kept run post its check afresh, after the stop", async () => {
+      await run("older", "head58", 2);
+      await run("newest", "head58", 3);
+      checkCalls = [];
+      await reconcile(openPull());
+      expect(checkCalls).toMatchObject([
+        { method: "PATCH", body: { conclusion: "cancelled" } },
+        { method: "POST", body: { details_url: `${env.PUBLIC_URL}/runs/newest` } },
+        { method: "PATCH", body: { conclusion: "skipped" } },
+      ]);
+    });
+
+    it("is not asked for when the runs it stops are on other heads", async () => {
+      await run("old-head", OLD_HEAD, 1);
+      await run("hill", "head58", 2);
+      checkCalls = [];
+      await reconcile(openPull());
+      expect(checkCalls.map((call) => call.method)).toEqual(["PATCH"]);
+    });
+  });
+
   it("closed stops every open run, swept ones too", async () => {
     await run("hill", "head58", 2);
     await run("swept", OLD_HEAD, 1, { swept: true });
@@ -202,6 +240,20 @@ describe("reconcilePr", () => {
       await run("hill", "head58", 1);
       expect((await reconcile(mergedPull())).landed).toEqual(["hill"]);
       expect(await reconcile(mergedPull())).toEqual({ landed: [], stopped: [], retitled: [] });
+    });
+
+    // Its retarget's delivery was lost: the merge never reached the default branch.
+    it("into another branch lands nothing and stops the open runs", async () => {
+      await run("hill", "head58", 2);
+      await run("stopped-on-head", "head58", 1);
+      await runStub(env, "stopped-on-head").stop("by hand");
+      expect(await reconcile({ ...mergedPull(), baseRef: "feat-a" })).toEqual({
+        landed: [],
+        stopped: ["hill"],
+        retitled: [],
+      });
+      expect(await statuses()).toEqual({ hill: "stopped", "stopped-on-head": "stopped" });
+      expect(await logOf("hill")).toContain("stopped · PR merged into feat-a");
     });
 
     it("stops the open runs when no run was on the merged head", async () => {
@@ -299,14 +351,37 @@ describe("the reconcile cron", () => {
     expect(dispatches.map((inputs) => inputs.sha)).toEqual(["head58"]);
   });
 
-  it("leaves a head that has a run, whatever became of it, without asking GitHub", async () => {
-    await run("stopped", "head58", 1);
-    await runStub(env, "stopped").stop("by hand");
+  it("leaves a head that has an open run without asking GitHub", async () => {
+    await run("hill", "head58", 1);
     gitHub({ pulls: [listed(58, "head58")] });
     await reconcileRepo(env);
     expect(checkLookups).toEqual([]);
-    expect(await listRuns(env.DB)).toHaveLength(1);
+    expect(await statuses()).toEqual({ hill: "on_the_hill" });
     expect(errors).not.toHaveBeenCalled();
+  });
+
+  // The ready, reopened or retarget delivery that would have restarted it was lost. The head's
+  // check is the stopped run's, so it is not asked for.
+  it("restarts a head whose runs have all stopped", async () => {
+    await run("stopped", "head58", 1);
+    await runStub(env, "stopped").stop("PR marked draft");
+    gitHub({ pulls: [listed(58, "head58")], checked: ["head58"] });
+    await reconcileRepo(env);
+    expect(checkLookups).toEqual([]);
+    const [fresh] = (await listRuns(env.DB)).filter((row) => row.id !== "stopped");
+    expect(fresh).toMatchObject({ prNumber: 58, status: "on_the_hill" });
+    expect(dispatches.map((inputs) => inputs.sha)).toEqual(["head58"]);
+    expect(logs).toHaveBeenCalledWith(`reconcile: ${REPO}#58: started ${fresh!.id} on head58`);
+  });
+
+  it("restarts a stopped head once", async () => {
+    await run("stopped", "head58", 1);
+    await runStub(env, "stopped").stop("PR closed");
+    gitHub({ pulls: [listed(58, "head58")] });
+    await reconcileRepo(env);
+    await reconcileRepo(env);
+    expect(Object.values(await statuses()).sort()).toEqual(["on_the_hill", "stopped"]);
+    expect(dispatches).toHaveLength(1);
   });
 
   // An unpatrolled PR's neutral check, say.

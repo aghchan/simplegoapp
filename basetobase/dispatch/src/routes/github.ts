@@ -31,10 +31,10 @@ export function githubRoutes(): Hono<{ Bindings: Env }> {
     switch (trigger.kind) {
       case "ignore":
         return c.json({ ignored: trigger.reason });
-      case "retitle": {
-        const { repo, prNumber, title } = trigger;
-        return c.json({ retitled: await retitlePr(c.env, repo, prNumber, title) });
-      }
+      case "retitle":
+        return withGitHub(c, trigger, async (github) =>
+          c.json({ retitled: await retitlePr(c.env, github, trigger.repo, trigger.prNumber) }),
+        );
       case "closed":
         return withGitHub(c, trigger, async (github) =>
           c.json(await closePr(c.env, github, trigger.repo, trigger.prNumber)),

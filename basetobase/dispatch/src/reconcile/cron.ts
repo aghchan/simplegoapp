@@ -1,7 +1,7 @@
 import { repoInstallationId, type OpenPull } from "../github/client.ts";
 import type { PullRequestRef } from "../github/webhook.ts";
 import { CHECK_NAME } from "../run/machine.ts";
-import { hasRunOnHead, openRunPrs } from "../runs/index.ts";
+import { openRunPrs, runsOnHead } from "../runs/index.ts";
 import {
   explain,
   githubApp,
@@ -15,8 +15,8 @@ import {
 export const PRS_PER_TICK = 50;
 
 // The safety net under the webhook, which GitHub never redelivers when it fails: a tick reconciles
-// every PR with an open run, then gives the start path to each owner PR whose head has neither a
-// run nor a check. One PR's failure is logged and the tick goes on.
+// every PR with an open run, then gives the start path to each owner PR whose head has no open
+// run, unless it has no run at all but a check. One PR's failure is logged and the tick goes on.
 export async function reconcileRepo(env: Env): Promise<void> {
   const installationId = await repoInstallationId(githubApp(env), env.REPO);
   const github = githubClient(env, installationId);
@@ -34,8 +34,16 @@ export async function reconcileRepo(env: Env): Promise<void> {
     if (!patrolled(env, pull)) continue;
     budget--;
     await logged(env.REPO, pull.number, async () => {
-      if (await hasRunOnHead(env.DB, env.REPO, pull.number, pull.headSha)) return undefined;
-      if (await github.hasCheckRun(env.REPO, pull.headSha, CHECK_NAME)) return undefined;
+      const runs = await runsOnHead(env.DB, env.REPO, pull.number, pull.headSha);
+      if (runs === "open") return undefined;
+      // A head with no run may carry the unpatrolled neutral check. One whose runs all ended is
+      // restarted whatever its check says: that check is theirs, and the ready, reopened or
+      // retarget delivery was lost. No loop: reconcilePr keeps the newest open run on a patrolled
+      // head, a draft, retarget or close takes the PR off this list, and the ended run's start
+      // found this head's files patrolled.
+      if (runs === "none" && (await github.hasCheckRun(env.REPO, pull.headSha, CHECK_NAME))) {
+        return undefined;
+      }
       const started = await startPr(env, github, refOf(env, pull, installationId));
       const head = pull.headSha.slice(0, 7);
       return "runId" in started

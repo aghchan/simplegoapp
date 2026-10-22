@@ -8,7 +8,7 @@
   "scripts": {
     "test": "npm run build && vitest run --passWithNoTests",
     "types": "wrangler types",
-    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard && tsc -p scripts && tsc -p e2e",
+    "typecheck": "tsc -p shared && tsc -p dispatch && tsc -p forwarder && tsc -p dashboard && tsc -p scripts && tsc -p e2e && tsc -p e2e/worker",
     "e2e": "npm run build && playwright test -c e2e",
     "build": "vite build dashboard",
     "dev": "npm run build && wrangler dev",

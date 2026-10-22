@@ -17,6 +17,7 @@ import type { PullRequestRef } from "../github/webhook.ts";
 import { announce } from "../lobby/do.ts";
 import { summaryOf, upsertRun } from "../runs/index.ts";
 import {
+  askCheckRepost,
   briefOf,
   checkRunOf,
   createRun,
@@ -24,6 +25,7 @@ import {
   nextAlarm,
   onBriefed,
   onCheckCreated,
+  onCheckReposted,
   onDispatched,
   onEvents,
   onFailure,
@@ -31,8 +33,10 @@ import {
   onTick,
   onTranscript,
   onVerdict,
+  replacedCheckOf,
   snapshotOf,
   stopRun,
+  wantsCheck,
   type Effect,
   type RunState,
   type Transition,
@@ -145,10 +149,11 @@ export class RunDO extends DurableObject<Env> {
     return "accepted";
   }
 
-  async failure(agentId: string, nonce: string, reason: string): Promise<Report> {
+  // `jobUrl`: the job that reported it, which may never have asked for its brief.
+  async failure(agentId: string, nonce: string, reason: string, jobUrl?: string): Promise<Report> {
     const admitted = await this.admit(agentId, nonce);
     if (admitted === "forbidden" || "gone" in admitted) return admitted;
-    await this.step((s, now) => onFailure(s, agentId, reason, now));
+    await this.step((s, now) => onFailure(s, agentId, reason, now, jobUrl));
     return "accepted";
   }
 
@@ -168,6 +173,12 @@ export class RunDO extends DurableObject<Env> {
 
   async retitle(title: string): Promise<void> {
     await this.step((s, now) => onRetitled(s, title, now));
+  }
+
+  // For reconcilePr, once it has stopped a run on this run's head: this run's check must be the
+  // newest there.
+  async repostCheck(): Promise<void> {
+    await this.step(askCheckRepost);
   }
 
   async view(): Promise<{ run: RunSnapshot; log: LogLine[] } | null> {
@@ -364,21 +375,39 @@ export class RunDO extends DurableObject<Env> {
     if (revision === undefined) return;
     try {
       const state = await this.loaded();
-      const body = checkRunOf(state, this.env.PUBLIC_URL);
-      const github = this.github(state);
-      if (state.checkRunId !== undefined) {
-        await github.updateCheckRun(state.repo, state.checkRunId, body);
-      } else {
-        const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
-        // Stored as is: the id has no effects to run, and nothing a viewer sees changes.
-        await this.ctx.storage.put(STATE_KEY, onCheckCreated(await this.loaded(), id).state);
-      }
+      if (wantsCheck(state)) await this.writeCheck(state);
       await this.settle(CHECK_PENDING_KEY, revision);
     } catch (error) {
       // The client's messages carry a status and path only, never a token or key.
       console.error(`check run: ${error instanceof Error ? error.message : String(error)}`);
     }
     await this.arm(await this.loaded());
+  }
+
+  // Updates the check run, or creates it: the first time, and afresh for a repost, after which the
+  // old one is marked replaced.
+  private async writeCheck(state: RunState): Promise<void> {
+    const body = checkRunOf(state, this.env.PUBLIC_URL);
+    const github = this.github(state);
+    const { checkRunId: old, checkReposts: asked } = state;
+    if (old !== undefined && asked === undefined) {
+      await github.updateCheckRun(state.repo, old, body);
+      return;
+    }
+    const id = await github.createCheckRun(state.repo, { ...body, head_sha: state.headSha });
+    const current = await this.loaded();
+    const created =
+      asked === undefined ? onCheckCreated(current, id) : onCheckReposted(current, id, asked);
+    // Stored as is: the id has no effects to run, and nothing a viewer sees changes.
+    await this.ctx.storage.put(STATE_KEY, created.state);
+    if (old === undefined) return;
+    // Best effort, never retried: GitHub reads only the newest check run.
+    try {
+      await github.updateCheckRun(state.repo, old, replacedCheckOf(state, this.env.PUBLIC_URL));
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      console.error(`replaced check run: ${why}`);
+    }
   }
 
   // Best effort, never retried: a job the cancel misses stops on the 410 its next report gets.
