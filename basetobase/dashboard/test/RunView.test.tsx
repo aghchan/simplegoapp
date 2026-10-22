@@ -7,7 +7,16 @@ import * as api from "../src/api.ts";
 import { Transcript } from "../src/components/Transcript.tsx";
 import { defaultStep, RunPage, RunView } from "../src/pages/RunView.tsx";
 import type { RunLive } from "../src/useRunLive.ts";
-import { agent, FakeWebSocket, JOB_URL, line, makeRun, START, step } from "./fixtures.ts";
+import {
+  agent,
+  FakeWebSocket,
+  JOB_URL,
+  landedRun,
+  line,
+  makeRun,
+  START,
+  step,
+} from "./fixtures.ts";
 
 const run = makeRun();
 const log: LogLine[] = [
@@ -62,6 +71,17 @@ describe("defaultStep", () => {
 
   it("is the step a stopped run halted on", () => {
     expect(defaultStep(steps("done", "done", "stopped", "pending"))).toBe("sweep");
+  });
+
+  it("is Drop in for a landed run", () => {
+    expect(defaultStep(landedRun())).toBe("drop_in");
+  });
+
+  it("is Drop in for a run merged mid-review, whose sweep was stopped", () => {
+    const merged = landedRun();
+    const stopped = step("sweep", "stopped", { startedAt: START, finishedAt: START + 60_000 });
+    const midReview = merged.steps.map((s) => (s.id === "sweep" ? stopped : s));
+    expect(defaultStep({ ...merged, outcome: "pending", steps: midReview })).toBe("drop_in");
   });
 });
 
@@ -134,6 +154,61 @@ describe("RunView", () => {
     const pr = screen.getByRole("link", { name: "View PR on GitHub" });
     expect(pr).toHaveAttribute("href", run.prUrl);
     expect(pr).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  describe("a landed run", () => {
+    const head = () => screen.getByRole("region", { name: "Pull request" });
+
+    it("says in the header that it merged, and as which commit", () => {
+      render(<RunView live={live({ run: landedRun() })} />);
+      const chip = within(head()).getByText("Landed · merged as 4f7e2a1");
+      expect(chip).toHaveClass("chip-landed");
+      expect(chip.querySelector(".mark-landed")).not.toBeNull();
+      expect(head()).toHaveClass("pr-head-landed");
+    });
+
+    it("still says it landed when the merge commit is not known", () => {
+      render(<RunView live={live({ run: landedRun({ mergeSha: undefined }) })} />);
+      expect(within(head()).getByText("Landed · merged")).toHaveClass("chip-landed");
+    });
+
+    it("opens on Drop in, with the merge in its notes", () => {
+      render(<RunView live={live({ run: landedRun() })} />);
+      expect(screen.getByRole("heading", { level: 2, name: /^Drop in/ })).toHaveTextContent(
+        "Drop in · Merge",
+      );
+      expect(screen.getByRole("button", { name: /Drop in/ })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(screen.getByText("Merged on GitHub as 4f7e2a1.")).toBeVisible();
+    });
+
+    it("explains each skipped step in its notes", async () => {
+      const user = userEvent.setup();
+      render(<RunView live={live({ run: landedRun() })} />);
+      for (const [name, note] of [
+        [/Patrol huddle/, "No huddle until M3."],
+        [/Summit check/, "No summit check until M4."],
+        [/Send it/, "Deploy is manual until M4."],
+      ] as const) {
+        await user.click(screen.getByRole("button", { name }));
+        expect(screen.getByText("Skipped", { selector: ".step-time" })).toBeVisible();
+        expect(screen.getByText(note)).toBeVisible();
+      }
+    });
+
+    it("counts the skipped steps apart from the done ones", () => {
+      render(<RunView live={live({ run: landedRun() })} />);
+      expect(screen.getByText("4 of 7 done · 3 skipped · flags mark milestones")).toBeVisible();
+    });
+  });
+
+  it("shows no landed chip or edge for a run that has not landed", () => {
+    render(<RunView live={live()} />);
+    const head = screen.getByRole("region", { name: "Pull request" });
+    expect(head).not.toHaveClass("pr-head-landed");
+    expect(head.querySelector(".chip-landed")).toBeNull();
   });
 
   it("names a run on both panels", () => {

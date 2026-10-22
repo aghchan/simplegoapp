@@ -11,6 +11,8 @@
   /* --warn is under 4.5:1 on --ground, so text that sits there uses the darker amber. */
   --warn-text: #92400e;
   --warn-border: #f3c98b;
+  /* All the way: the PR merged. 7.10:1 on --surface, 6.25:1 on --tint, 6.32:1 on --ground. */
+  --landed: #6d28d9;
   --rating-blue: #1d4ed8;
   --on-navy: #f4f7fa;
   --on-navy-muted: #c9d4e1;
@@ -263,6 +265,58 @@ button:focus-visible,
   color: var(--muted);
 }
 
+/* After the current-page and hover borders, so the violet edge stays. */
+.run.run-landed {
+  border-left: 4px solid var(--landed);
+}
+
+.run-landed .run-status {
+  color: var(--landed);
+}
+
+/* A PR's earlier runs, collapsed under its latest. */
+.pr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.earlier-toggle {
+  align-self: flex-start;
+  gap: 8px;
+}
+
+.chevron path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.earlier-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.run-earlier {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 0 8px;
+  padding: 0 0 0 10px;
+  border-left: 2px solid var(--border-strong);
+  list-style: none;
+}
+
+/* display: flex would otherwise show a hidden list. */
+.run-earlier[hidden] {
+  display: none;
+}
+
+.run-earlier .run {
+  padding: 8px 12px;
+}
+
 .rating {
   flex: none;
 }
@@ -438,6 +492,16 @@ button:focus-visible,
   background: var(--surface);
 }
 
+.chip-landed {
+  background: var(--surface);
+  border-color: var(--landed);
+  color: var(--landed);
+}
+
+.pr-head-landed {
+  border-left: 6px solid var(--landed);
+}
+
 .pr-title {
   margin: 0;
   font-size: 24px;
@@ -511,6 +575,14 @@ button:focus-visible,
 
 .mark-busy .mark-fill {
   fill: var(--accent);
+}
+
+.mark-landed .mark-fill {
+  fill: var(--landed);
+}
+
+.mark-flag {
+  fill: #fff;
 }
 
 .mark-stroke {
@@ -598,7 +670,8 @@ button:focus-visible,
   background: var(--tint);
 }
 
-.step-pending {
+.step-pending,
+.step-skipped {
   background: #f5f8fb;
 }
 
