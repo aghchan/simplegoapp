@@ -19,8 +19,10 @@ import {
   createRun,
   landRun,
   nextAlarm,
+  askCheckRepost,
   onBriefed,
   onCheckCreated,
+  onCheckReposted,
   onDispatched,
   onEvents,
   onFailure,
@@ -28,9 +30,11 @@ import {
   onTick,
   onTranscript,
   onVerdict,
+  replacedCheckOf,
   reviewOutcome,
   snapshotOf,
   stopRun,
+  wantsCheck,
   type Effect,
   type RunState,
   type Transition,
@@ -598,6 +602,16 @@ describe("onFailure", () => {
       { type: "check" },
     ]);
   });
+
+  // The job's failure step may be the first Dispatch hears from it.
+  it("links the job of an agent that failed before its brief", () => {
+    const why = "job failed before the agent reported";
+    const { state } = onFailure(dispatchedRun(), ID, why, 2000, URL_2);
+    expect(agentOf(state)).toMatchObject({ status: "error", summary: why, jobUrl: URL_2 });
+  });
+
+  it("keeps the job link the agent already has", () =>
+    expect(agentOf(onFailure(runningRun(), ID, "boom", 2000, URL_2).state).jobUrl).toBe(URL_1));
 
   it("logs the failure even while another patroller keeps the sweep open", () => {
     const { state, effects } = onFailure(patrolRun(), GRANITE, "boom", 2000);
@@ -1433,6 +1447,7 @@ describe("snapshotOf", () => {
     "agentNames",
     "stalledLogged",
     "checkRunId",
+    "checkReposts",
     "jobRuns",
   ];
 
@@ -1449,6 +1464,12 @@ describe("snapshotOf", () => {
   it("hides the check run id", () => {
     const s = onCheckCreated(runningRun(), 501).state;
     expect(snapshotOf(s)).not.toHaveProperty("checkRunId");
+    expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
+  });
+
+  it("hides an owed repost of the check", () => {
+    const s = askCheckRepost(runningRun()).state;
+    expect(snapshotOf(s)).not.toHaveProperty("checkReposts");
     expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
   });
 
@@ -1703,7 +1724,89 @@ describe("the check run", () => {
       const stopped = stopRun(runningRun(), "PR closed", 1500).state;
       expect(onCheckCreated(stopped, 501).state.checkRunId).toBe(501);
     });
+
+    // Its create may have been sent before the ask, so it is not the repost.
+    it("leaves a repost owed", () => {
+      const asked = askCheckRepost(runningRun()).state;
+      expect(onCheckCreated(asked, 501).state).toEqual({ ...asked, checkRunId: 501 });
+    });
   });
+
+  // A run stopped on the head may have posted its check after this run's, and GitHub reads the
+  // newest check run of a name.
+  describe("askCheckRepost", () => {
+    it("owes a fresh check run, taking no clock", () => {
+      const before = onCheckCreated(runningRun(), 501).state;
+      const { state, effects } = askCheckRepost(before);
+      expect(state).toEqual({ ...before, checkReposts: 1 });
+      expect(effects).toEqual([{ type: "check" }]);
+    });
+
+    it("counts an ask that comes while a repost is owed", () =>
+      expect(askCheckRepost(askCheckRepost(runningRun()).state).state.checkReposts).toBe(2));
+
+    it("asks for a swept run's", () =>
+      expect(askCheckRepost(swept("clear", "clear")).effects).toEqual([{ type: "check" }]));
+
+    it.each<[string, () => RunState]>([
+      ["stopped", () => stopRun(runningRun(), "PR closed", 2000).state],
+      ["landed", landedRun],
+    ])("asks nothing of a %s run", (_label, build) => {
+      const s = build();
+      expectUnchanged(s, askCheckRepost(s));
+    });
+  });
+
+  describe("onCheckReposted", () => {
+    it("takes the new id and settles the repost it made", () => {
+      const before = onCheckCreated(runningRun(), 501).state;
+      const { state, effects } = onCheckReposted(askCheckRepost(before).state, 502, 1);
+      expect(state).toEqual({ ...before, checkRunId: 502 });
+      expect(effects).toEqual([]);
+    });
+
+    it("leaves owed an ask that came after the repost read the run", () => {
+      const twice = askCheckRepost(askCheckRepost(runningRun()).state).state;
+      expect(onCheckReposted(twice, 502, 1).state).toMatchObject({
+        checkRunId: 502,
+        checkReposts: 2,
+      });
+    });
+  });
+
+  // Created now, a cancelled check could be newer on the head than the check of the run that
+  // replaced this one.
+  describe("wantsCheck", () => {
+    const stopped = (s: RunState) => stopRun(s, "superseded by 9f8e7d6", 2000).state;
+    const withCheck = () => onCheckCreated(runningRun(), 501).state;
+    it.each<[string, boolean, () => RunState]>([
+      ["a run on the hill", true, runningRun],
+      ["a review stopped after its check was created", true, () => stopped(withCheck())],
+      ["a review stopped before its check was created", false, () => stopped(runningRun())],
+      [
+        "a review landed before its check was created",
+        false,
+        () => landRun(runningRun(), MERGE_SHA, 2000).state,
+      ],
+      [
+        "a finished sweep stopped before its check was created",
+        true,
+        () => stopped(swept("clear", "clear")),
+      ],
+    ])("%s: %s", (_label, wanted, build) => expect(wantsCheck(build())).toBe(wanted));
+  });
+
+  it("marks a replaced check run skipped, linking the run", () =>
+    expect(replacedCheckOf(runningRun(), PUBLIC)).toEqual({
+      name: "Base to Base",
+      details_url: DETAILS,
+      status: "completed",
+      conclusion: "skipped",
+      output: {
+        title: "Replaced by a newer check run",
+        summary: `Red Dog Face posted its check again on this commit.\n\n${LINK}`,
+      },
+    }));
 });
 
 describe("briefOf", () => {

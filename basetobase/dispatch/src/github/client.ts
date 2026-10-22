@@ -6,7 +6,7 @@ export interface CheckRunBody {
   name: string;
   details_url?: string;
   status: "in_progress" | "completed";
-  conclusion?: "success" | "failure" | "neutral" | "cancelled";
+  conclusion?: "success" | "failure" | "neutral" | "cancelled" | "skipped";
   output: { title: string; summary: string };
 }
 

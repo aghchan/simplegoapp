@@ -41,10 +41,14 @@ const hazardVerdict = {
 
 const CHECKS_PATH = "/repos/aghchan/simplegoapp/check-runs";
 const CHECK_ID = 501;
+// The check run a repost creates.
+const NEW_CHECK_ID = 502;
 
 let runCount = 0;
 let dispatches: { ref: string; inputs: Record<string, string> }[];
 let checks: { method: string; body: Record<string, unknown> }[];
+// The check runs updated, by id, in order.
+let patched: number[];
 // How GitHub answers each check-run call; a test replaces it to fail or hold one.
 let checkReply: (method: string) => Response | Promise<Response>;
 let cancels: number;
@@ -59,8 +63,9 @@ const acceptCheck = (method: string) =>
 function stubGitHub(
   respond: () => Response | Promise<Response> = () => new Response(null, { status: 204 }),
 ): void {
-  const recordCheck = (method: string) => async (req: Request) => {
+  const recordCheck = (method: string, id?: number) => async (req: Request) => {
     checks.push({ method, body: await req.json() });
+    if (id !== undefined) patched.push(id);
     return checkReply(method);
   };
   const github = fakeFetch({
@@ -74,7 +79,8 @@ function stubGitHub(
       return respond();
     },
     [`POST ${CHECKS_PATH}`]: recordCheck("POST"),
-    [`PATCH ${CHECKS_PATH}/${CHECK_ID}`]: recordCheck("PATCH"),
+    [`PATCH ${CHECKS_PATH}/${CHECK_ID}`]: recordCheck("PATCH", CHECK_ID),
+    [`PATCH ${CHECKS_PATH}/${NEW_CHECK_ID}`]: recordCheck("PATCH", NEW_CHECK_ID),
     [`POST ${CANCEL_PATH}`]: () => {
       cancels++;
       return cancelReply();
@@ -182,6 +188,7 @@ beforeEach(async () => {
   await env.DB.prepare("DELETE FROM runs").run();
   dispatches = [];
   checks = [];
+  patched = [];
   checkReply = acceptCheck;
   cancels = 0;
   cancelReply = () => new Response(null, { status: 202 });
@@ -434,6 +441,14 @@ describe("RunDO", () => {
       expect(
         view.log.some((line) => line.text === `${AGENT} failed · claude exited without a verdict`),
       ).toBe(true);
+    });
+
+    // The job's failure step reports for a job that never asked for its brief.
+    it("links the job that reported it", async () => {
+      const { stub, nonce } = await startRun();
+      await stub.failure(AGENT, nonce, "job failed before the agent reported", JOB_URL);
+      const [agent] = (await stub.view())!.run.agents;
+      expect(agent).toMatchObject({ status: "error", jobUrl: JOB_URL });
     });
   });
 
@@ -1102,6 +1117,154 @@ describe("RunDO", () => {
       expect(checks.map((check) => check.method)).toEqual(["POST", "PATCH"]);
       expect(checks[0]!.body).toMatchObject({ status: "in_progress" });
       expect(checks[1]!.body).toMatchObject({ conclusion: "cancelled" });
+    });
+
+    // Created now, its cancelled check could be newer on the head than the check of the run that
+    // replaced it.
+    it("is never created for a review stopped while its first dispatch was out", async () => {
+      const release = deferred<void>();
+      stubGitHub(async () => {
+        await release.promise;
+        return new Response(null, { status: 204 });
+      });
+      const id = `r${++runCount}`;
+      const stub = runStub(env, id);
+      const started = stub.start(prRef(), id, triage);
+      await vi.waitFor(() => expect(dispatches).toHaveLength(1));
+      await stub.stop("superseded by head58");
+      release.resolve();
+      await started;
+      expect(checks).toEqual([]);
+      expect(await storedCheckId(stub)).toBeUndefined();
+      expect((await storedState(stub)).alarm).toBeNull();
+    });
+
+    it.each<[string, (stub: Stub) => Promise<void>]>([
+      ["stopped", (stub) => stub.stop("PR closed")],
+      ["landed", (stub) => stub.land("abc1234def")],
+    ])("is never created by a retry once the review was %s", async (_label, end) => {
+      checkReply = () => new Response(null, { status: 502 });
+      const { stub } = await startRun();
+      await end(stub);
+      checkReply = acceptCheck;
+      expect(await runDurableObjectAlarm(stub)).toBe(false);
+      await stub.view();
+      // The creates GitHub refused while the review was on the hill, and nothing since.
+      const statuses = checks.map((check) => [check.method, check.body.status]);
+      expect(statuses).toEqual([
+        ["POST", "in_progress"],
+        ["POST", "in_progress"],
+      ]);
+      expect(await storedCheckId(stub)).toBeUndefined();
+    });
+  });
+
+  // A run stopped on the head may have posted its check after this run's; GitHub reads the newest.
+  describe("check repost", () => {
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    // Each create gets the next id, from CHECK_ID.
+    function numberCreates(): void {
+      let next = CHECK_ID;
+      checkReply = (method) =>
+        method === "POST" ? Response.json({ id: next++ }, { status: 201 }) : acceptCheck(method);
+    }
+
+    const refuse = () => new Response(null, { status: 502 });
+
+    it("creates the run's check afresh, then marks the old one replaced", async () => {
+      numberCreates();
+      const { id, stub, nonce } = await startRun();
+      await stub.repostCheck();
+      expect(checks.slice(1)).toEqual([
+        {
+          method: "POST",
+          body: expect.objectContaining({ head_sha: "head58", status: "in_progress" }),
+        },
+        {
+          method: "PATCH",
+          body: {
+            name: "Base to Base",
+            details_url: `${env.PUBLIC_URL}/runs/${id}`,
+            status: "completed",
+            conclusion: "skipped",
+            output: { title: "Replaced by a newer check run", summary: expect.any(String) },
+          },
+        },
+      ]);
+      expect(patched).toEqual([CHECK_ID]);
+      const { run } = await storedState(stub);
+      expect(run.checkRunId).toBe(NEW_CHECK_ID);
+      expect(run).not.toHaveProperty("checkReposts");
+
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      expect(patched).toEqual([CHECK_ID, NEW_CHECK_ID]);
+      expect(checks.at(-1)).toMatchObject({ method: "PATCH", body: { conclusion: "success" } });
+    });
+
+    it("stays owed until GitHub creates it", async () => {
+      const { stub } = await startRun();
+      checkReply = (method) => (method === "POST" ? refuse() : acceptCheck(method));
+      await stub.repostCheck();
+      const owed = await storedState(stub);
+      expect(owed.run).toMatchObject({ checkRunId: CHECK_ID, checkReposts: 1 });
+      expect(owed.alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+
+      const created = () => Response.json({ id: NEW_CHECK_ID }, { status: 201 });
+      checkReply = (method) => (method === "POST" ? created() : acceptCheck(method));
+      await runDurableObjectAlarm(stub);
+      expect(checks.map((check) => check.method)).toEqual(["POST", "POST", "POST", "PATCH"]);
+      expect(patched).toEqual([CHECK_ID]);
+      expect((await storedState(stub)).run.checkRunId).toBe(NEW_CHECK_ID);
+    });
+
+    it("keeps the new check when the old one cannot be marked, never retrying it", async () => {
+      numberCreates();
+      const { stub } = await startRun();
+      const create = checkReply;
+      checkReply = (method) => (method === "PATCH" ? refuse() : create(method));
+      await stub.repostCheck();
+      expect(String(consoleError.mock.calls[0]![0])).toBe(
+        `replaced check run: GitHub PATCH ${CHECKS_PATH}/${CHECK_ID} failed with status 502`,
+      );
+      const { run, alarm } = await storedState(stub);
+      expect(run.checkRunId).toBe(NEW_CHECK_ID);
+      expect(alarm).toBe(run.agents[0]!.dispatchedAt! + JOB_START_MS);
+    });
+
+    it("is made again when asked for while one is with GitHub", async () => {
+      const release = deferred<void>();
+      let creates = 0;
+      checkReply = async (method) => {
+        if (method === "PATCH") return acceptCheck(method);
+        if (++creates === 2) await release.promise;
+        return Response.json({ id: CHECK_ID + creates - 1 }, { status: 201 });
+      };
+      const { stub } = await startRun();
+      const first = stub.repostCheck();
+      await vi.waitFor(() => expect(creates).toBe(2));
+      const second = stub.repostCheck();
+      await vi.waitFor(async () => expect((await storedState(stub)).run.checkReposts).toBe(2));
+      release.resolve();
+      await Promise.all([first, second]);
+      const methods = checks.map((check) => check.method);
+      expect(methods).toEqual(["POST", "POST", "PATCH", "POST", "PATCH"]);
+      expect(patched).toEqual([CHECK_ID, NEW_CHECK_ID]);
+      const { run } = await storedState(stub);
+      expect(run.checkRunId).toBe(NEW_CHECK_ID + 1);
+      expect(run).not.toHaveProperty("checkReposts");
+    });
+
+    it("is not made for a run that has ended", async () => {
+      const { stub } = await startRun();
+      await stub.stop("PR closed");
+      const before = checks.length;
+      await stub.repostCheck();
+      expect(checks).toHaveLength(before);
     });
   });
 

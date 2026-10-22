@@ -105,6 +105,13 @@ async function sweep(runId: string): Promise<void> {
   expect(await statuses()).toMatchObject({ [runId]: "swept" });
 }
 
+// A promise that settles once opened.
+function gate() {
+  let open!: () => void;
+  const shut = new Promise<void>((resolve) => (open = resolve));
+  return { shut, open };
+}
+
 // Holds the first file listing until released, as a slow GitHub would.
 function holdFirstListing() {
   let release!: () => void;
@@ -361,6 +368,56 @@ describe("POST /github/webhook", () => {
         expect(Object.values(await statuses()).sort()).toEqual(["on_the_hill", "stopped"]);
       });
 
+      // GitHub reads the newest check of a name. Both starts pass the duplicate check before
+      // either run is indexed; the first is held at its dispatch or its check's create until the
+      // second, newer and so kept, has posted its check.
+      it.each(["dispatch", "check"] as const)(
+        "of two racing starts on one head, the kept run's check is newest (loser held at its %s)",
+        async (hold) => {
+          const listings = [gate(), gate()];
+          const firstCall = gate();
+          let listed = 0;
+          let held = 0;
+          const holdFirst = async () => {
+            if (++held === 1) await firstCall.shut;
+          };
+          // The run of each check create, in the order GitHub took them.
+          const created: string[] = [];
+          github({
+            [FILES_PATH]: async () => {
+              await listings[listed++]?.shut;
+              return docsOnly();
+            },
+            [DISPATCH_PATH]: async () => {
+              if (hold === "dispatch") await holdFirst();
+              return new Response(null, { status: 204 });
+            },
+            [CHECKS_PATH]: async (req) => {
+              const { details_url: details } = (await req.json()) as { details_url: string };
+              if (hold === "check") await holdFirst();
+              created.push(details.slice(details.lastIndexOf("/") + 1));
+              return Response.json({ id: 1 }, { status: 201 });
+            },
+          });
+          const first = deliver(opened());
+          await vi.waitFor(() => expect(listed).toBe(1));
+          const second = deliver(readyForReview());
+          await vi.waitFor(() => expect(listed).toBe(2));
+          listings[0]!.open();
+          await vi.waitFor(() => expect(held).toBe(1));
+          // A later start, so the second run is the newest.
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          listings[1]!.open();
+          await vi.waitFor(() => expect(created.length).toBeGreaterThan(0));
+          firstCall.open();
+          const runOf = async (res: Promise<Response>) =>
+            ((await (await res).json()) as { runId: string }).runId;
+          const [lost, kept] = await Promise.all([runOf(first), runOf(second)]);
+          expect(await statuses()).toEqual({ [lost]: "stopped", [kept]: "on_the_hill" });
+          expect(created.at(-1)).toBe(kept);
+        },
+      );
+
       // The run stands; the cron stops what the reconcile could not.
       it("answers 202 when the reconcile after the start cannot read GitHub", async () => {
         const first = await start();
@@ -509,6 +566,44 @@ describe("POST /github/webhook", () => {
       expect(await logOf(first)).toContain("stopped · superseded by 9f8e7d6");
     });
 
+    // The PR moved on while the neutral check was being posted: a newer head's run stands.
+    it("leaves the run on a head the PR reached during the pass", async () => {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      let posts = 0;
+      dispatches = github({
+        [FILES_PATH]: () => (live.head === NEW_HEAD ? listing(own)() : docsOnly()),
+        [CHECKS_PATH]: async () => {
+          if (++posts === 1) await held;
+          return Response.json({ id: 1 }, { status: 201 });
+        },
+      });
+      live.head = NEW_HEAD;
+      const passing = deliver(pushed(NEW_HEAD));
+      await vi.waitFor(() => expect(posts).toBe(1));
+      live.head = NEWER_HEAD;
+      const newer = await start(pushed(NEWER_HEAD));
+      release();
+      expect(await (await passing).json()).toEqual({ ignored: "unpatrolled" });
+      expect(await statuses()).toEqual({ [newer]: "on_the_hill" });
+      expect(await logOf(newer)).not.toContain(`stopped · superseded by ${NEW_HEAD.slice(0, 7)}`);
+    });
+
+    it("answers unpatrolled when the reconcile after the check cannot read GitHub", async () => {
+      const first = await start();
+      live.head = NEW_HEAD;
+      let reads = 0;
+      dispatches = github({
+        [FILES_PATH]: listing(own),
+        [PULL_PATH]: () =>
+          ++reads === 1 ? pullReply() : new Response("secret body", { status: 500 }),
+      });
+      expect(await (await deliver(pushed(NEW_HEAD))).json()).toEqual({ ignored: "unpatrolled" });
+      expect(await statuses()).toEqual({ [first]: "on_the_hill" });
+      expect(errors).toHaveBeenCalledOnce();
+      expect(String(errors.mock.calls[0]![0])).toContain("failed with status 500");
+    });
+
     it("502 when the neutral check cannot be posted", async () => {
       dispatches = github({
         [FILES_PATH]: listing(own),
@@ -571,24 +666,49 @@ describe("POST /github/webhook", () => {
   });
 
   describe("retitle", () => {
-    const retitled = () => {
+    const retitled = (title = "orders: cancel a pending order") => {
       const payload = edited({ title: { from: "orders: add cancel endpoint" } });
-      (payload.pull_request as { title: string }).title = "orders: cancel a pending order";
+      (payload.pull_request as { title: string }).title = title;
       return payload;
     };
+    const titles = async () => (await listRuns(env.DB)).map((run) => run.prTitle);
 
     // Finished runs too: the runs list files them under the PR's title.
     it("gives every run of the PR its new title", async () => {
       const first = await start();
       live.head = NEW_HEAD;
       const second = await start(pushed(NEW_HEAD));
+      live.title = "orders: cancel a pending order";
       const res = await deliver(retitled());
       expect(res.status).toBe(200);
       const { retitled: ids } = (await res.json()) as { retitled: string[] };
       expect(ids.sort()).toEqual([first, second].sort());
-      const titles = (await listRuns(env.DB)).map((run) => run.prTitle);
-      expect(titles).toEqual(["orders: cancel a pending order", "orders: cancel a pending order"]);
+      expect(await titles()).toEqual([
+        "orders: cancel a pending order",
+        "orders: cancel a pending order",
+      ]);
       expect(dispatches).toHaveLength(2);
+    });
+
+    // Two quick edits can arrive in either order, and a redelivery at any time.
+    it("takes the title GitHub has now, not the event's", async () => {
+      const runId = await start();
+      live.state = "closed";
+      await deliver(closed());
+      live.title = "orders: cancel any pending order";
+      await deliver(retitled("orders: cancel any pending order"));
+      await deliver(retitled("orders: cancel a pending order"));
+      expect(await statuses()).toEqual({ [runId]: "stopped" });
+      expect(await titles()).toEqual(["orders: cancel any pending order"]);
+    });
+
+    it("502 when the PR cannot be read, retitling nothing", async () => {
+      await start();
+      dispatches = github({ [PULL_PATH]: () => new Response("secret body", { status: 502 }) });
+      const res = await deliver(retitled());
+      expect(res.status).toBe(502);
+      expect(await res.text()).not.toContain("secret body");
+      expect(await titles()).toEqual(["orders: add cancel endpoint"]);
     });
 
     it("retitles nothing for a PR with no run", async () =>
@@ -655,6 +775,30 @@ describe("POST /github/webhook", () => {
       const runId = await start();
       expect(await (await deliver(closed())).json()).toEqual({ ignored: "stale" });
       expect(await statuses()).toEqual({ [runId]: "on_the_hill" });
+    });
+
+    // Only the owner's PRs have runs, and GitHub's rate limit is shared with them.
+    it("of another author's PR is ignored without reading GitHub", async () => {
+      let reads = 0;
+      github({
+        [PULL_PATH]: () => {
+          reads++;
+          return pullReply();
+        },
+      });
+      const res = await deliver(prPayload({ action: "closed", author: "eve" }));
+      expect(await res.json()).toEqual({ ignored: "author" });
+      expect(reads).toBe(0);
+    });
+
+    // Deleting the head repository closes the PR too.
+    it("of a PR whose head repository is gone stops its run", async () => {
+      live.state = "open";
+      const runId = await start();
+      live.state = "closed";
+      const payload = closed();
+      (payload.pull_request as { head: { repo: unknown } }).head.repo = null;
+      expect(await (await deliver(payload)).json()).toMatchObject({ stopped: [runId] });
     });
 
     it("in another repository is ignored, leaving our run alone", async () => {

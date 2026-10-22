@@ -158,19 +158,27 @@ describe("toTrigger", () => {
     ).toEqual({ kind: "ignore", reason: "repo" }));
   // Deleting the head repository closes the PR, and its run must still hear of it.
   it.each([
-    ["a fork", { headRepo: "eve/simplegoapp" }],
-    ["another author", { author: "eve" }],
-  ])("a close of %s still asks the route to look", (_label, over) =>
-    expect(toTrigger("pull_request", prPayload({ action: "closed", ...over }), ID)).toMatchObject({
-      kind: "closed",
-    }),
+    ["a fork", prPayload({ action: "closed", headRepo: "eve/simplegoapp" })],
+    ["a PR whose head repository is gone", tamper("pull_request.head.repo", null, closed())],
+  ])("a close of %s still asks the route to look", (_label, payload) =>
+    expect(toTrigger("pull_request", payload, ID)).toMatchObject({ kind: "closed" }),
   );
-  it("closed needs only the repo, the number and the installation", () => {
+  // Only the owner's PRs have runs, and a stranger's close must not spend GitHub calls.
+  it("a close of another author's PR is ignored", () =>
+    expect(toTrigger("pull_request", prPayload({ action: "closed", author: "eve" }), ID)).toEqual({
+      kind: "ignore",
+      reason: "author",
+    }));
+  it("a close checks the repo before the author", () =>
+    expect(
+      toTrigger("pull_request", prPayload({ action: "closed", repo: "eve/x", author: "eve" }), ID),
+    ).toEqual({ kind: "ignore", reason: "repo" }));
+  it("closed needs only the repo, the number, the author and the installation", () => {
     const payload = {
       action: "closed",
       installation: { id: 7 },
       repository: { full_name: ID.repo },
-      pull_request: { number: 58 },
+      pull_request: { number: 58, user: { login: ID.owner } },
     };
     expect(toTrigger("pull_request", payload, ID)).toEqual({
       kind: "closed",
@@ -197,12 +205,13 @@ describe("toTrigger", () => {
         pr: prRef(),
         retarget: true,
       }));
-    it("a new title retitles the PR's runs", () =>
+    // Edits arrive out of order, so the route reads the title from GitHub.
+    it("a new title retitles the PR's runs, with the installation to read it with", () =>
       expect(toTrigger("pull_request", edited({ title }), ID)).toEqual({
         kind: "retitle",
         repo: ID.repo,
         prNumber: 58,
-        title: "orders: add cancel endpoint",
+        installationId: 7,
       }));
     // The new run takes its title from the event.
     it("a new base and title is a retarget", () =>
@@ -298,6 +307,8 @@ describe("toTrigger", () => {
         "no installation",
         { action: "closed", repository: { full_name: ID.repo }, pull_request: { number: 58 } },
       ],
+      ["no author", tamper("pull_request.user", undefined, closed())],
+      ["an author without a login", tamper("pull_request.user.login", 7, closed())],
     ])("ignores a close with %s", (_label, payload) =>
       expect(toTrigger("pull_request", payload, ID)).toEqual(MALFORMED),
     );

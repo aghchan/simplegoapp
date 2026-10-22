@@ -54,6 +54,14 @@ The sync audit (33 confirmed desyncs, ids C1–C31, M1–M2) is the evidence for
 ## 3. RunDO, agent route, lobby
 
 - `land(mergeSha)`, `retitle(title)`. `stop(reason)` stays.
+- `repostCheck()`, for `reconcilePr` (§4): commits `checkReposts` (a count) with a check effect. A sync
+  that sees it creates a fresh check run, stores its id, settles the asks it served, then marks the old
+  one `completed`/`skipped`, "Replaced by a newer check run" (best effort). Durable like the other
+  marks (review F6).
+- `syncCheck` writes nothing for a review that ended pending (stopped or landed) before its check was
+  created, and settles the mark: a cancelled check created then could be the newest on the head.
+- `failure(agentId, nonce, reason, jobUrl)`: the route passes the job URL from the verified token, as
+  for `/brief`, and `onFailure` sets `jobUrl` if unset (a job that died before its brief, review F5).
 - `brief(agentId, nonce, job: { githubRunId: string; jobUrl: string })` returns
   `AgentBrief | "forbidden" | { gone: AgentStatus }`, and applies `onBriefed` after admit.
 - `Report` "gone" carries the agent's status: `{ gone: AgentStatus }`. Route answers:
@@ -73,25 +81,30 @@ The sync audit (33 confirmed desyncs, ids C1–C31, M1–M2) is the evidence for
 ## 4. Webhook and routes (dispatch/src/github, routes/github.ts, runs/index.ts)
 
 - `PullRequestRef` adds `baseRef` and `draft`.
-- `toTrigger` (repo, fork and author filters as today):
+- `toTrigger` (repo, fork and author filters as today; `closed` has the repo and author filters):
   - `start`: opened, reopened, ready_for_review, synchronize; also `edited` with `changes.base`, as
     `retarget: true`. Drafts are no longer refused here: the route reads the live state.
   - `closed`: `{ repo, prNumber, installationId }`. The payload's `merged` is not trusted: GitHub is read
-    instead (out-of-order deliveries, C4/C29).
-  - `retitle`: `edited` with `changes.title` and no `changes.base`.
+    instead (out-of-order deliveries, C4/C29). No fork filter: deleting the head repository closes the
+    PR too. The author filter spares GitHub calls for strangers' PRs, which never have runs (F11).
+  - `retitle`: `edited` with `changes.title` and no `changes.base`: `{ repo, prNumber, installationId }`.
 - Client: `pullState(repo, n)` → `{ state, draft, merged, mergeSha, headSha, baseRef, title }` from one
   `GET /pulls/{n}`. It replaces `pullHeadSha`.
 - Index: `findOpenRuns(repo, pr)` (open runs: id, headSha, status, createdAt); `findPrRuns(repo, pr)`
-  (any status); `openRunPrs()` (repo, pr pairs with open runs); `hasRunOnHead(repo, pr, sha)`.
+  (any status); `openRunPrs()` (repo, pr pairs with open runs); `runsOnHead(repo, pr, sha)` →
+  `open | ended | none`.
 - `reconcilePr(env, github, repo, pr, live?)`, idempotent, is used by every path:
-  - Closed and merged: land the newest run (any status) on `live.headSha`, then stop the other open
-    runs ("PR merged").
+  - Closed and merged into the default branch: land the newest run (any status) on `live.headSha`,
+    then stop the other open runs ("PR merged").
+  - Merged into another branch: land nothing; stop the open runs ("PR merged into <base>", F4).
   - Closed, not merged: stop the open runs ("PR closed").
   - Open:
     - Keep the newest open run on `live.headSha`. Stop every other open run
       (`superseded by <sha7>`).
     - A draft, or a base other than the default branch, keeps none.
     - Retitle the open runs whose title differs.
+    - When a stopped run was on the kept run's head, the kept run's `repostCheck()`, after the stops:
+      GitHub reads the newest check run of a name (F6).
 - Start path, in this order:
   1. `pullState`. Not open, or the head moved → `{ignored:"stale"}` (C5/C16).
   2. Draft → `reconcilePr` (it supersedes the old head's runs), then `{ignored:"draft"}` (C7/C17).
@@ -99,12 +112,14 @@ The sync audit (33 confirmed desyncs, ids C1–C31, M1–M2) is the evidence for
      branch are patrolled (C8/C33).
   4. Unless `retarget`: an open run already on this head → `{ignored:"duplicate"}`.
   5. List the files.
-  6. Unpatrolled → post the neutral check **first**, then `reconcilePr`, then `{ignored:"unpatrolled"}`
-     (C10/C28).
+  6. Unpatrolled → post the neutral check **first**, then `reconcilePr(live re-read)`, then
+     `{ignored:"unpatrolled"}` (C10/C28). The re-read: the PR may have moved on during the listing and
+     the post (F2/F7).
   7. Otherwise: `activeRunNames` falls back to `[]` on error. Start the run, **then**
      `reconcilePr(live re-read)`, which stops whichever runs lost a concurrent start (C6/C27).
 - Closed path: `pullState`. Still open → `{ignored:"stale"}`. Otherwise `reconcilePr`.
-- Retitle path: `onRetitled` on every run of the PR (`findPrRuns`).
+- Retitle path: `pullState`, then `onRetitled` with its title on every run of the PR (`findPrRuns`),
+  never the event's: edits arrive out of order (F9/F12/F15).
 
 ## 5. Reconcile cron (C10/C13/C28 safety net)
 
@@ -113,9 +128,12 @@ The sync audit (33 confirmed desyncs, ids C1–C31, M1–M2) is the evidence for
   1. Installation id: `GET /repos/{REPO}/installation` (App JWT).
   2. For every PR in `openRunPrs()`: `reconcilePr`.
   3. Open PRs (`GET /repos/{REPO}/pulls?state=open&per_page=100`) that are the owner's, same-repo,
-     non-draft and into the default branch: when the head has no run (`hasRunOnHead`) **and** no
-     Base to Base check from this App (`GET /commits/{sha}/check-runs?check_name=…&app_id=…`), run the
-     start path for it.
+     non-draft and into the default branch, by `runsOnHead`:
+     - `open`: skip.
+     - `ended`: run the start path, whatever the check says: it is the stopped run's, and the ready,
+       reopened or retarget delivery was lost (F1/F8/F10). No loop: the restarted run stays open.
+     - `none`: run the start path only without a Base to Base check from this App
+       (`GET /commits/{sha}/check-runs?check_name=…&app_id=…`), an unpatrolled PR's neutral one.
 - Bounded: at most 50 PRs a tick. Log what was started, stopped or landed. One PR's failure never stops
   the tick.
 

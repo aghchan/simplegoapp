@@ -11,9 +11,9 @@ import {
   activeRunNames,
   findOpenRuns,
   findPrRuns,
-  hasRunOnHead,
   listRuns,
   openRunPrs,
+  runsOnHead,
   summaryOf,
   upsertRun,
 } from "../src/runs/index.ts";
@@ -203,11 +203,20 @@ describe("run index", () => {
       ]);
     });
 
-    it("hasRunOnHead finds a run on that head whatever its status", async () => {
-      expect(await hasRunOnHead(env.DB, REPO, 58, "sha-d")).toBe(true);
-      expect(await hasRunOnHead(env.DB, REPO, 58, "sha-z")).toBe(false);
-      expect(await hasRunOnHead(env.DB, REPO, 59, "sha-a")).toBe(false);
-      expect(await hasRunOnHead(env.DB, "eve/simplegoapp", 58, "sha-a")).toBe(false);
+    it("runsOnHead says whether that head's runs are open, all ended, or none", async () => {
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-a")).toBe("open");
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-b")).toBe("open");
+      for (const sha of ["sha-c", "sha-d", "sha-e"]) {
+        expect(await runsOnHead(env.DB, REPO, 58, sha)).toBe("ended");
+      }
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-z")).toBe("none");
+      expect(await runsOnHead(env.DB, REPO, 59, "sha-a")).toBe("none");
+      expect(await runsOnHead(env.DB, "eve/simplegoapp", 58, "sha-a")).toBe("none");
+    });
+
+    it("runsOnHead counts a head open while any of its runs is", async () => {
+      await indexRun("stopped-on-a", "stopped", 1, { headSha: "sha-a" });
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-a")).toBe("open");
     });
   });
 });

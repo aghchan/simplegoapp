@@ -76,7 +76,8 @@ export async function reconcilePr(
 ): Promise<Reconciled> {
   const pull = live ?? (await fromGitHub(READ_FAILED, () => github.pullState(repo, prNumber)));
   let landed: IndexedRun | undefined;
-  if (pull.state === "closed" && pull.merged) {
+  // A merge elsewhere never reached what the run vouched for.
+  if (pull.state === "closed" && pull.merged && pull.baseRef === pull.defaultBranch) {
     // Whatever its status: a run stopped on the merged head still reviewed what merged.
     landed = newest(onHead(await findPrRuns(env.DB, repo, prNumber), pull.headSha));
     if (landed?.status === "landed") landed = undefined;
@@ -98,6 +99,11 @@ export async function reconcilePr(
       if (stale.includes(run)) await stub.stop(stopReason(pull, run));
     }),
   );
+  // GitHub reads the newest check run of a name, and a run stopped on the kept run's head may
+  // have posted its check after the kept run's. Asked only now that the stops have returned.
+  if (kept !== undefined && stale.some((run) => run.headSha === kept.headSha)) {
+    await runStub(env, kept.id).repostCheck();
+  }
   return { landed: landed ? [landed.id] : [], stopped: ids(stale), retitled: ids(retitled) };
 }
 
@@ -113,7 +119,7 @@ export async function startPr(
   const live = await fromGitHub(READ_FAILED, () => github.pullState(pr.repo, pr.number));
   if (live.state !== "open" || live.headSha !== pr.headSha) return { ignored: "stale" };
   // Not patrolled, but the PR has left its old head's runs all the same.
-  const passOver = async (reason: "draft" | "base" | "unpatrolled"): Promise<Started> => {
+  const passOver = async (reason: "draft" | "base"): Promise<Started> => {
     await reconcilePr(env, github, pr.repo, pr.number, live);
     return { ignored: reason };
   };
@@ -131,7 +137,8 @@ export async function startPr(
     // run is stopped, so a failure leaves the PR as it was.
     const check = unpatrolledCheck(pr.headSha);
     await fromGitHub(CHECK_FAILED, () => github.createCheckRun(pr.repo, check));
-    return passOver("unpatrolled");
+    await reconcileAfter(env, github, pr, "the neutral check");
+    return { ignored: "unpatrolled" };
   }
 
   const runId = crypto.randomUUID();
@@ -141,15 +148,25 @@ export async function startPr(
     return [];
   });
   await runStub(env, runId).start(pr, runId, triage(files, names, config));
-  // The old runs go only now that the new one stands. A fresh read: of two racing starts, the one
-  // that reconciles last sees both, and either way the newest run on the PR's head is kept.
+  await reconcileAfter(env, github, pr, `run ${runId}`);
+  return { runId };
+}
+
+// The old runs go only once `what` replaces them. A fresh read: the PR may have moved past this
+// head while it was posted, and of two racing starts the one that reconciles last sees both;
+// either way the newest run on the PR's head is kept.
+async function reconcileAfter(
+  env: Env,
+  github: GitHubClient,
+  pr: PullRequestRef,
+  what: string,
+): Promise<void> {
   try {
     await reconcilePr(env, github, pr.repo, pr.number);
   } catch (error) {
-    // The run has started; the cron stops what this left.
-    console.error(`reconciling ${pr.repo}#${pr.number} after run ${runId}: ${explain(error)}`);
+    // What replaces them stands; the cron stops what this left.
+    console.error(`reconciling ${pr.repo}#${pr.number} after ${what}: ${explain(error)}`);
   }
-  return { runId };
 }
 
 // The closed path. A late delivery may describe a PR since reopened, so GitHub says what to do.
@@ -164,13 +181,15 @@ export async function closePr(
   return reconcilePr(env, github, repo, prNumber, live);
 }
 
-// Every run of the PR, finished ones too: the runs list files them under its title.
+// Every run of the PR, finished ones too: the runs list files them under its title. GitHub's
+// title, not the event's: edits arrive out of order, and no reconcile retitles a finished run.
 export async function retitlePr(
   env: Env,
+  github: GitHubClient,
   repo: string,
   prNumber: number,
-  title: string,
 ): Promise<string[]> {
+  const { title } = await fromGitHub(READ_FAILED, () => github.pullState(repo, prNumber));
   const runs = await findPrRuns(env.DB, repo, prNumber);
   await Promise.all(runs.map((run) => runStub(env, run.id).retitle(title)));
   return ids(runs);
@@ -215,7 +234,10 @@ function ids(runs: IndexedRun[]): string[] {
 }
 
 function stopReason(pull: PullState, run: IndexedRun): string {
-  if (pull.state === "closed") return pull.merged ? "PR merged" : "PR closed";
+  if (pull.state === "closed" && !pull.merged) return "PR closed";
+  if (pull.state === "closed") {
+    return pull.baseRef === pull.defaultBranch ? "PR merged" : `PR merged into ${pull.baseRef}`;
+  }
   if (run.headSha === pull.headSha && pull.draft) return "PR marked draft";
   if (run.headSha === pull.headSha && pull.baseRef !== pull.defaultBranch) {
     return `PR retargeted to ${pull.baseRef}`;

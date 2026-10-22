@@ -16,12 +16,13 @@ export interface PullRequestRef {
   installationId: number;
 }
 
-// "closed" carries no PR state: a late delivery may describe a PR since reopened, so the route
-// reads GitHub. `retarget`: the PR's base changed, so a run on its head reviewed another diff.
+// "closed" and "retitle" carry no PR state: a late delivery may describe a PR since reopened or
+// renamed again, so the route reads GitHub. `retarget`: the PR's base changed, so a run on its
+// head reviewed another diff.
 export type Trigger =
   | { kind: "start"; pr: PullRequestRef; retarget: boolean }
   | { kind: "closed"; repo: string; prNumber: number; installationId: number }
-  | { kind: "retitle"; repo: string; prNumber: number; title: string }
+  | { kind: "retitle"; repo: string; prNumber: number; installationId: number }
   | { kind: "ignore"; reason: string };
 
 interface Identity {
@@ -71,8 +72,10 @@ function pullRequestTrigger(payload: Fields, id: Identity): Trigger {
     const repo = text(fields(payload.repository).full_name);
     const prNumber = positiveInteger(pull.number);
     const installationId = positiveInteger(fields(payload.installation).id);
-    // No fork or author filter: deleting the head repository closes the PR too.
     if (repo !== id.repo) return ignore("repo");
+    // Only the owner's PRs have runs, so a stranger's close costs no GitHub call. No fork filter:
+    // deleting the head repository closes the PR too.
+    if (text(fields(pull.user).login) !== id.owner) return ignore("author");
     return { kind: "closed", repo, prNumber, installationId };
   }
   const changes = fields(payload.changes);
@@ -85,7 +88,8 @@ function pullRequestTrigger(payload: Fields, id: Identity): Trigger {
   // A missing or deleted head repository cannot be shown to be ours, so it counts as a fork.
   if (fields(fields(pull.head).repo).full_name !== pr.repo) return ignore("fork");
   if (pr.author !== id.owner) return ignore("author");
-  if (retitle) return { kind: "retitle", repo: pr.repo, prNumber: pr.number, title: pr.title };
+  const { repo, number: prNumber, installationId } = pr;
+  if (retitle) return { kind: "retitle", repo, prNumber, installationId };
   return { kind: "start", pr, retarget };
 }
 

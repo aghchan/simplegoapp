@@ -428,6 +428,18 @@ describe("POST /agent/failure", () => {
     });
   });
 
+  // The job's failure step reports for a job that died before its brief.
+  it("links the job from the verified token, never the body", async () => {
+    const { runId, ids } = await startRun();
+    const token = await identity.token(agentClaims(env.PUBLIC_URL, { run_id: "12345" }));
+    const body = { ...ids, reason: "job failed before the agent reported", jobUrl: "https://x" };
+    await post("failure", body, { authorization: `Bearer ${token}` });
+    expect((await viewOf(runId)).run.agents[0]).toMatchObject({
+      status: "error",
+      jobUrl: "https://github.com/aghchan/simplegoapp/actions/runs/12345",
+    });
+  });
+
   it("keeps the first 500 characters of the reason", async () => {
     const { runId, ids } = await startRun();
     await post("failure", { ...ids, reason: "a".repeat(499) + "bc" });
