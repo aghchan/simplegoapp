@@ -26,7 +26,7 @@ Spec: docs/superpowers/specs/2026-10-20-base-to-base-design.md
 - `GET /agent/brief` and `POST /agent/{events,verdict,failure}` answer 410 `{"error":"no longer wanted","agent":"<AgentStatus>"}`, changing nothing, once the run is stopped or landed or the agent is done. 403 is a wrong nonce only. The forwarder stops claude and exits by `agent`: `clear` or `stopped` 0, anything else 1.
 - Agent clocks start at the brief (`onBriefed`) and reset on every re-run of the job. A dispatched job that never asks for its brief fails after 30 min (`JOB_START_MS`); no stall before the brief.
 - Agent jobs: the Actions run is titled `Base to Base · <run> · <agent>`, the job named by agent id. Its last step (`if: failure() || cancelled()`) posts `/agent/failure` (`job failed|cancelled before the agent reported`) with curl and jq. Event seq is offset per attempt (`(GITHUB_RUN_ATTEMPT − 1) × 1 000 000`) so a re-run's events survive the log's dedupe.
-- Dashboard runs list: one entry per PR, filed by its latest run (largest `createdAt`), earlier runs collapsed beneath it. `/` shows the newest run and follows a newer one; `/runs/:id` pins one.
+- Dashboard runs list: one entry per PR, filed by the run that speaks for it: the newest open run, else the newest landed, else the newest. Never the largest `createdAt` alone, since a run stopped in a race can be newer. Its other runs collapse beneath it. `/` shows the newest of the PRs' speaking runs and follows a newer one; `/runs/:id` pins one.
 
 ## Deploy
 

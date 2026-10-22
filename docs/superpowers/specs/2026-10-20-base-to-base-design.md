@@ -420,8 +420,9 @@ every mutating action require it **(designer's call)**.
 width, live updates without reload.
 
 **Runs list (built):** groups *Wind hold · needs you*, *On the hill*,
-*Swept*, *Landed*, *Closed*. One entry per PR, filed by its latest run; earlier
-runs collapse beneath it. `/` opens the newest run.
+*Swept*, *Landed*, *Closed*. One entry per PR, filed by the run that speaks for
+it (newest open, else newest landed, else newest); its other runs collapse
+beneath it. `/` opens the newest run.
 
 **Live updates (built):** the run view over its run's socket; the runs list
 over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while

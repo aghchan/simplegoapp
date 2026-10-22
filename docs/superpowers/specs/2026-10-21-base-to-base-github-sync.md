@@ -145,10 +145,10 @@ The sync audit (33 confirmed desyncs, ids C1–C31, M1–M2) is the evidence for
 - Runs-list groups: Needs you, On the hill, Swept, **Landed**, Closed.
   - `groupOf`: landed → Landed; stopped → Closed (whatever the outcome); failed, or swept with
     hazards/failed → Needs you.
-- A PR shows once, filed by its **latest run** (largest `createdAt`). Its earlier runs collapse under it:
+- A PR shows once, filed by its **speaking run**: the newest open run (`on_the_hill`, `swept`), else the newest landed, else the newest. (Dispatch keeps the newest open run on the PR's head, so a run it stopped in a race can have a larger `createdAt`.) Its other runs collapse under it:
   a disclosure button ("N earlier runs", `aria-expanded`). It opens by itself when the current page is
   one of them.
-- `/` shows the newest run (largest `createdAt`), marked current in the list. When a newer run arrives
+- `/` shows the newest of the PRs' speaking runs (largest `createdAt` among them), marked current in the list. When a newer one arrives
   live, `/` follows it. `/runs/:id` pins one.
 - `defaultStep` for a landed run is `drop_in`.
 
