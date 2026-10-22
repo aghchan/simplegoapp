@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { OUTCOME_LABELS, RUN_STATUS_LABELS, STEP_LABELS } from "../../../shared/src/labels.ts";
 import type { RunSummary } from "../../../shared/src/types.ts";
 import { TrailRating } from "../components/TrailRating.tsx";
@@ -37,22 +37,37 @@ export function newestRun(runs: RunSummary[]): RunSummary | undefined {
   );
 }
 
+// The newest open run, else the newest landed, else the newest. Dispatch keeps the newest open run
+// on the PR's head, so a run it stopped in a race can be newer than the one that is live or landed.
+function speakingRun(runs: RunSummary[]): RunSummary | undefined {
+  return (
+    newestRun(runs.filter((run) => run.status === "on_the_hill" || run.status === "swept")) ??
+    newestRun(runs.filter((run) => run.status === "landed")) ??
+    newestRun(runs)
+  );
+}
+
 interface Pr {
-  latest: RunSummary;
+  speaking: RunSummary;
   // Newest first.
   earlier: RunSummary[];
 }
 
-// A PR shows once, where its latest run is listed.
+// A PR shows once, where its speaking run is listed.
 function prsOf(runs: RunSummary[]): Pr[] {
   const byPr = new Map<number, RunSummary[]>();
   for (const run of runs) byPr.set(run.prNumber, [...(byPr.get(run.prNumber) ?? []), run]);
   return runs.flatMap((run) => {
     const all = byPr.get(run.prNumber) ?? [];
-    if (newestRun(all) !== run) return [];
+    if (speakingRun(all) !== run) return [];
     const earlier = all.filter((other) => other !== run).sort((a, b) => b.createdAt - a.createdAt);
-    return [{ latest: run, earlier }];
+    return [{ speaking: run, earlier }];
   });
+}
+
+// The run "/" shows.
+export function newestSpeakingRun(runs: RunSummary[]): RunSummary | undefined {
+  return newestRun(prsOf(runs).map((pr) => pr.speaking));
 }
 
 // Only a clear review reads as patrol done.
@@ -92,37 +107,56 @@ function RunLink(p: { run: RunSummary; tone: string; current: boolean; earlier?:
   );
 }
 
-function PrItem(p: { pr: Pr; group: Group; activeRunId?: string }) {
-  const { latest, earlier } = p.pr;
+function PrItem(p: {
+  pr: Pr;
+  group: Group;
+  activeRunId?: string;
+  open: boolean;
+  onToggle: () => void;
+  refocus: RefObject<number | undefined>;
+}) {
+  const { speaking, earlier } = p.pr;
+  const { prNumber } = speaking;
+  const { refocus } = p;
   const listId = useId();
-  const holdsActive = earlier.some((run) => run.id === p.activeRunId);
-  // Opens by itself whenever the page moves to one of the earlier runs; the viewer can close it.
-  const [open, setOpen] = useState(holdsActive);
-  const [heldActive, setHeldActive] = useState(holdsActive);
-  if (holdsActive !== heldActive) {
-    setHeldActive(holdsActive);
-    if (holdsActive) setOpen(true);
-  }
+  // A PR that changes group mounts afresh: its toggle takes back the focus the old one had.
+  const keepFocus = useCallback(
+    (toggle: HTMLButtonElement) => {
+      if (refocus.current === prNumber) {
+        toggle.focus();
+        refocus.current = undefined;
+      }
+      return () => {
+        if (document.activeElement === toggle) refocus.current = prNumber;
+      };
+    },
+    [refocus, prNumber],
+  );
   const count = earlier.length;
 
   return (
     <li className="pr">
-      <RunLink run={latest} tone={toneOf(latest, p.group)} current={latest.id === p.activeRunId} />
+      <RunLink
+        run={speaking}
+        tone={toneOf(speaking, p.group)}
+        current={speaking.id === p.activeRunId}
+      />
       {count > 0 && (
         <>
           <button
+            ref={keepFocus}
             type="button"
             className="btn btn-small earlier-toggle"
-            aria-expanded={open}
+            aria-expanded={p.open}
             aria-controls={listId}
-            onClick={() => setOpen(!open)}
+            onClick={p.onToggle}
           >
             <svg className="chevron" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
               <path d="M3.5 1.5 L7 5 L3.5 8.5" />
             </svg>
             {count} earlier {count === 1 ? "run" : "runs"}
           </button>
-          <ul id={listId} className="run-earlier" hidden={!open}>
+          <ul id={listId} className="run-earlier" hidden={!p.open}>
             {earlier.map((run) => (
               <li key={run.id}>
                 <RunLink run={run} tone=" run-quiet" current={run.id === p.activeRunId} earlier />
@@ -136,21 +170,47 @@ function PrItem(p: { pr: Pr; group: Group; activeRunId?: string }) {
 }
 
 export function RunsList({ runs, activeRunId }: { runs: RunSummary[]; activeRunId?: string }) {
+  const prs = prsOf(runs);
+  // Kept here by PR number, not in PrItem: a PR that changes group mounts afresh.
+  const [open, setOpen] = useState<ReadonlyMap<number, boolean>>(new Map());
+  // Opens by itself whenever the page moves to one of a PR's earlier runs; the viewer can close it.
+  const holder = prs.find((pr) => pr.earlier.some((run) => run.id === activeRunId))?.speaking;
+  const [held, setHeld] = useState<number>();
+  if (holder?.prNumber !== held) {
+    setHeld(holder?.prNumber);
+    if (holder) setOpen(new Map(open).set(holder.prNumber, true));
+  }
+  // Lives for one commit: a PR gone from the list must not take the focus when it comes back.
+  const refocus = useRef<number>(undefined);
+  useLayoutEffect(() => {
+    refocus.current = undefined;
+  });
+
   if (runs.length === 0)
     return <p className="hint">No runs yet. They appear when you open a pull request.</p>;
-  const prs = prsOf(runs);
   return (
     <div className="runs">
       {GROUPS.map(({ id, title, urgent }) => {
-        const inGroup = prs.filter((pr) => groupOf(pr.latest) === id);
+        const inGroup = prs.filter((pr) => groupOf(pr.speaking) === id);
         if (inGroup.length === 0) return null;
         return (
           <section key={id} className="run-group">
             <h2 className={urgent ? "group-title group-title-urgent" : "group-title"}>{title}</h2>
             <ul className="run-items">
-              {inGroup.map((pr) => (
-                <PrItem key={pr.latest.prNumber} pr={pr} group={id} activeRunId={activeRunId} />
-              ))}
+              {inGroup.map((pr) => {
+                const n = pr.speaking.prNumber;
+                return (
+                  <PrItem
+                    key={n}
+                    pr={pr}
+                    group={id}
+                    activeRunId={activeRunId}
+                    open={open.get(n) ?? false}
+                    onToggle={() => setOpen(new Map(open).set(n, !open.get(n)))}
+                    refocus={refocus}
+                  />
+                );
+              })}
             </ul>
           </section>
         );

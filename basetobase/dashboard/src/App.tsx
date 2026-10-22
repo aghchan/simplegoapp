@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { RunSummary } from "../../shared/src/types.ts";
 import { getJson, navigateTo, SIGN_IN_URL, SignedOutError } from "./api.ts";
 import { RunPage } from "./pages/RunView.tsx";
-import { newestRun, RunsList } from "./pages/RunsList.tsx";
+import { newestSpeakingRun, RunsList } from "./pages/RunsList.tsx";
 import { followInternalLink, useRoute, type Route } from "./router.ts";
 import { useRunsLive } from "./useRunsLive.ts";
 
@@ -95,7 +95,8 @@ export function App() {
     );
   }, []);
   useRunsLive(dashboard.phase === "ready", updateRuns);
-  const newestRunId = dashboard.phase === "ready" ? newestRun(dashboard.runs)?.id : undefined;
+  const newestRunId =
+    dashboard.phase === "ready" ? newestSpeakingRun(dashboard.runs)?.id : undefined;
   const shownRunId =
     route.page === "run" ? route.runId : route.page === "runs" ? newestRunId : undefined;
 

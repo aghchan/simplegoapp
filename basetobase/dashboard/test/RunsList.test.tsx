@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { ReviewOutcome, RunStatus, RunSummary } from "../../shared/src/types.ts";
-import { newestRun, RunsList } from "../src/pages/RunsList.tsx";
+import { newestRun, newestSpeakingRun, RunsList } from "../src/pages/RunsList.tsx";
 
 // Each id is its own PR, unless a test gives two runs one prNumber.
 const PR_OF_ID = new Map<string, number>();
@@ -50,6 +50,30 @@ describe("newestRun", () => {
 
   it("is nothing when there are no runs", () => {
     expect(newestRun([])).toBeUndefined();
+  });
+});
+
+describe("newestSpeakingRun", () => {
+  it("passes over a PR's newer run that Dispatch stopped in a race", () => {
+    const runs = [
+      run("r1", "on_the_hill", { prNumber: 58, createdAt: 4 }),
+      run("r2", "stopped", { prNumber: 58, createdAt: 9 }),
+      run("r3", "swept", { prNumber: 59, createdAt: 6 }),
+    ];
+    expect(newestSpeakingRun(runs)?.id).toBe("r3");
+  });
+
+  it("is a PR's landed run when it is newer than another PR's open one", () => {
+    const runs = [
+      run("r1", "landed", { prNumber: 58, createdAt: 7 }),
+      run("r2", "stopped", { prNumber: 58, createdAt: 9 }),
+      run("r3", "on_the_hill", { prNumber: 59, createdAt: 6 }),
+    ];
+    expect(newestSpeakingRun(runs)?.id).toBe("r1");
+  });
+
+  it("is nothing when there are no runs", () => {
+    expect(newestSpeakingRun([])).toBeUndefined();
   });
 });
 
@@ -342,6 +366,75 @@ describe("RunsList", () => {
       render(<RunsList runs={[first, second, other, latest]} />);
       expect(group("Swept · patrol done")).toEqual(["/runs/r9", "/runs/r3"]);
       expect(screen.getAllByRole("button")).toHaveLength(1);
+    });
+
+    // The sweep finishes, and the PR moves from Swept to Landed.
+    const landed: RunSummary = { ...latest, status: "landed", updatedAt: 10 };
+
+    it("stays open when the PR moves to another group", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<RunsList runs={pr58} />);
+      await user.click(toggle());
+      rerender(<RunsList runs={[landed, first, second]} />);
+      expect(group("Landed · merged")).toEqual(["/runs/r3"]);
+      expect(toggle()).toHaveAttribute("aria-expanded", "true");
+      expect(earlierShown()).toEqual(["/runs/r2", "/runs/r1"]);
+    });
+
+    it("keeps the keyboard's focus when the PR moves to another group", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<RunsList runs={pr58} />);
+      toggle().focus();
+      await user.keyboard("{Enter}");
+      rerender(<RunsList runs={[landed, first, second]} />);
+      expect(group("Landed · merged")).toEqual(["/runs/r3"]);
+      expect(toggle()).toHaveFocus();
+    });
+
+    it("does not take the focus back when the PR returns to the list later", () => {
+      const other = run("r9", "swept", { prNumber: 59 });
+      const { rerender } = render(<RunsList runs={[...pr58, other]} />);
+      toggle().focus();
+      rerender(<RunsList runs={[other]} />);
+      const link = screen.getByRole("link", { name: /Trail r9/ });
+      link.focus();
+      rerender(<RunsList runs={[...pr58, other]} />);
+      expect(link).toHaveFocus();
+    });
+  });
+
+  // Dispatch keeps the newest open run on the PR's head, so a race can leave a run it stopped
+  // newer than the one that is live or landed.
+  describe("a PR whose newest run was stopped in a race", () => {
+    it.each<[RunStatus, string]>([
+      ["on_the_hill", "On the hill · running"],
+      ["swept", "Swept · patrol done"],
+      ["landed", "Landed · merged"],
+    ])("is filed by its %s run, under %s", (status, heading) => {
+      render(
+        <RunsList
+          runs={[
+            run("r1", status, { prNumber: 58, createdAt: 4 }),
+            run("r2", "stopped", { prNumber: 58, createdAt: 5 }),
+          ]}
+        />,
+      );
+      expect(group(heading)).toEqual(["/runs/r1"]);
+      expect(screen.queryByRole("heading", { name: "Closed" })).toBeNull();
+      expect(screen.getByRole("button", { name: "1 earlier run" })).toBeVisible();
+    });
+
+    it("is filed by its open run before a newer landed one", () => {
+      render(
+        <RunsList
+          runs={[
+            run("r1", "on_the_hill", { prNumber: 58, createdAt: 4 }),
+            run("r2", "landed", { prNumber: 58, createdAt: 5 }),
+          ]}
+        />,
+      );
+      expect(group("On the hill · running")).toEqual(["/runs/r1"]);
+      expect(screen.queryByRole("heading", { name: "Landed · merged" })).toBeNull();
     });
   });
 
