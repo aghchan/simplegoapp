@@ -496,7 +496,10 @@ run's own difficulty in OpenStreetMap (novice/easy green, intermediate blue,
 advanced black, expert/freeride/extreme double black). `npm run trail-names`
 regenerates it: one Overpass query per mountain, names alphabetical within a
 mountain and dealt from the mountains in turn, so consecutive runs come from
-different mountains. Attribution: OpenStreetMap contributors (ODbL). Until
+different mountains. Each mountain's last good Overpass answer is kept in
+`scripts/overpass/`, refreshed on every good call; when Overpass is down, slow
+or answers unusably, that mountain's names come from its saved answer.
+Attribution: OpenStreetMap contributors (ODbL). Until
 it first runs, the file holds a hand-picked seed (Green: Easy Slider, Ramp
 Run, Bunny Hill; Blue: Home Run, Tomlinson's, Shirley Bowl, Champs Elysees;
 Black: Red Dog Face, Headwall Face; Double black: Our Father, Fingers,

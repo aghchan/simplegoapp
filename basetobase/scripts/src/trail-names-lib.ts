@@ -1,6 +1,6 @@
 // The run names (config/trail-names.json): every named downhill run at the Ikon Pass mountains in
 // California and Utah, from OpenStreetMap, filed by the run's own difficulty. trail-names.ts
-// fetches; this file decides.
+// fetches and keeps each mountain's last good answer (scripts/overpass/); this file decides.
 import type { Rating } from "../../shared/src/config.ts";
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
@@ -120,4 +120,63 @@ export function trailNameLists(
     lists[rating] = names;
   }
   return lists;
+}
+
+// A mountain's saved answer: scripts/overpass/<slug>.json.
+export function slugOf(resort: string): string {
+  return resort
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+// When OpenStreetMap's data was as Overpass served it, from the answer's own header.
+export function osmAsOf(body: unknown): string | undefined {
+  const osm3s = (body as { osm3s?: { timestamp_osm_base?: unknown } } | null)?.osm3s;
+  const at = osm3s?.timestamp_osm_base;
+  return typeof at === "string" && at !== "" ? at : undefined;
+}
+
+// Why an answer cannot be used, or undefined when it can. A 200 can still carry a failed query:
+// Overpass reports a timeout or running out of memory in `remark`, beside what it had got to.
+export function answerProblem(text: string): string | undefined {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return "not JSON";
+  }
+  if (!Array.isArray((body as { elements?: unknown } | null)?.elements)) {
+    return "not an Overpass answer";
+  }
+  const remark = (body as { remark?: unknown }).remark;
+  if (typeof remark === "string" && /error/i.test(remark)) return `Overpass: ${remark}`;
+  if (runsOf(body).length === 0) {
+    return "no named runs (check its area and box in trail-names-lib.ts)";
+  }
+  return undefined;
+}
+
+// What asking Overpass came to: its answer, or why there was none.
+export type Fetched = { text: string } | { error: string };
+
+export type Chosen =
+  | { from: "fresh" | "saved"; text: string; body: unknown; warning?: string }
+  | { error: string };
+
+// The fresh answer when it is good, else the one saved from an earlier run, so a mountain keeps
+// its names while Overpass is down. An unusable answer never replaces a saved one.
+export function chooseAnswer(fresh: Fetched, saved: string | undefined): Chosen {
+  const why = "error" in fresh ? fresh.error : answerProblem(fresh.text);
+  if (why === undefined && "text" in fresh) {
+    return { from: "fresh", text: fresh.text, body: JSON.parse(fresh.text) };
+  }
+  const savedWhy = saved === undefined ? "none is saved" : answerProblem(saved);
+  if (saved === undefined || savedWhy !== undefined) {
+    return { error: `${why}, and no saved answer to fall back on: ${savedWhy}` };
+  }
+  const body: unknown = JSON.parse(saved);
+  const asOf = osmAsOf(body) ?? "an unknown date";
+  const warning = `${why}; using the saved answer, as of ${asOf}`;
+  return { from: "saved", text: saved, body, warning };
 }

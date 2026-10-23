@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   IKON_RESORTS,
+  answerProblem,
+  chooseAnswer,
+  osmAsOf,
   overpassQuery,
   ratingOf,
   runsOf,
+  slugOf,
   trailNameLists,
 } from "../src/trail-names-lib.ts";
 
@@ -140,5 +144,91 @@ describe("trailNameLists", () => {
       },
     ]);
     expect(lists.double_black).toEqual(["Baldy Chutes", "Great Scott"]);
+  });
+});
+
+// An answer as Overpass sends one: its header, then the runs.
+function answer(runs: Record<string, string>[], extra: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    version: 0.6,
+    generator: "Overpass API",
+    osm3s: { timestamp_osm_base: "2026-10-23T18:00:00Z", copyright: "ODbL" },
+    elements: runs.map(way),
+    ...extra,
+  });
+}
+const alta = answer([{ name: "Mambo", "piste:difficulty": "easy" }]);
+const altaLater = answer([{ name: "Sugarloaf", "piste:difficulty": "intermediate" }]);
+
+describe("slugOf", () => {
+  it("names each mountain's saved answer plainly, and differently", () => {
+    expect(slugOf("Palisades Tahoe")).toBe("palisades-tahoe");
+    expect(slugOf("Snowbird")).toBe("snowbird");
+    expect(new Set(IKON_RESORTS.map((resort) => slugOf(resort.name))).size).toBe(12);
+  });
+});
+
+describe("osmAsOf", () => {
+  it("reads when OpenStreetMap's data was as served", () => {
+    expect(osmAsOf(JSON.parse(alta))).toBe("2026-10-23T18:00:00Z");
+    expect(osmAsOf({ elements: [] })).toBeUndefined();
+    expect(osmAsOf(null)).toBeUndefined();
+  });
+});
+
+describe("answerProblem", () => {
+  it("passes an answer with named runs", () => expect(answerProblem(alta)).toBeUndefined());
+
+  it.each([
+    ["text that is not JSON", "<html>502 Bad Gateway</html>", "not JSON"],
+    ["JSON that is not an answer", '{"error":"busy"}', "not an Overpass answer"],
+    [
+      "a query that ran out of time, though answered 200",
+      answer([{ name: "Mambo", "piste:difficulty": "easy" }], {
+        remark: 'runtime error: Query timed out in "query" at line 3 after 121 seconds.',
+      }),
+      "Overpass: runtime error: Query timed out",
+    ],
+    ["an answer without a named run", answer([{ name: "Cat Track" }]), "no named runs"],
+  ])("refuses %s", (_name, text, why) => expect(answerProblem(text)).toContain(why));
+});
+
+describe("chooseAnswer", () => {
+  it("takes a good fresh answer, over the saved one", () => {
+    expect(chooseAnswer({ text: altaLater }, alta)).toEqual({
+      from: "fresh",
+      text: altaLater,
+      body: JSON.parse(altaLater),
+    });
+  });
+
+  it("falls back on the saved answer while Overpass is down, saying so and how old it is", () => {
+    const chosen = chooseAnswer({ error: "Overpass unreachable: fetch failed" }, alta);
+    expect(chosen).toEqual({
+      from: "saved",
+      text: alta,
+      body: JSON.parse(alta),
+      warning:
+        "Overpass unreachable: fetch failed; using the saved answer, as of 2026-10-23T18:00:00Z",
+    });
+  });
+
+  it("keeps the saved answer over a fresh one that cannot be used", () => {
+    const timedOut = answer([], { remark: "runtime error: Query run out of memory" });
+    expect(chooseAnswer({ text: timedOut }, alta)).toMatchObject({ from: "saved", text: alta });
+    const empty = answer([{ name: "Cat Track" }]);
+    expect(chooseAnswer({ text: empty }, alta)).toMatchObject({
+      from: "saved",
+      warning: expect.stringContaining("no named runs"),
+    });
+  });
+
+  it("fails with nothing saved, or nothing usable saved", () => {
+    expect(chooseAnswer({ error: "Overpass answered 503" }, undefined)).toEqual({
+      error: "Overpass answered 503, and no saved answer to fall back on: none is saved",
+    });
+    expect(chooseAnswer({ error: "Overpass answered 503" }, "{")).toEqual({
+      error: "Overpass answered 503, and no saved answer to fall back on: not JSON",
+    });
   });
 });
