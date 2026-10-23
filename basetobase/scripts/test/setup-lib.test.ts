@@ -1,14 +1,23 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  accountProblem,
+  accountsOf,
   appIdFrom,
   appManifest,
+  branchPoliciesOf,
   branchProtection,
   d1Id,
+  DEPLOY_PROBES,
+  deployTokenUrl,
   KV_BINDING,
   kvId,
   looksLikeClaudeToken,
+  looksLikeCloudflareToken,
+  MAIN_BRANCH_POLICY,
   manifestPage,
+  probeProblem,
+  productionEnvironment,
   publicUrlOf,
   tokenFrom,
   withDatabaseId,
@@ -17,6 +26,8 @@ import {
   workerSecrets,
   workersDevUrl,
   type AppConversion,
+  tokenIsActive,
+  tokenProblem,
 } from "../src/setup-lib.ts";
 
 // wrangler.jsonc as committed before setup: the real file holds the owner's ids once setup has run.
@@ -193,5 +204,100 @@ describe("Claude token input", () => {
     expect(looksLikeClaudeToken(token.slice(0, 20))).toBe(false);
     expect(looksLikeClaudeToken("ghp_notaclaudetoken0000000000000000000000000000")).toBe(false);
     expect(looksLikeClaudeToken("")).toBe(false);
+  });
+});
+
+describe("deploy token", () => {
+  it("opens Cloudflare's token form with only what the deploy job needs", () => {
+    const url = new URL(deployTokenUrl());
+    expect(url.origin + url.pathname).toBe("https://dash.cloudflare.com/profile/api-tokens");
+    expect(JSON.parse(url.searchParams.get("permissionGroupKeys") ?? "")).toEqual([
+      { key: "workers_scripts", type: "edit" },
+      { key: "d1", type: "edit" },
+      { key: "account_settings", type: "read" },
+    ]);
+    expect(url.searchParams.get("accountId")).toBe("*");
+    expect(url.searchParams.get("zoneId")).toBe("all");
+    expect(url.searchParams.get("name")).toBe("Base to Base deploy");
+    // Encoded as Cloudflare's own template links are: no `+` for a space.
+    expect(deployTokenUrl()).toContain("name=Base%20to%20Base%20deploy");
+  });
+
+  it("takes a pasted token and refuses a cut-off or wrapped one", () => {
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPqRsTuVwXyZ0123456789abcd")).toBe(true);
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPq")).toBe(false);
+    expect(looksLikeCloudflareToken("Zq3_0aVx-9kLmNoPqRsTu VwXyZ0123456789abcd")).toBe(false);
+    expect(looksLikeCloudflareToken("")).toBe(false);
+  });
+
+  it("reads Cloudflare's answers", () => {
+    expect(tokenIsActive({ success: true, result: { id: "t", status: "active" } })).toBe(true);
+    expect(tokenIsActive({ success: true, result: { id: "t", status: "disabled" } })).toBe(false);
+    expect(tokenIsActive({ success: false, errors: [{ code: 1000, message: "Invalid API Token" }] })).toBe(false);
+    expect(tokenIsActive(undefined)).toBe(false);
+    expect(
+      accountsOf({ success: true, result: [{ id: "a1", name: "Owner's account", type: "standard" }] }),
+    ).toEqual([{ id: "a1", name: "Owner's account" }]);
+    expect(accountsOf({ success: true, result: [{ name: "no id" }] })).toEqual([]);
+    expect(accountsOf({ success: false, errors: [] })).toEqual([]);
+  });
+
+  it("probes the account with what each permission reads", () => {
+    expect(DEPLOY_PROBES.map((probe) => [probe.path("a1"), probe.permission])).toEqual([
+      ["/accounts/a1/workers/scripts", "Workers Scripts · Edit"],
+      ["/accounts/a1/d1/database", "D1 · Edit"],
+    ]);
+  });
+});
+
+describe("token refusals", () => {
+  const ACTIVE = { success: true, result: { id: "t", status: "active" } };
+
+  it("takes an active user token", () => {
+    expect(tokenProblem(200, ACTIVE)).toBeUndefined();
+  });
+
+  it("points an account token, or a mistyped one, back to the user-token link", () => {
+    const invalid = { success: false, errors: [{ code: 1000, message: "Invalid API Token" }] };
+    expect(tokenProblem(401, invalid)).toContain("Make one from the link above (My Profile → API Tokens)");
+  });
+
+  it("names the status for anything else", () => {
+    expect(tokenProblem(503, undefined)).toBe("Cloudflare does not accept that token (HTTP 503).");
+  });
+
+  it("wants exactly one account: the form preselects all of them", () => {
+    const one = { id: "a1", name: "Owner" };
+    expect(accountProblem([one])).toBeUndefined();
+    expect(accountProblem([])).toContain("reaches no account");
+    expect(accountProblem([one, { id: "a2", name: "Work" }])).toBe(
+      "That token reaches 2 accounts. Limit Account Resources to the one that runs Base to Base, then paste the new token.",
+    );
+  });
+
+  it("names the permission a failed probe needs", () => {
+    const [workers] = DEPLOY_PROBES;
+    expect(probeProblem(workers!, 200)).toBeUndefined();
+    expect(probeProblem(workers!, 403)).toBe(
+      "That token cannot read Workers (HTTP 403): it needs Workers Scripts · Edit. Make it again from the link.",
+    );
+  });
+});
+
+describe("production environment", () => {
+  it("names main as the only branch that may deploy, whatever main's protection", () => {
+    expect(productionEnvironment()).toEqual({
+      deployment_branch_policy: { protected_branches: false, custom_branch_policies: true },
+    });
+    expect(MAIN_BRANCH_POLICY).toEqual({ name: "main", type: "branch" });
+  });
+
+  it("reads the environment's branch policies", () => {
+    const body = { total_count: 2, branch_policies: [{ id: 1, name: "main", type: "branch" }, { id: 2, name: "release/*" }] };
+    expect(branchPoliciesOf(body)).toEqual([
+      { name: "main", type: "branch" },
+      { name: "release/*", type: "branch" },
+    ]);
+    expect(branchPoliciesOf({ message: "Not Found" })).toEqual([]);
   });
 });

@@ -14,7 +14,8 @@
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && node scripts/src/wrangler.ts deploy",
     "migrate": "node scripts/src/wrangler.ts d1 migrations apply basetobase --remote",
-    "setup": "node scripts/src/setup.ts"
+    "setup": "node scripts/src/setup.ts",
+    "setup:deploy": "node scripts/src/setup-deploy.ts"
   },
   "dependencies": {
     "hono": "^4.13.13",
