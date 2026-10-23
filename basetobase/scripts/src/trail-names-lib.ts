@@ -4,6 +4,8 @@
 import type { Rating } from "../../shared/src/config.ts";
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+// Says how many of this caller's query slots are free, or when the next one frees up.
+export const OVERPASS_STATUS_URL = "https://overpass-api.de/api/status";
 export const SOURCE =
   "OpenStreetMap contributors (ODbL): named downhill runs with a piste:difficulty at the Ikon " +
   "Pass mountains in California and Utah";
@@ -179,4 +181,27 @@ export function chooseAnswer(fresh: Fetched, saved: string | undefined): Chosen 
   const asOf = osmAsOf(body) ?? "an unknown date";
   const warning = `${why}; using the saved answer, as of ${asOf}`;
   return { from: "saved", text: saved, body, warning };
+}
+
+// How long until Overpass gives this caller a query slot, from its status page: 0 with one free
+// now, undefined for a page it cannot read. Each query holds a slot for its run time and a
+// cooldown after it, so a caller that asks again too soon gets 429.
+export function slotWaitMs(status: string): number | undefined {
+  if (/\b[1-9]\d* slots? available now/.test(status)) return 0;
+  const waits = [...status.matchAll(/Slot available after: \S+, in (-?\d+) seconds?\./g)];
+  if (waits.length === 0) return undefined;
+  const soonest = Math.min(...waits.map((match) => Number(match[1])));
+  return Math.max(0, soonest) * 1000;
+}
+
+// Whether a 200 carries a query Overpass gave up on for lack of time or memory, which a later try
+// may finish.
+export function overloaded(text: string): boolean {
+  try {
+    const remark = (JSON.parse(text) as { remark?: unknown } | null)?.remark;
+    if (typeof remark !== "string") return false;
+    return /runtime error: Query (timed out|run out of memory)/.test(remark);
+  } catch {
+    return false;
+  }
 }

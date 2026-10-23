@@ -4,9 +4,11 @@ import {
   answerProblem,
   chooseAnswer,
   osmAsOf,
+  overloaded,
   overpassQuery,
   ratingOf,
   runsOf,
+  slotWaitMs,
   slugOf,
   trailNameLists,
 } from "../src/trail-names-lib.ts";
@@ -232,3 +234,61 @@ describe("chooseAnswer", () => {
     });
   });
 });
+
+describe("slotWaitMs", () => {
+  const status = (...lines: string[]) =>
+    [
+      "Connected as: 3232235777",
+      "Current time: 2026-10-23T18:40:00Z",
+      "Announced endpoint: z.overpass-api.de/api/",
+      "Rate limit: 2",
+      ...lines,
+      "Currently running queries (pid, space limit, time limit, start time):",
+    ].join("\n");
+
+  it("is 0 while a slot is free", () => {
+    expect(slotWaitMs(status("2 slots available now."))).toBe(0);
+    expect(
+      slotWaitMs(
+        status(
+          "1 slots available now.",
+          "Slot available after: 2026-10-23T18:40:45Z, in 45 seconds.",
+        ),
+      ),
+    ).toBe(0);
+  });
+
+  it("waits for the soonest slot while none is free", () => {
+    const busy = status(
+      "Slot available after: 2026-10-23T18:41:00Z, in 60 seconds.",
+      "Slot available after: 2026-10-23T18:40:32Z, in 32 seconds.",
+    );
+    expect(slotWaitMs(busy)).toBe(32_000);
+  });
+
+  it("reads a slot already due as free", () =>
+    expect(slotWaitMs(status("Slot available after: 2026-10-23T18:39:58Z, in -2 seconds."))).toBe(
+      0,
+    ));
+
+  it("says nothing for a page it cannot read", () => {
+    expect(slotWaitMs(status("0 slots available now."))).toBeUndefined();
+    expect(slotWaitMs("<html>502 Bad Gateway</html>")).toBeUndefined();
+  });
+});
+
+describe("overloaded", () => {
+  it("spots a query Overpass gave up on for time or memory", () => {
+    const timedOut = 'runtime error: Query timed out in "query" at line 3 after 121 seconds.';
+    expect(overloaded(answer([], { remark: timedOut }))).toBe(true);
+    const memory = "runtime error: Query run out of memory using about 2048 MB of RAM.";
+    expect(overloaded(answer([], { remark: memory }))).toBe(true);
+  });
+
+  it("passes a finished answer, another remark, and what is not JSON", () => {
+    expect(overloaded(alta)).toBe(false);
+    expect(overloaded(answer([], { remark: "runtime error: syntax error" }))).toBe(false);
+    expect(overloaded("<html>")).toBe(false);
+  });
+});
+
