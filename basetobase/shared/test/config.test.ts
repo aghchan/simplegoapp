@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import raw from "../../config/basetobase.json" with { type: "json" };
+import shipped from "../../config/basetobase.json" with { type: "json" };
+import trailNameFile from "../../config/trail-names.json" with { type: "json" };
 import { config, loadConfig, rosterEntry } from "../src/config.ts";
+
+const raw = { ...shipped, trailNames: trailNameFile.trailNames };
 
 describe("loadConfig", () => {
   it("names the missing field", () => {

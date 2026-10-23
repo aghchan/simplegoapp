@@ -7,3 +7,4 @@
 - `wrangler.ts` (`npm run deploy`, `npm run migrate`): runs wrangler; an expired login reruns `wrangler login` and retries once.
 - `setup-deploy.ts` (`npm run setup:deploy`; `setup`'s last step once gh is signed in): environment `production` (main only, by branch policy), a Cloudflare user token from a filled-in form link, checked against Cloudflare's API and limited to one account, then a first deploy run.
 - `ci-deploy.ts` (CI only; `plan` and `deploy`): decisions in `ci-deploy-lib.ts`, driven in tests through `DeployIO`. wrangler reads the token from the job's environment, as Cloudflare documents.
+- `trail-names.ts` (`npm run trail-names`): rewrites config/trail-names.json from OpenStreetMap's Overpass API, one query per Ikon mountain in California and Utah (`IKON_RESORTS`: a ski-area name regex and a box). A mountain with no named runs fails the run and writes nothing; tune its regex or box. Commit the result.

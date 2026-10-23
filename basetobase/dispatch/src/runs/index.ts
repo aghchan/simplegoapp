@@ -1,4 +1,5 @@
 import type { Rating } from "../../../shared/src/config.ts";
+import type { RunNames } from "../../../shared/src/triage.ts";
 import type {
   RunSnapshot,
   RunStatus,
@@ -81,12 +82,17 @@ export async function listRuns(
   return results;
 }
 
-export async function activeRunNames(db: D1Database, rating: Rating): Promise<string[]> {
-  const { results } = await db
-    .prepare("SELECT run_name AS runName FROM runs WHERE status = 'on_the_hill' AND rating = ?")
-    .bind(rating)
-    .all<{ runName: string }>();
-  return results.map((row) => row.runName);
+// What pickRunName needs (shared/src/triage.ts): the names the rating's runs on the hill hold, and
+// its newest run's, whatever became of that run, so the next run takes a new name.
+export async function runNamesFor(db: D1Database, rating: Rating): Promise<RunNames> {
+  const [active, newest] = await db.batch<{ runName: string }>([
+    db.prepare("SELECT run_name AS runName FROM runs WHERE status = 'on_the_hill' AND rating = ?").bind(rating),
+    db
+      .prepare("SELECT run_name AS runName FROM runs WHERE rating = ? ORDER BY created_at DESC LIMIT 1")
+      .bind(rating),
+  ]);
+  const last = newest?.results[0]?.runName;
+  return { active: (active?.results ?? []).map((row) => row.runName), ...(last === undefined ? {} : { last }) };
 }
 
 export async function findOpenRuns(

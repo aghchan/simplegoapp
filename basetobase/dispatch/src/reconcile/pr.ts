@@ -1,6 +1,6 @@
 import picomatch from "picomatch";
 import { config } from "../../../shared/src/config.ts";
-import { rateChange, triage, type ChangedFile } from "../../../shared/src/triage.ts";
+import { rateChange, triage, type ChangedFile, type RunNames } from "../../../shared/src/triage.ts";
 import {
   createGitHubClient,
   type CheckRunCreate,
@@ -11,9 +11,9 @@ import {
 import type { PullRequestRef } from "../github/webhook.ts";
 import { CHECK_NAME } from "../run/machine.ts";
 import {
-  activeRunNames,
   findOpenRuns,
   findPrRuns,
+  runNamesFor,
   runStub,
   type IndexedRun,
 } from "../runs/index.ts";
@@ -142,10 +142,10 @@ export async function startPr(
   }
 
   const runId = crypto.randomUUID();
-  // The names only keep runs of one rating apart, so a failed read costs nothing that matters.
-  const names = await activeRunNames(env.DB, rateChange(files, config)).catch((error) => {
+  // The names are cosmetic, so a failed read costs nothing that matters.
+  const names = await runNamesFor(env.DB, rateChange(files, config)).catch((error): RunNames => {
     console.error(`run names for ${pr.repo}#${pr.number}: ${messageOf(error)}`);
-    return [];
+    return { active: [] };
   });
   await runStub(env, runId).start(pr, runId, triage(files, names, config));
   await reconcileAfter(env, github, pr, `run ${runId}`);
