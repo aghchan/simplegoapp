@@ -1,6 +1,6 @@
 import picomatch from "picomatch";
 import { config } from "../../../shared/src/config.ts";
-import { rateChange, triage, type ChangedFile } from "../../../shared/src/triage.ts";
+import { rateChange, triage, type ChangedFile, type RunNames } from "../../../shared/src/triage.ts";
 import {
   createGitHubClient,
   type CheckRunCreate,
@@ -8,12 +8,12 @@ import {
   type GitHubClient,
   type PullState,
 } from "../github/client.ts";
-import type { PullRequestRef } from "../github/webhook.ts";
+import { REFRESH_AUTHOR, type PullRequestRef } from "../github/webhook.ts";
 import { CHECK_NAME } from "../run/machine.ts";
 import {
-  activeRunNames,
   findOpenRuns,
   findPrRuns,
+  runNamesFor,
   runStub,
   type IndexedRun,
 } from "../runs/index.ts";
@@ -24,6 +24,8 @@ const CHECK_FAILED = "could not post the check run to GitHub";
 
 // Matched as triage matches its globs.
 const matchesUnpatrolled = picomatch(config.unpatrolledGlobs, { dot: true, nocase: true });
+// An allowlist, so matched as GitHub spells paths.
+const matchesRefresh = picomatch(config.refreshGlobs, { dot: true });
 
 // What a reconcile asked of the PR's runs, by run id.
 export interface Reconciled {
@@ -34,7 +36,7 @@ export interface Reconciled {
 
 export type Started =
   | { runId: string }
-  | { ignored: "stale" | "draft" | "base" | "duplicate" | "unpatrolled" };
+  | { ignored: "stale" | "draft" | "base" | "duplicate" | "unpatrolled" | "author" };
 
 // A GitHub call failed. `what` says what could not be done; the message is the client's, which
 // carries a status and path only, never a token or key.
@@ -132,6 +134,10 @@ export async function startPr(
     if (open.some((run) => run.headSha === pr.headSha)) return { ignored: "duplicate" };
   }
   const files = await fromGitHub(READ_FAILED, () => github.listPullFiles(pr.repo, pr.number));
+  // The refresh workflow's PRs vouch for new trail names and nothing else.
+  if (pr.author === REFRESH_AUTHOR && (files.length === 0 || !files.every(isRefresh))) {
+    return { ignored: "author" };
+  }
   if (files.some(isUnpatrolled)) {
     // Neutral passes the required check, so an unpatrolled PR can still merge. Posted before any
     // run is stopped, so a failure leaves the PR as it was.
@@ -142,10 +148,10 @@ export async function startPr(
   }
 
   const runId = crypto.randomUUID();
-  // The names only keep runs of one rating apart, so a failed read costs nothing that matters.
-  const names = await activeRunNames(env.DB, rateChange(files, config)).catch((error) => {
+  // The names are cosmetic, so a failed read costs nothing that matters.
+  const names = await runNamesFor(env.DB, rateChange(files, config)).catch((error): RunNames => {
     console.error(`run names for ${pr.repo}#${pr.number}: ${messageOf(error)}`);
-    return [];
+    return { active: [] };
   });
   await runStub(env, runId).start(pr, runId, triage(files, names, config));
   await reconcileAfter(env, github, pr, `run ${runId}`);
@@ -252,6 +258,14 @@ function isUnpatrolled(file: ChangedFile): boolean {
   return (
     matchesUnpatrolled(file.path) ||
     (file.previousPath !== undefined && matchesUnpatrolled(file.previousPath))
+  );
+}
+
+// Both sides of a rename, so a file moved in from elsewhere does not pass as a refresh.
+function isRefresh(file: ChangedFile): boolean {
+  return (
+    matchesRefresh(file.path) &&
+    (file.previousPath === undefined || matchesRefresh(file.previousPath))
   );
 }
 

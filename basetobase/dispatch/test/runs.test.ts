@@ -8,11 +8,11 @@ import type {
   StepSnapshot,
 } from "../../shared/src/types.ts";
 import {
-  activeRunNames,
   findOpenRuns,
   findPrRuns,
   listRuns,
   openRunPrs,
+  runNamesFor,
   runsOnHead,
   summaryOf,
   upsertRun,
@@ -148,12 +148,18 @@ describe("run index", () => {
     expect(await listRuns(env.DB, 3)).toHaveLength(3);
   });
 
-  it("names only the runs on the hill with that rating", async () => {
-    await indexRun("a", "on_the_hill", 1, { rating: "black", runName: "Red Dog Face" });
-    await indexRun("b", "swept", 1, { rating: "black", runName: "Headwall Face" });
-    await indexRun("c", "on_the_hill", 1, { rating: "green", runName: "Easy Slider" });
+  it("names the rating's runs on the hill, and its newest run whatever its status", async () => {
+    await indexRun("a", "on_the_hill", 1, { rating: "black", runName: "Red Dog Face", createdAt: 10 });
+    await indexRun("b", "landed", 1, { rating: "black", runName: "Headwall Face", createdAt: 30 });
+    await indexRun("c", "stopped", 1, { rating: "black", runName: "Chute 75", createdAt: 20 });
+    await indexRun("d", "on_the_hill", 1, { rating: "green", runName: "Easy Slider", createdAt: 40 });
     const rating: Rating = "black";
-    expect(await activeRunNames(env.DB, rating)).toEqual(["Red Dog Face"]);
+    expect(await runNamesFor(env.DB, rating)).toEqual({ active: ["Red Dog Face"], last: "Headwall Face" });
+  });
+
+  it("has no last name for a rating that has had no run", async () => {
+    await indexRun("a", "on_the_hill", 1, { rating: "green", runName: "Easy Slider" });
+    expect(await runNamesFor(env.DB, "double_black")).toEqual({ active: [] });
   });
 
   describe("a pull request's runs", () => {

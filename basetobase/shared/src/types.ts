@@ -70,6 +70,10 @@ export interface AgentSnapshot {
   hasTranscript: boolean;
   summary?: string;
   hazards: Hazard[];
+  // How often the owner has run the agent again after it failed, each time from a fresh job.
+  retries?: number;
+  // The latest of those retries: its clocks run from here, not from the run's start.
+  retriedAt?: number;
 }
 
 export interface StepSnapshot {

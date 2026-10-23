@@ -1,0 +1,3118 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-23T18:33:01Z",
+    "timestamp_areas_base": "2026-10-23T13:53:11Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 248605728,
+  "tags": {
+    "name": "High Voltage",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248605914,
+  "tags": {
+    "name": "Shirley Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248605917,
+  "tags": {
+    "name": "Magoos",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248606026,
+  "tags": {
+    "alt_name": "Thunder Mountain Trail",
+    "name": "Mountain Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622077,
+  "tags": {
+    "name": "75 Chute",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622078,
+  "tags": {
+    "name": "Dead Tree",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622079,
+  "tags": {
+    "name": "Fingers",
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622080,
+  "tags": {
+    "name": "West Face Alternates",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622081,
+  "tags": {
+    "name": "Bullet",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622082,
+  "tags": {
+    "name": "Rock Garden",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622084,
+  "tags": {
+    "name": "Moseley's (aka West Face)",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622377,
+  "tags": {
+    "name": "The Slot",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622378,
+  "tags": {
+    "name": "Horse Trails",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622379,
+  "tags": {
+    "name": "Headwall Face",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 248622441,
+  "tags": {
+    "name": "Hogsback",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249112992,
+  "tags": {
+    "name": "Mystery",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249112993,
+  "tags": {
+    "name": "Emigrant",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249112994,
+  "tags": {
+    "name": "Funnel",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143240,
+  "tags": {
+    "alt_name": "Solitude Trail",
+    "name": "Freeway",
+    "operator": "Palisades Tahoe",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "seasonal": "summer"
+  }
+},
+{
+  "type": "way",
+  "id": 249143241,
+  "tags": {
+    "name": "Reuter's 6th",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143242,
+  "tags": {
+    "name": "Rainbow Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143336,
+  "tags": {
+    "name": "Atkinson's - 3rd",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143338,
+  "tags": {
+    "name": "Hill's - 2nd",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143339,
+  "tags": {
+    "name": "Tomlinson's - 1st",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249143578,
+  "tags": {
+    "name": "Bailey's",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144508,
+  "tags": {
+    "name": "Sun Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144509,
+  "tags": {
+    "name": "Newport",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144511,
+  "tags": {
+    "name": "Montezuma's Revenge",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144512,
+  "tags": {
+    "name": "Women's Downhill",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144513,
+  "tags": {
+    "name": "GS Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144516,
+  "tags": {
+    "name": "Siberia Bowl",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144517,
+  "tags": {
+    "name": "Far East",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144518,
+  "tags": {
+    "name": "Lower Dog Leg",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Lower Dog Leg",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144519,
+  "tags": {
+    "name": "Julia's Gold",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144520,
+  "tags": {
+    "name": "Heidi's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144521,
+  "tags": {
+    "name": "Red Dog Ridge",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144524,
+  "tags": {
+    "name": "Easy Street",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144525,
+  "tags": {
+    "name": "Schimmelpfennig Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144526,
+  "tags": {
+    "name": "Tamara's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144527,
+  "tags": {
+    "name": "Sunnyside",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144528,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Poulsen's Gully",
+    "piste:type": "downhill",
+    "seasonal": "yes",
+    "waterway": "stream"
+  }
+},
+{
+  "type": "way",
+  "id": 249144529,
+  "tags": {
+    "name": "Strawberry Fields",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 249144530,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Strainer",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 258146614,
+  "tags": {
+    "name": "Nose",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 439919804,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "name": "Snow King Road",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Champs Elysees",
+    "piste:type": "downhill",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 452731560,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731561,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731562,
+  "tags": {
+    "name": "Skateboard Alley",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Skateboard Alley",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731563,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "SP Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731564,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Big Bend Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731565,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Sun Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731566,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "CB Chute",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731567,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Lower Saddle",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731568,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Poma Rocks",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731569,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Pond Slope",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731570,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "The Buttress",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731571,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Bernie's Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731572,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "North Estelle",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731573,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Estelle Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731574,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Beaver/Estelle Ridge",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731575,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Estelle Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731577,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Pygmy Forest",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731578,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "West Palisades",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731579,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "East Palisades",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731580,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Keyhole 1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731581,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Keyhole 2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731582,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Keyhole Open Slopes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731583,
+  "tags": {
+    "name": "NC",
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731584,
+  "tags": {
+    "name": "Marenka",
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731585,
+  "tags": {
+    "name": "The Castle",
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731586,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Kangaroo Slope",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731587,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Ridge Nose",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731588,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Piston Bulley Slope",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731589,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "North Cirque",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731590,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Middle Cirque",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731591,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Beaver Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731592,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Big Chute",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731593,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "South Beaver",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731594,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Three Sisters",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731595,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Waterfall",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731601,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "The Face Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731609,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Gunner's Knob",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731610,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Tiegel Chutes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731613,
+  "tags": {
+    "name": "Hot Wheels Gully",
+    "piste:difficulty": "advanced",
+    "piste:name": "Hot Wheels Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731616,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Our Father",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731617,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:name": "High Yellow Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731621,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Expert Shortcut",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731624,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Reilly's Run",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731625,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Powerline",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731626,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Ashcroft Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731627,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Friar's Tuck",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731628,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Sherwood Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731629,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "South Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731630,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "West Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731631,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "East Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731632,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Butcher Block Rock",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731633,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Lower 40 Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731634,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Lower 40 Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731635,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Juniper Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731636,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Gentian Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731637,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Subway Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731638,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Lower Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731639,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Upper Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731640,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Promised Land",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731641,
+  "tags": {
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731642,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Crag's Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731643,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:name": "Murhpy's Mistake",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731644,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:name": "Chute That Seldom Slides",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731645,
+  "tags": {
+    "name": "Scott Chute",
+    "piste:difficulty": "expert",
+    "piste:name": "Scott Chute",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731646,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731648,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Subway",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731649,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Meadow",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731650,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Robin Hood",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731651,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Maid Marian",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731652,
+  "tags": {
+    "name": "Return Road",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Return Road",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731653,
+  "tags": {
+    "name": "Sherwood Run",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Sherwood Run",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731654,
+  "tags": {
+    "name": "Ray's Rut",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Ray's Rut",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731655,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731656,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 452731659,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731660,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Winter Road",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731661,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Standard Run",
+    "piste:priority": "3",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731662,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Bobby's Run",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731663,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Shooting Star",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731664,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Twilight Zone",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731665,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Scotty's Beam",
+    "piste:priority": "4",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731666,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Outer Limits",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731667,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Mountain View",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731668,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Leisure Lane",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731669,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Summer Road",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731670,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Summer Road",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 452731671,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Scott Ridge",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731672,
+  "tags": {
+    "name": "East Creek",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731673,
+  "tags": {
+    "name": "Weasel Run",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452731674,
+  "tags": {
+    "name": "Tiegel",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735618,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Wolverine",
+    "piste:priority": "2",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 452735620,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Charity (Red-Green)",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 452735627,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "West Runout",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735628,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Kangaroo Ridge",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735629,
+  "tags": {
+    "name": "Nick's Run",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735630,
+  "tags": {
+    "name": "Kangaroo Main Run",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735631,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Boomerang",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735632,
+  "tags": {
+    "name": "Sandy's Corner",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "East Runout",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735634,
+  "tags": {
+    "name": "Werner's Schuss",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "2",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735751,
+  "tags": {
+    "name": "Dogleg",
+    "piste:difficulty": "extreme",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735752,
+  "tags": {
+    "name": "Idiot's Delight",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 452735765,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Rock Garden",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033564,
+  "tags": {
+    "name": "Oregon Trail",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033568,
+  "tags": {
+    "name": "Arete",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033570,
+  "tags": {
+    "name": "Break It Out",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033574,
+  "tags": {
+    "alt_name": "Shirley Access",
+    "name": "Backside Exit",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033576,
+  "tags": {
+    "name": "Granite Alley",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033579,
+  "tags": {
+    "name": "Bottleneck Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033582,
+  "tags": {
+    "name": "The Attic",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033585,
+  "tags": {
+    "name": "Standteiner's - 4th",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033588,
+  "tags": {
+    "name": "Marillac's - 5th",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033591,
+  "tags": {
+    "name": "Land Bridge",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033593,
+  "tags": {
+    "name": "Spring Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033596,
+  "tags": {
+    "name": "Juniper Spire",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033599,
+  "tags": {
+    "name": "Racers",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033602,
+  "tags": {
+    "name": "Mainline",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033605,
+  "tags": {
+    "lit": "no",
+    "name": "Easy Slider",
+    "oneway": "yes",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033607,
+  "tags": {
+    "name": "Packers",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033610,
+  "tags": {
+    "name": "Poppy",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033613,
+  "tags": {
+    "name": "Lupine",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033616,
+  "tags": {
+    "name": "Shooting Star",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033618,
+  "tags": {
+    "name": "Monkey Flower",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033621,
+  "tags": {
+    "name": "Larkspur",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033624,
+  "tags": {
+    "lit": "no",
+    "name": "Riviera",
+    "oneway": "yes",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033627,
+  "tags": {
+    "name": "Mules Ear",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033630,
+  "tags": {
+    "name": "Snow Flower",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033633,
+  "tags": {
+    "name": "Eagle Pass",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033636,
+  "tags": {
+    "name": "Monument Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033639,
+  "tags": {
+    "name": "Emigrant Face",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033641,
+  "tags": {
+    "name": "Gold Coast Face",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033644,
+  "tags": {
+    "name": "Gold Coast",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033648,
+  "tags": {
+    "name": "Ramp Run",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033654,
+  "tags": {
+    "name": "Yellow Trail",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033657,
+  "tags": {
+    "name": "Siberia Ridge Line",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033659,
+  "tags": {
+    "name": "North Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033661,
+  "tags": {
+    "name": "Sunnyside",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033662,
+  "tags": {
+    "name": "Cornice Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033663,
+  "tags": {
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033664,
+  "tags": {
+    "name": "Saddle Face",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033665,
+  "tags": {
+    "name": "The Saddle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 553033666,
+  "tags": {
+    "name": "Christmas Tree",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 556797392,
+  "tags": {
+    "area": "yes",
+    "name": "Hidden Bowl",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 556797396,
+  "tags": {
+    "area": "yes",
+    "name": "Granite Chief Peak",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 556797400,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "name": "Granite Glades",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 762727967,
+  "tags": {
+    "name": "High Traverse",
+    "oneway": "yes",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 832471967,
+  "tags": {
+    "name": "Cushman's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 887934094,
+  "tags": {
+    "lit": "no",
+    "name": "Light Tower",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204537,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Upper Dog Leg",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204538,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Valley View",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204539,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Crystal Palace",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204540,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Squaw Creek Traverse",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 906204541,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Squealer",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 906204542,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "North Slope",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204545,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Lone Pine",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906204550,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Lake View",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 906204551,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Knob Hill",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 906424378,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Rabbit Runs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424379,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Adam's Rib",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424380,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Ego Alley",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424381,
+  "tags": {
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Squealer",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 906424382,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Aspen",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424383,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Cut Off",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424384,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Further East",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424387,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Geronimo",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424389,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Strainer Alternate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424390,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Controversy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424391,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Billabong",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424392,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Mixing Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424393,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Knob Hill",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424394,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Twin Pine",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 906424395,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Lone Pine",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851370,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "High Yellow Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851371,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Deer Camp",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851372,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Hidden Knolls",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851373,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Art's Knob",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851374,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Shuttle Cornice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851375,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:name": "Talvert's Ride",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851376,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Snags",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851377,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Clear Gully Open Slope",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851378,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Treeline Cirque Left",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851379,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Clear Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851380,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Treeline Cirque Right",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851381,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:name": "Sherwood Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851382,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Counterweight Gully",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851383,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 909851384,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:grooming:priority": "5",
+    "piste:name": "The Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851385,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Tower 19",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851386,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "South Peril",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851387,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Pete's Peril",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851388,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Peril Ridge",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851389,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Yellow Cliffs",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851390,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "backcountry",
+    "piste:name": "Fall Line",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851391,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Skadi Hill",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851392,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower Sympathy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851393,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "mogul",
+    "piste:name": "Banana Chute",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851394,
+  "tags": {
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Sympathy Ridge",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851395,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Sympathy Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851396,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "backcountry",
+    "piste:name": "Sunday School",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851397,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Ultraviolet",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851398,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Charity (Red-Green)",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851399,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Dance Floor",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851400,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Ladies' Slalom",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851401,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Red Ridge",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851402,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Yellow Trail",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851403,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Charity",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851404,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Loop Road",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851405,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Upper Weasel One",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 909851406,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Upper Weasel One",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851408,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Loop Road",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 909851409,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Loop Road",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851410,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Upper Loop Road",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851411,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Lower Rock Garden",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851412,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "North Peril",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851413,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "D7",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851414,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "D5",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851415,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "D6",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851416,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "D8",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851417,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Wolverine",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851418,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 909851419,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851424,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 909851425,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Sunspot",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851426,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851427,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Sunspot",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851428,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Alpine Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851429,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Alpine Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851430,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Howard's Hollow",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851431,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Howard's Hollow",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851432,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Terry's Return",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 909851433,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Alpine Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 993519220,
+  "tags": {
+    "name": "Poulsen's Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 993519221,
+  "tags": {
+    "name": "Poulsen's Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906992,
+  "tags": {
+    "name": "Lower Champs Elysees",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906993,
+  "tags": {
+    "name": "Red Dog Face",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906994,
+  "tags": {
+    "name": "Secret Garden",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906995,
+  "tags": {
+    "gladed": "yes",
+    "name": "Red Dog Glades",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906996,
+  "tags": {
+    "name": "Trail 90",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1076906997,
+  "tags": {
+    "name": "To Solitude",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103347775,
+  "tags": {
+    "name": "Chimney",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103347933,
+  "tags": {
+    "name": "Main Chute",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103347934,
+  "tags": {
+    "name": "Extra Chute",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103347935,
+  "tags": {
+    "name": "National Chute",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565866,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565870,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Barn Road",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565871,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565877,
+  "tags": {
+    "access": "permissive",
+    "highway": "path",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Barn Road",
+    "piste:type": "downhill",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565878,
+  "tags": {
+    "abandoned:highway": "track",
+    "access": "permissive",
+    "highway": "path",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Barn Road",
+    "piste:type": "downhill",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565879,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Barn Road",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 1103565882,
+  "tags": {
+    "4wd_only": "yes",
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "operator": "Palisades Tahoe Alpine Meadows",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Barn Road",
+    "piste:type": "downhill",
+    "smoothness": "horrible",
+    "surface": "ground",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 1492430700,
+  "tags": {
+    "lit": "no",
+    "name": "Pioneer",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1492430701,
+  "tags": {
+    "lit": "no",
+    "name": "Start Me Up",
+    "oneway": "yes",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1494112085,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Kitchen Wall",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1536492630,
+  "tags": {
+    "alt_name": "Eagle's Nest",
+    "description": "Formerly known as Eagles Nest. Lines include: The Shoulder (4), Air To The Right (8+ to 9), The Centre Route (8-10), The High Line (9+) and Freebird (9+).",
+    "name": "McConkey's",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1558345178,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Knob Hill",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570950292,
+  "tags": {
+    "name": "Main Backside",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

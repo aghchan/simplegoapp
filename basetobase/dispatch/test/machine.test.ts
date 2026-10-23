@@ -31,6 +31,8 @@ import {
   onTranscript,
   onVerdict,
   replacedCheckOf,
+  retryableAgents,
+  retryAgents,
   reviewOutcome,
   snapshotOf,
   stopRun,
@@ -963,7 +965,7 @@ describe("stopRun", () => {
       { type: "index" },
       { type: "broadcast" },
       { type: "check" },
-      { type: "cancel", agentId: ID },
+      { type: "cancel", agentId: ID, githubRunId: "1" },
     ]));
 
   it("cancels only the jobs GitHub has started for agents still out", () => {
@@ -976,10 +978,12 @@ describe("stopRun", () => {
     ).state;
     const cancelsOf = (s: RunState) =>
       stopRun(s, "PR closed", 5000).effects.filter((effect) => effect.type === "cancel");
-    expect(cancelsOf(graniteOut)).toEqual([{ type: "cancel", agentId: GRANITE }]);
+    expect(cancelsOf(graniteOut)).toEqual([
+      { type: "cancel", agentId: GRANITE, githubRunId: "1" },
+    ]);
     // Both briefed; Granite Chief has reported.
     const ktOut = onVerdict(briefedPatrol(), GRANITE, verdictFor("granite-chief"), 1600).state;
-    expect(cancelsOf(ktOut)).toEqual([{ type: "cancel", agentId: KT }]);
+    expect(cancelsOf(ktOut)).toEqual([{ type: "cancel", agentId: KT, githubRunId: "2" }]);
   });
 
   it("cancels nothing while no job has started", () =>
@@ -1149,7 +1153,7 @@ describe("landRun", () => {
         { type: "index" },
         { type: "broadcast" },
         { type: "check" },
-        { type: "cancel", agentId: ID },
+        { type: "cancel", agentId: ID, githubRunId: "1" },
       ]));
 
     it("cancels nothing for an agent whose job never started", () =>
@@ -1174,6 +1178,172 @@ describe("landRun", () => {
 
   it("ends the watch on the run", () =>
     expect(nextAlarm(landRun(runningRun(), MERGE_SHA, 3000).state)).toBeNull());
+});
+
+describe("retryAgents", () => {
+  const fresh = () => "fresh";
+  // Granite Chief failed; KT-22 reported clear, so the sweep is in and the review failed.
+  const failedGranite = () => sweptBy("failed", "clear");
+  // Both briefed; Granite Chief's job failed, then KT-22 came in clear.
+  const failedBriefed = () =>
+    onVerdict(
+      onFailure(briefedPatrol(), GRANITE, "job failed before the agent reported", 1600).state,
+      KT,
+      verdictFor("kt-22"),
+      1700,
+    ).state;
+
+  it("runs a failed agent again from a fresh job, with a fresh nonce", () => {
+    const before = failedGranite();
+    const { state } = retryAgents(before, { agentId: GRANITE }, 5000, fresh);
+    expect(agentOf(state, GRANITE)).toEqual({
+      id: GRANITE,
+      role: "granite-chief",
+      step: "sweep",
+      round: 0,
+      status: "queued",
+      hasTranscript: false,
+      hazards: [],
+      retries: 1,
+      retriedAt: 5000,
+    });
+    expect(state.nonces).toEqual({ ...before.nonces, [GRANITE]: "fresh" });
+    expect(state.updatedAt).toBe(5000);
+  });
+
+  it("leaves the other agents' reports standing", () => {
+    const before = failedGranite();
+    const { state } = retryAgents(before, { agentId: GRANITE }, 5000, fresh);
+    expect(agentOf(state, KT)).toBe(agentOf(before, KT));
+  });
+
+  it("reopens the sweep and puts the run back on the hill, its outcome pending again", () => {
+    const { state } = retryAgents(failedGranite(), { agentId: GRANITE }, 5000, fresh);
+    expect(state.status).toBe("on_the_hill");
+    expect(stepOf(state, "sweep")).toEqual({
+      id: "sweep",
+      status: "active",
+      startedAt: CREATED_AT,
+      notes: [],
+    });
+    expect(reviewOutcome(state)).toBe("pending");
+    expect(checkRunOf(state, "https://b2b.example").status).toBe("in_progress");
+  });
+
+  it("logs and indexes the retry, dispatches the agent, and posts a fresh check", () => {
+    const { state, effects } = retryAgents(failedGranite(), { agentId: GRANITE }, 5000, fresh);
+    expect(effects).toEqual([
+      { type: "log", text: `${GRANITE} retried · attempt 2` },
+      { type: "index" },
+      { type: "dispatch", agentId: GRANITE },
+      { type: "broadcast" },
+      { type: "check" },
+    ]);
+    // A completed check run cannot go back to in progress.
+    expect(state.checkReposts).toBe(1);
+  });
+
+  it("cancels the failed agent's old job and forgets it, keeping the others' jobs", () => {
+    const { state, effects } = retryAgents(failedBriefed(), { agentId: GRANITE }, 5000, fresh);
+    expect(effects.at(-1)).toEqual({ type: "cancel", agentId: GRANITE, githubRunId: "1" });
+    expect(state.jobRuns).toEqual({ [KT]: "2" });
+    // A stop now cancels nothing of Granite Chief's until its new job is briefed.
+    const stopped = stopRun(state, "PR closed", 6000);
+    expect(stopped.effects.filter((effect) => effect.type === "cancel")).toEqual([]);
+  });
+
+  it("forgets the failed attempt's stall, so a stall of the new one is logged", () => {
+    let s = onTick(briefedPatrol(), KT_BRIEFED_AT + STALL_MS).state;
+    s = onFailure(s, GRANITE, "boom", KT_BRIEFED_AT + STALL_MS + 1).state;
+    s = onFailure(s, KT, "boom", KT_BRIEFED_AT + STALL_MS + 2).state;
+    expect(s.stalledLogged).toEqual([GRANITE, KT]);
+    expect(retryAgents(s, { agentId: GRANITE }, 5000, fresh).state.stalledLogged).toEqual([KT]);
+  });
+
+  it("retries every failed agent on a step, each with its own nonce", () => {
+    const both = sweptBy("failed", "failed");
+    const { state, effects } = retryAgents(both, { step: "sweep" }, 5000, counter());
+    expect(state.agents.map((agent) => agent.status)).toEqual(["queued", "queued"]);
+    expect(new Set([state.nonces[GRANITE], state.nonces[KT]]).size).toBe(2);
+    expect(effects.filter((effect) => effect.type === "dispatch")).toEqual([
+      { type: "dispatch", agentId: GRANITE },
+      { type: "dispatch", agentId: KT },
+    ]);
+  });
+
+  it("leaves a step's agents that did not fail as they reported", () => {
+    const before = sweptBy("failed", "hazards");
+    const { state } = retryAgents(before, { step: "sweep" }, 5000, fresh);
+    expect(agentOf(state, GRANITE).status).toBe("queued");
+    expect(agentOf(state, KT)).toBe(agentOf(before, KT));
+  });
+
+  it("retries an agent that failed while the sweep was still out, leaving the sweep be", () => {
+    const before = report(patrolRun(), "granite-chief", "failed", 2000).state;
+    const { state } = retryAgents(before, { agentId: GRANITE }, 5000, fresh);
+    expect(state.status).toBe("on_the_hill");
+    expect(stepOf(state, "sweep")).toEqual(stepOf(before, "sweep"));
+    expect(agentOf(state, GRANITE).status).toBe("queued");
+  });
+
+  it("counts the attempts across retries", () => {
+    let s = retryAgents(failedGranite(), { agentId: GRANITE }, 5000, fresh).state;
+    s = onFailure(s, GRANITE, "boom again", 6000).state;
+    const { state, effects } = retryAgents(s, { agentId: GRANITE }, 7000, fresh);
+    expect(agentOf(state, GRANITE)).toMatchObject({ retries: 2, retriedAt: 7000 });
+    expect(effects[0]).toEqual({ type: "log", text: `${GRANITE} retried · attempt 3` });
+  });
+
+  it("starts the retried agent's clocks at the retry, not at the run's start", () => {
+    const { state } = retryAgents(failedGranite(), { agentId: GRANITE }, 50_000, fresh);
+    expect(nextAlarm(state)).toBe(50_000 + STALL_MS);
+    expectUnchanged(state, onTick(state, CREATED_AT + STALL_MS));
+    const lost = onTick(state, 50_000 + STALL_MS);
+    expect(agentOf(lost.state, GRANITE)).toMatchObject({
+      status: "error",
+      summary: "never dispatched",
+    });
+  });
+
+  it("sweeps again once the retried agent reports", () => {
+    let s = retryAgents(failedGranite(), { agentId: GRANITE }, 5000, fresh).state;
+    s = onDispatched(s, GRANITE, 5100).state;
+    s = onBriefed(s, GRANITE, 5200, JOB).state;
+    const { state, effects } = onVerdict(s, GRANITE, verdictFor("granite-chief"), 6000);
+    expect(state.status).toBe("swept");
+    expect(stepOf(state, "sweep")).toMatchObject({ status: "done", finishedAt: 6000 });
+    expect(reviewOutcome(state)).toBe("clear");
+    expect(effectTypes(effects)).toEqual(["log", "index", "broadcast", "check"]);
+  });
+
+  describe("retries nothing", () => {
+    it.each<[string, () => RunState]>([
+      ["when every agent reported a verdict", () => sweptBy("clear", "hazards")],
+      ["for an agent still out", () => runningRun()],
+      ["for a stopped agent", () => closedAroundStopped()],
+      ["once the run is stopped", () => stopRun(failedGranite(), "PR closed", 3000).state],
+      ["once the run has landed", () => landRun(failedGranite(), MERGE_SHA, 3000).state],
+    ])("%s", (_name, run) => {
+      const s = run();
+      expectUnchanged(s, retryAgents(s, { step: "sweep" }, 5000, fresh));
+      for (const agent of s.agents) {
+        expectUnchanged(s, retryAgents(s, { agentId: agent.id }, 5000, fresh));
+      }
+    });
+
+    it("on another step, or for an agent the run does not have", () => {
+      const s = failedGranite();
+      expectUnchanged(s, retryAgents(s, { step: "huddle" }, 5000, fresh));
+      expectUnchanged(s, retryAgents(s, { agentId: "corduroy-sweep-0" }, 5000, fresh));
+    });
+  });
+
+  it("retryableAgents names the agents a retry would run", () => {
+    const s = sweptBy("failed", "failed");
+    expect(retryableAgents(s, { step: "sweep" })).toEqual([GRANITE, KT]);
+    expect(retryableAgents(s, { agentId: GRANITE })).toEqual([GRANITE]);
+    expect(retryableAgents(stopRun(s, "PR closed", 3000).state, { step: "sweep" })).toEqual([]);
+  });
 });
 
 describe("onRetitled", () => {
@@ -1884,6 +2054,12 @@ describe("purity", () => {
       (s, now) => landRun(s, MERGE_SHA, now),
     ],
     ["onRetitled", runningRun(), 4000, (s, now) => onRetitled(s, "orders: cancel", now)],
+    [
+      "retryAgents",
+      sweptBy("failed", "clear"),
+      4000,
+      (s, now) => retryAgents(s, { step: "sweep" }, now, () => "fresh"),
+    ],
   ];
 
   it.each(changing)("%s changes the state without touching its input", (_n, input, now, run) => {

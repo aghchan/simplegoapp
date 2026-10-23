@@ -46,6 +46,7 @@ export function PatrolCards(p: {
             <span className="patrol-role">{role}</span>
             <span className={`patrol-status patrol-status-${tone}`}>
               {AGENT_STATUS_LABELS[agent.status]}
+              {agent.retries ? ` · attempt ${agent.retries + 1}` : ""}
             </span>
             {agent.summary && <span className="patrol-summary">{agent.summary}</span>}
           </button>

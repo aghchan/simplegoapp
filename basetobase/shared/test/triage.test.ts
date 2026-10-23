@@ -121,26 +121,55 @@ describe("classifyPanels", () => {
     expect(classifyPanels([renamed("pkg/a.go", "pkg/b.go")], config)).toEqual(["backend"]));
 });
 
+// Fixed lists: the shipped ones change whenever the trail-names refresh lands.
+const named = {
+  ...config,
+  trailNames: {
+    green: ["Easy Slider", "Ramp Run", "Bunny Hill"],
+    blue: ["Home Run", "Tomlinson's"],
+    black: ["Red Dog Face", "Headwall Face"],
+    double_black: ["Our Father", "Fingers"],
+  },
+};
+
 describe("pickRunName", () => {
-  it("first unused name", () =>
-    expect(pickRunName("green", ["Easy Slider"], config)).toBe("Ramp Run"));
-  it("all used gets a numbered name", () => {
+  it("starts the list when its rating has had no run", () =>
+    expect(pickRunName("green", { active: [] }, named)).toBe("Easy Slider"));
+  it("takes the name after the rating's last, so each run gets a new one", () =>
+    expect(pickRunName("green", { active: [], last: "Easy Slider" }, named)).toBe("Ramp Run"));
+  it("wraps past the end of the list", () =>
+    expect(pickRunName("green", { active: [], last: "Bunny Hill" }, named)).toBe("Easy Slider"));
+  it("skips a name an active run holds", () =>
+    expect(pickRunName("green", { active: ["Ramp Run"], last: "Easy Slider" }, named)).toBe(
+      "Bunny Hill",
+    ));
+  it("continues after a numbered name", () =>
+    expect(pickRunName("green", { active: [], last: "Ramp Run 2" }, named)).toBe("Bunny Hill"));
+  it("starts the list after a name it no longer has", () =>
+    expect(pickRunName("green", { active: [], last: "Retired Trail" }, named)).toBe("Easy Slider"));
+  it("matches a name that ends in a number before reading it as numbered", () => {
+    const green = ["Chair 2", "Chair", "Upper"];
+    const cfg = { ...named, trailNames: { ...named.trailNames, green } };
+    // Read as lap 2 of "Chair", it would continue at "Upper".
+    expect(pickRunName("green", { active: [], last: "Chair 2" }, cfg)).toBe("Chair");
+  });
+  it("numbers the names once every one is taken", () => {
     const active = ["Easy Slider", "Ramp Run", "Bunny Hill"];
-    expect(pickRunName("green", active, config)).toBe("Easy Slider 2");
+    expect(pickRunName("green", { active, last: "Bunny Hill" }, named)).toBe("Easy Slider 2");
   });
   it("numbering continues through the list", () => {
     const active = ["Easy Slider", "Ramp Run", "Bunny Hill", "Easy Slider 2"];
-    expect(pickRunName("green", active, config)).toBe("Ramp Run 2");
+    expect(pickRunName("green", { active, last: "Easy Slider 2" }, named)).toBe("Ramp Run 2");
   });
 });
 
 describe("triage", () => {
   it("bundles panels, rating, run name and totals", () => {
     const files = [f("basetobase/dashboard/src/auth.ts", 20, 5), f("pkg/a.go", 10, 2)];
-    expect(triage(files, ["Red Dog Face"], config)).toEqual({
+    expect(triage(files, { active: ["Headwall Face"], last: "Headwall Face" }, named)).toEqual({
       panels: ["backend", "frontend"],
       rating: "black",
-      runName: "Headwall Face",
+      runName: "Red Dog Face",
       files: 2,
       additions: 30,
       deletions: 7,

@@ -433,6 +433,21 @@ beneath it. `/` opens the newest run.
 over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while
 that is down. `npm run e2e` proves both in a real browser.
 
+**Retry (built):** "Re-run this step on a fresh runner", for a failure. A
+step with failed patrollers offers *Retry the failed patroller(s)*; each
+failed patroller's Debug panel offers *Retry <name>*. Only a failed agent
+(`error`) of an open run (`on_the_hill`, `swept`) can be retried: a verdict
+stands, and a stopped or landed run no longer speaks for its PR. Each retried
+agent gets a fresh job and a fresh nonce (its old job's late reports get 403,
+and the job is cancelled); the others' reports stand. The step reopens, the
+run goes back on the hill, and a fresh *Base to Base* check run is posted in
+progress, since a completed one cannot go back. Its card reads
+*attempt N*. API: `POST /api/runs/{id}/steps/{step}/retry` (every failed
+agent of the step) and `POST /api/runs/{id}/agents/{agent}/retry`: 202
+`{retried}`, 409 with nothing to retry. Owner session plus an `Origin`
+matching `PUBLIC_URL`. The pipeline's own CI jobs (basetobase-ci) already
+re-run singly from GitHub's *Re-run failed jobs*.
+
 **Look:** night-navy header with a ridgeline, snow-white panels, condensed
 uppercase headings like trail signage, monospace logs on dark. Trail-rating
 symbols are standard: green circle, blue square, black diamond, double black
@@ -473,19 +488,31 @@ Starting thresholds **(designer's call; configurable)**:
 
 Risk paths are globs per repo in config.
 
-**Run names** are a config list per rating, seeded from public trail
-listings. Alpine Meadows has only two or three greens, all bunny hills, so
-the seed leans on Olympic Valley. Ratings in the seed were not checked
-against the official trail map, which is fine for a cosmetic list.
+**Run names** are a list per rating in `config/trail-names.json`: every
+named downhill run at the Ikon Pass mountains in California and Utah
+(Palisades Tahoe, Mammoth, June, Bear Mountain, Snow Summit, Snow Valley,
+Alta, Snowbird, Brighton, Solitude, Deer Valley, Snowbasin), filed by the
+run's own difficulty in OpenStreetMap (novice/easy green, intermediate blue,
+advanced black, expert/freeride/extreme double black). `npm run trail-names`
+regenerates it: one Overpass query per mountain, names alphabetical within a
+mountain and dealt from the mountains in turn, so consecutive runs come from
+different mountains. Each mountain's last good Overpass answer is kept in
+`scripts/overpass/`, refreshed on every good call; when Overpass is down, slow
+or answers unusably, that mountain's names come from its saved answer. A
+weekly workflow (`basetobase-trail-names.yml`) runs it on GitHub and opens a
+PR, from Actions' bot, when the names changed; merging deploys them. Dispatch
+gives that bot's PRs the neutral check only while they touch nothing but the
+names and the saved answers (`refreshGlobs`); any other bot PR gets no check.
+Attribution: OpenStreetMap contributors (ODbL). Until
+it first runs, the file holds a hand-picked seed (Green: Easy Slider, Ramp
+Run, Bunny Hill; Blue: Home Run, Tomlinson's, Shirley Bowl, Champs Elysees;
+Black: Red Dog Face, Headwall Face; Double black: Our Father, Fingers,
+Chimney, Clear Gully).
 
-- **Green:** Easy Slider, Ramp Run, Bunny Hill
-- **Blue:** Home Run, Tomlinson's, Shirley Bowl, Champs Elysees
-- **Black:** Red Dog Face, Headwall Face
-- **Double black:** Our Father, Fingers, Chimney, Clear Gully
-
-Each run takes the next name in its rating's list that no active run is
-using. The owner can extend the lists with any Ikon mountain's runs or
-lodges.
+Each run takes the name after the one its rating's newest run took, wrapping
+at the end of the list and skipping names active runs hold, so every run is
+named afresh. Only when every name in the list is held does a lap number
+follow (`Ramp Run 2`).
 
 The rating is display-only in v1. It does not change the panel or models
 **(designer's call)**.

@@ -691,6 +691,91 @@ describe("RunDO", () => {
     });
   });
 
+  describe("retry", () => {
+    // The run's agent fails its first attempt, as a job that died before it reported does.
+    async function failedRun() {
+      const run = await startRun();
+      await run.stub.brief(AGENT, run.nonce, JOB);
+      await run.stub.events(AGENT, run.nonce, evs, JOB_URL);
+      await run.stub.failure(AGENT, run.nonce, "job failed before the agent reported");
+      return run;
+    }
+
+    it("dispatches the failed agent again with a fresh nonce, and reopens the run", async () => {
+      const { stub, nonce } = await failedRun();
+      expect(await stub.retry({ agentId: AGENT })).toEqual([AGENT]);
+      expect(dispatches).toHaveLength(2);
+      const fresh = dispatches[1]!.inputs.nonce;
+      expect(fresh).not.toBe(nonce);
+      expect(dispatches[1]!.inputs).toMatchObject({ agent_id: AGENT, sha: "head58" });
+      const { run } = (await stub.view())!;
+      expect(run).toMatchObject({ status: "on_the_hill", outcome: "pending" });
+      expect(run.agents[0]).toMatchObject({ status: "dispatched", retries: 1 });
+      expect((await listRuns(env.DB))[0]).toMatchObject({
+        status: "on_the_hill",
+        outcome: "pending",
+      });
+    });
+
+    it("cancels the failed attempt's job", async () => {
+      const { stub } = await failedRun();
+      await stub.retry({ step: "sweep" });
+      expect(cancels).toBe(1);
+    });
+
+    it("refuses the old job's nonce from then on", async () => {
+      const { stub, nonce } = await failedRun();
+      await stub.retry({ agentId: AGENT });
+      expect(await stub.brief(AGENT, nonce, JOB)).toBe("forbidden");
+      expect(await stub.verdict(AGENT, nonce, clearVerdict)).toBe("forbidden");
+      expect(await stub.checkNonce(AGENT, nonce)).toBe(false);
+    });
+
+    it("keeps the new attempt's events beside the failed one's, both counting from 1", async () => {
+      const { stub } = await failedRun();
+      await stub.retry({ agentId: AGENT });
+      const fresh = dispatches[1]!.inputs.nonce!;
+      await stub.brief(AGENT, fresh, JOB);
+      await stub.events(AGENT, fresh, [{ ...evs[0]!, text: "reading it again" }], JOB_URL);
+      const lines = (await stub.view())!.log.filter((line) => line.agentId === AGENT);
+      expect(lines.map((line) => line.text)).toEqual([
+        "reading the diff",
+        "Read orders.go",
+        "reading it again",
+      ]);
+    });
+
+    it("posts a fresh check that the retried agent's verdict concludes", async () => {
+      let next = CHECK_ID;
+      checkReply = (method) =>
+        method === "POST" ? Response.json({ id: next++ }, { status: 201 }) : acceptCheck(method);
+      const { stub } = await failedRun();
+      expect(checks.at(-1)).toMatchObject({ method: "PATCH", body: { conclusion: "failure" } });
+      await stub.retry({ agentId: AGENT });
+      expect(checks.slice(-2)).toEqual([
+        { method: "POST", body: expect.objectContaining({ status: "in_progress" }) },
+        { method: "PATCH", body: expect.objectContaining({ conclusion: "skipped" }) },
+      ]);
+      const fresh = dispatches[1]!.inputs.nonce!;
+      expect(await stub.verdict(AGENT, fresh, clearVerdict)).toBe("accepted");
+      expect(patched.at(-1)).toBe(NEW_CHECK_ID);
+      expect(checks.at(-1)).toMatchObject({ method: "PATCH", body: { conclusion: "success" } });
+    });
+
+    it("retries nothing for an agent that did not fail, or a run that has stopped", async () => {
+      const { stub, nonce } = await startRun();
+      expect(await stub.retry({ step: "sweep" })).toEqual([]);
+      await stub.failure(AGENT, nonce, "boom");
+      await stub.stop("PR closed");
+      expect(await stub.retry({ agentId: AGENT })).toEqual([]);
+      expect(dispatches).toHaveLength(1);
+    });
+
+    it("is null for a run that never started", async () => {
+      expect(await runStub(env, "never-started").retry({ step: "sweep" })).toBeNull();
+    });
+  });
+
   describe("retitle", () => {
     it("retitles the run and its index row, keeping the goal", async () => {
       const { stub } = await startRun();

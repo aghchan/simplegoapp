@@ -25,18 +25,13 @@
     "basetobase/package.json"
   ],
   "unpatrolledGlobs": ["basetobase/**", ".basetobase/**", ".github/workflows/basetobase-*.yml"],
+  "refreshGlobs": ["basetobase/config/trail-names.json", "basetobase/scripts/overpass/*.json"],
   "thresholds": {
     "greenLines": 50,
     "greenFiles": 3,
     "blueLines": 300,
     "doubleBlackLines": 1000,
     "doubleBlackTopDirs": 4
-  },
-  "trailNames": {
-    "green": ["Easy Slider", "Ramp Run", "Bunny Hill"],
-    "blue": ["Home Run", "Tomlinson's", "Shirley Bowl", "Champs Elysees"],
-    "black": ["Red Dog Face", "Headwall Face"],
-    "double_black": ["Our Father", "Fingers", "Chimney", "Clear Gully"]
   },
   "roster": [
     {

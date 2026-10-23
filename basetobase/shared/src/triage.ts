@@ -75,24 +75,42 @@ export function rateChange(files: ChangedFile[], cfg: B2BConfig): Rating {
   return "blue";
 }
 
-export function pickRunName(rating: Rating, activeNames: string[], cfg: B2BConfig): string {
-  const active = new Set(activeNames);
+// The names already given to runs of a rating: the ones active runs hold, and the newest run's.
+export interface RunNames {
+  active: string[];
+  last?: string;
+}
+
+// The name after the rating's last, so each run gets a new one, skipping names active runs hold.
+// Only when every name is taken does a lap number follow.
+export function pickRunName(rating: Rating, taken: RunNames, cfg: B2BConfig): string {
+  const names = cfg.trailNames[rating];
+  const active = new Set(taken.active);
+  const start = taken.last === undefined ? -1 : indexOfName(names, taken.last);
   // Terminates because loadConfig rejects empty trail name lists.
   for (let lap = 1; ; lap++) {
-    for (const name of cfg.trailNames[rating]) {
+    for (let step = 1; step <= names.length; step++) {
+      const name = names[(start + step) % names.length]!;
       const candidate = lap === 1 ? name : `${name} ${lap}`;
       if (!active.has(candidate)) return candidate;
     }
   }
 }
 
-export function triage(files: ChangedFile[], activeNames: string[], cfg: B2BConfig): Triage {
+// A trail's own number ("Chair 2") wins over reading it as a lap number; -1 for a name the list
+// no longer has.
+function indexOfName(names: string[], name: string): number {
+  const exact = names.indexOf(name);
+  return exact !== -1 ? exact : names.indexOf(name.replace(/ \d+$/, ""));
+}
+
+export function triage(files: ChangedFile[], names: RunNames, cfg: B2BConfig): Triage {
   const rating = rateChange(files, cfg);
   const { additions, deletions } = sumLines(files);
   return {
     panels: classifyPanels(files, cfg),
     rating,
-    runName: pickRunName(rating, activeNames, cfg),
+    runName: pickRunName(rating, names, cfg),
     files: files.length,
     additions,
     deletions,

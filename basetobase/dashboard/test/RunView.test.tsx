@@ -408,6 +408,96 @@ describe("RunView", () => {
     });
   });
 
+  describe("retry", () => {
+    const failedMainline = agent("mainline", {
+      status: "error",
+      summary: "job failed",
+      jobUrl: JOB_URL,
+    });
+    const failedKt = agent("kt-22", { status: "error", summary: "timed out" });
+    const STEP_PATH = "/api/runs/r1/steps/sweep/retry";
+    const MAINLINE_PATH = "/api/runs/r1/agents/mainline-sweep-0/retry";
+
+    function stubPost(answer: () => Response) {
+      const fetchMock = vi.fn(async (_path: string, _init?: RequestInit) => answer());
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it("runs the step's failed patrollers again, saying how many", async () => {
+      const user = userEvent.setup();
+      const fetchMock = stubPost(() => Response.json({ retried: [] }, { status: 202 }));
+      const agents = [failedMainline, run.agents[1]!, failedKt];
+      const swept = makeRun({ status: "swept", agents });
+      render(<RunView live={live({ run: swept })} />);
+      await user.click(screen.getByRole("button", { name: "Retry the 2 failed patrollers" }));
+      expect(fetchMock).toHaveBeenCalledWith(STEP_PATH, { method: "POST" });
+      expect(screen.getByRole("button", { name: "Retrying…" })).toBeDisabled();
+    });
+
+    it("runs one failed patroller again from its debug panel", async () => {
+      const user = userEvent.setup();
+      const fetchMock = stubPost(() => Response.json({ retried: [] }, { status: 202 }));
+      render(<RunView live={live({ run: withAgents(failedMainline, run.agents[1]!) })} />);
+      expect(screen.getByRole("button", { name: "Retry the failed patroller" })).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "Retry Mainline" }));
+      expect(fetchMock).toHaveBeenCalledWith(MAINLINE_PATH, { method: "POST" });
+    });
+
+    it("offers no retry for a patroller that did not fail", () => {
+      render(<RunView live={live()} />);
+      expect(screen.queryByRole("button", { name: /^Retry/ })).toBeNull();
+    });
+
+    it.each(["stopped", "landed"] as const)("offers no retry once the run is %s", (status) => {
+      render(<RunView live={live({ run: makeRun({ status, agents: [failedMainline] }) })} />);
+      expect(screen.queryByRole("button", { name: /^Retry/ })).toBeNull();
+    });
+
+    it("says why Dispatch refused, and lets the owner try again", async () => {
+      const user = userEvent.setup();
+      stubPost(() => Response.json({ error: "nothing to retry" }, { status: 409 }));
+      render(<RunView live={live({ run: withAgents(failedMainline) })} />);
+      await user.click(screen.getByRole("button", { name: "Retry the failed patroller" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Could not retry: nothing to retry",
+      );
+      expect(screen.getByRole("button", { name: "Retry the failed patroller" })).toBeEnabled();
+    });
+
+    it("sends a signed-out owner to sign in", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(api, "navigateTo").mockImplementation(() => {});
+      stubPost(() => new Response(null, { status: 401 }));
+      render(<RunView live={live({ run: withAgents(failedMainline) })} />);
+      await user.click(screen.getByRole("button", { name: "Retry Mainline" }));
+      await waitFor(() => expect(api.navigateTo).toHaveBeenCalledWith("/auth/login"));
+    });
+
+    it("gives an attempt that fails again a fresh button", async () => {
+      const user = userEvent.setup();
+      stubPost(() => Response.json({ retried: [] }, { status: 202 }));
+      const { rerender } = render(<RunView live={live({ run: withAgents(failedMainline) })} />);
+      await user.click(screen.getByRole("button", { name: "Retry the failed patroller" }));
+      const again = { ...failedMainline, retries: 1 };
+      rerender(<RunView live={live({ run: withAgents(again) })} />);
+      expect(screen.getByRole("button", { name: "Retry the failed patroller" })).toBeEnabled();
+    });
+
+    it("numbers a retried patroller's attempt on its card", () => {
+      const retried = agent("mainline", { status: "running", retries: 1 });
+      render(<RunView live={live({ run: withAgents(retried) })} />);
+      expect(screen.getByRole("button", { name: /Mainline/ })).toHaveTextContent(
+        "Running · attempt 2",
+      );
+    });
+  });
+
   describe("debug", () => {
     it("targets the picked agent, else the first of the step, and says which", async () => {
       const user = userEvent.setup();

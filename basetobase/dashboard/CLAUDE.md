@@ -1,7 +1,8 @@
 # dashboard/ — React SPA, served as the Worker's static assets
 
 - Labels only from `shared/src/labels.ts`. Every themed label renders with its plain one (`themed · plain`), headings included.
-- Fetch via `getJson`/`getText` (`src/api.ts`). Every caller sends a `SignedOutError` to `navigateTo(SIGN_IN_URL)`.
+- Fetch via `getJson`/`getText`, write via `post` (`src/api.ts`; a refusal's message is Dispatch's `error`). Every caller sends a `SignedOutError` to `navigateTo(SIGN_IN_URL)`.
+- `RetryButton`: shown only for what Dispatch would retry (`retryable`, StepDetail.tsx: a failed agent of an open run), on the step and in the failed patroller's Debug panel. Key it by the attempts it retries, so an attempt that fails again gets a fresh button. The run's socket brings the outcome.
 - External links only through `GithubLink`; it renders nothing unless the href starts `https://github.com/`.
 - Live run state: `useRunLive`. `mergeLog` dedupes by `LogLine.id`, caps at 2000. First paint: `RunPage`'s one-off fetch.
 - Live runs list: `useRunsLive`. After the first `/api/runs`, the lobby socket (`/api/live`) sends a `summary` per index write; every open refetches. While it is down, polls every 5 s while visible and refetches on becoming visible. `mergeRuns` upserts by id, newer `updatedAt` wins, sorted and capped as `listRuns`. A failed refresh keeps the last list.

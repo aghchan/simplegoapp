@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import raw from "../../config/basetobase.json" with { type: "json" };
+import shipped from "../../config/basetobase.json" with { type: "json" };
+import trailNameFile from "../../config/trail-names.json" with { type: "json" };
 import { config, loadConfig, rosterEntry } from "../src/config.ts";
+
+const raw = { ...shipped, trailNames: trailNameFile.trailNames };
 
 describe("loadConfig", () => {
   it("names the missing field", () => {
@@ -21,6 +24,15 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...raw, unpatrolledGlobs: ["basetobase/**", 7] })).toThrow(
       /unpatrolledGlobs\[1\]/,
     ));
+  it("requires the refresh globs", () =>
+    expect(() => loadConfig({ ...raw, refreshGlobs: undefined })).toThrow(
+      /refreshGlobs must be an array/,
+    ));
+  it("lets the refresh workflow touch the trail names and their saved answers only", () =>
+    expect(config.refreshGlobs).toEqual([
+      "basetobase/config/trail-names.json",
+      "basetobase/scripts/overpass/*.json",
+    ]));
   it("leaves Base to Base's own files unpatrolled", () =>
     expect(config.unpatrolledGlobs).toEqual([
       "basetobase/**",

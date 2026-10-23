@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toTrigger, verifyWebhookSignature } from "../src/github/webhook.ts";
+import { REFRESH_AUTHOR, toTrigger, verifyWebhookSignature } from "../src/github/webhook.ts";
 import { prPayload, prRef, sign } from "./helpers.ts";
 
 const ID = { owner: "aghchan", repo: "aghchan/simplegoapp" };
@@ -126,6 +126,12 @@ describe("toTrigger", () => {
   ])("ignores %s", (reason, over) =>
     expect(toTrigger("pull_request", prPayload(over), ID)).toEqual({ kind: "ignore", reason }),
   );
+  // The route holds it to refreshGlobs once it has read the files.
+  it("starts for the trail-names refresh workflow's PR", () =>
+    expect(toTrigger("pull_request", prPayload({ author: REFRESH_AUTHOR }), ID)).toMatchObject({
+      kind: "start",
+      pr: { author: "github-actions[bot]" },
+    }));
   it("ignores a PR whose head repository is gone", () =>
     expect(toTrigger("pull_request", tamper("pull_request.head.repo", null), ID)).toEqual({
       kind: "ignore",

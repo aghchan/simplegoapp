@@ -1,5 +1,5 @@
 import { repoInstallationId, type OpenPull } from "../github/client.ts";
-import type { PullRequestRef } from "../github/webhook.ts";
+import { REFRESH_AUTHOR, type PullRequestRef } from "../github/webhook.ts";
 import { CHECK_NAME } from "../run/machine.ts";
 import { openRunPrs, runsOnHead } from "../runs/index.ts";
 import {
@@ -15,8 +15,9 @@ import {
 export const PRS_PER_TICK = 50;
 
 // The safety net under the webhook, which GitHub never redelivers when it fails: a tick reconciles
-// every PR with an open run, then gives the start path to each owner PR whose head has no open
-// run, unless it has no run at all but a check. One PR's failure is logged and the tick goes on.
+// every PR with an open run, then gives the start path to each owner or refresh PR whose head has
+// no open run, unless it has no run at all but a check. One PR's failure is logged and the tick
+// goes on.
 export async function reconcileRepo(env: Env): Promise<void> {
   const installationId = await repoInstallationId(githubApp(env), env.REPO);
   const github = githubClient(env, installationId);
@@ -53,10 +54,11 @@ export async function reconcileRepo(env: Env): Promise<void> {
   }
 }
 
-// Whom the webhook would start a run for: the owner's own PRs, ready, into the default branch.
+// Whom the webhook would start a run for: the owner's own PRs and the refresh workflow's (which
+// startPr holds to refreshGlobs), ready, into the default branch.
 function patrolled(env: Env, pull: OpenPull): boolean {
   return (
-    pull.author === env.OWNER_LOGIN &&
+    (pull.author === env.OWNER_LOGIN || pull.author === REFRESH_AUTHOR) &&
     pull.headRepo === env.REPO &&
     !pull.draft &&
     pull.baseRef === pull.defaultBranch
