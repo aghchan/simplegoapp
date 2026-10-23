@@ -1,0 +1,248 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-23T18:37:01Z",
+    "timestamp_areas_base": "2026-10-23T13:28:51Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 7141201,
+  "tags": {
+    "name": "Amusement Park",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "tiger:cfcc": "A41",
+    "tiger:county": "San Bernardino, CA"
+  }
+},
+{
+  "type": "way",
+  "id": 330982359,
+  "tags": {
+    "name": "Ripcord",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982360,
+  "tags": {
+    "name": "Boneyard",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982363,
+  "tags": {
+    "name": "Inspiration",
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982364,
+  "tags": {
+    "name": "Accelerator",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982365,
+  "tags": {
+    "name": "Central Park",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982366,
+  "tags": {
+    "name": "Easy Street",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982367,
+  "tags": {
+    "name": "Exhibition",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982368,
+  "tags": {
+    "name": "Outlaw's Alley",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982369,
+  "tags": {
+    "name": "Geronimo",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982370,
+  "tags": {
+    "name": "Learning Curve",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982371,
+  "tags": {
+    "name": "Silver Connection",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330982372,
+  "tags": {
+    "name": "The Wedge",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987501,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987502,
+  "tags": {
+    "name": "Backdoors",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987503,
+  "tags": {
+    "name": "Expressway",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987504,
+  "tags": {
+    "name": "Gambler",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987505,
+  "tags": {
+    "name": "Grizzly",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987506,
+  "tags": {
+    "name": "Hidden Valley",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987507,
+  "tags": {
+    "name": "Outlaw",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987508,
+  "tags": {
+    "name": "Rip's Run",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987509,
+  "tags": {
+    "name": "Showtime",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987510,
+  "tags": {
+    "name": "Street Scene",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987511,
+  "tags": {
+    "name": "The Gulch",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987512,
+  "tags": {
+    "name": "Park Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330987513,
+  "tags": {
+    "name": "The Park Run",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}
