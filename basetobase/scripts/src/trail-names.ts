@@ -1,8 +1,16 @@
-// `npm run trail-names`: rewrites config/trail-names.json from OpenStreetMap. One Overpass query per
-// mountain, in turn, as Overpass asks; a mountain with no named runs fails the whole run, so a ski
-// area OpenStreetMap renamed shows up instead of quietly shrinking the lists.
+// `npm run trail-names`: rewrites config/trail-names.json from OpenStreetMap. One Overpass query
+// per mountain, in turn, as Overpass asks; a mountain with no named runs fails the whole run, so a
+// ski area OpenStreetMap renamed shows up instead of quietly shrinking the lists.
 import { writeFileSync } from "node:fs";
-import { IKON_RESORTS, OVERPASS_URL, SOURCE, overpassQuery, runsOf, trailNameLists, type Run } from "./trail-names-lib.ts";
+import {
+  IKON_RESORTS,
+  OVERPASS_URL,
+  SOURCE,
+  overpassQuery,
+  runsOf,
+  trailNameLists,
+  type Run,
+} from "./trail-names-lib.ts";
 
 const OUT = new URL("../../config/trail-names.json", import.meta.url);
 const RETRY_MS = [15_000, 60_000];
@@ -21,7 +29,10 @@ async function fetchRuns(query: string): Promise<Run[]> {
       await new Promise((resolve) => setTimeout(resolve, wait));
       continue;
     }
-    if (!res.ok) throw new Error(`Overpass answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 200);
+      throw new Error(`Overpass answered ${res.status}: ${body}`);
+    }
     return runsOf(await res.json());
   }
 }
@@ -35,7 +46,7 @@ for (const resort of IKON_RESORTS) {
       `${count("black")} black, ${count("double_black")} double black)`,
   );
   if (runs.length === 0) {
-    console.error(`No named runs for ${resort.name}: check its area and box in trail-names-lib.ts.`);
+    console.error(`No named runs for ${resort.name}: check its area and box in trail-names-lib.ts`);
     process.exit(1);
   }
   byResort.push({ resort: resort.name, runs });
@@ -44,7 +55,8 @@ for (const resort of IKON_RESORTS) {
 const trailNames = trailNameLists(byResort);
 const empty = Object.entries(trailNames).filter(([, names]) => names.length === 0);
 if (empty.length > 0) {
-  console.error(`No names for ${empty.map(([rating]) => rating).join(", ")}; config/trail-names.json is unchanged.`);
+  const ratings = empty.map(([rating]) => rating).join(", ");
+  console.error(`No names for ${ratings}; config/trail-names.json is unchanged.`);
   process.exit(1);
 }
 const resorts = byResort.map(({ resort, runs }) => ({ name: resort, runs: runs.length }));

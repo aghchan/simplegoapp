@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { IKON_RESORTS, overpassQuery, ratingOf, runsOf, trailNameLists } from "../src/trail-names-lib.ts";
+import {
+  IKON_RESORTS,
+  overpassQuery,
+  ratingOf,
+  runsOf,
+  trailNameLists,
+} from "../src/trail-names-lib.ts";
 
 const way = (tags: Record<string, string>) => ({ type: "way", id: 1, tags });
 
@@ -22,9 +28,15 @@ describe("ratingOf", () => {
 
 describe("overpassQuery", () => {
   it("asks for the downhill runs inside the resort's ski area and box", () => {
-    const query = overpassQuery({ name: "Alta", area: "Alta", bbox: [40.56, -111.66, 40.6, -111.6] });
+    const query = overpassQuery({
+      name: "Alta",
+      area: "Alta",
+      bbox: [40.56, -111.66, 40.6, -111.6],
+    });
     expect(query).toContain('area["landuse"="winter_sports"]["name"~"Alta",i]->.resort;');
-    expect(query).toContain('way["piste:type"="downhill"](area.resort)(40.56,-111.66,40.6,-111.6);');
+    expect(query).toContain(
+      'way["piste:type"="downhill"](area.resort)(40.56,-111.66,40.6,-111.6);',
+    );
     expect(query).toContain(
       'relation["route"="piste"]["piste:type"="downhill"](area.resort)(40.56,-111.66,40.6,-111.6);',
     );
@@ -100,11 +112,21 @@ describe("trailNameLists", () => {
 
   it("takes each rating's names from the resorts in turn, alphabetically within each", () => {
     const lists = trailNameLists([
-      { resort: "Alta", runs: [run("Mambo"), run("Crooked Mile"), run("High Rustler", "double_black")] },
+      {
+        resort: "Alta",
+        runs: [run("Mambo"), run("Crooked Mile"), run("High Rustler", "double_black")],
+      },
       { resort: "Snowbird", runs: [run("Chickadee"), run("Big Emma"), run("Bassackwards")] },
       { resort: "Brighton", runs: [run("Lost Maid")] },
     ]);
-    expect(lists.green).toEqual(["Crooked Mile", "Bassackwards", "Lost Maid", "Mambo", "Big Emma", "Chickadee"]);
+    expect(lists.green).toEqual([
+      "Crooked Mile",
+      "Bassackwards",
+      "Lost Maid",
+      "Mambo",
+      "Big Emma",
+      "Chickadee",
+    ]);
     expect(lists.double_black).toEqual(["High Rustler"]);
     expect(lists.blue).toEqual([]);
   });
@@ -112,7 +134,10 @@ describe("trailNameLists", () => {
   it("gives a name two resorts share once", () => {
     const lists = trailNameLists([
       { resort: "Alta", runs: [run("Baldy Chutes", "double_black")] },
-      { resort: "Snowbird", runs: [run("baldy chutes", "double_black"), run("Great Scott", "double_black")] },
+      {
+        resort: "Snowbird",
+        runs: [run("baldy chutes", "double_black"), run("Great Scott", "double_black")],
+      },
     ]);
     expect(lists.double_black).toEqual(["Baldy Chutes", "Great Scott"]);
   });

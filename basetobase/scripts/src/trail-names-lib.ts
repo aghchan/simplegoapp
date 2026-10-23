@@ -5,7 +5,8 @@ import type { Rating } from "../../shared/src/config.ts";
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 export const SOURCE =
-  "OpenStreetMap contributors (ODbL): named downhill runs with a piste:difficulty at the Ikon Pass mountains in California and Utah";
+  "OpenStreetMap contributors (ODbL): named downhill runs with a piste:difficulty at the Ikon " +
+  "Pass mountains in California and Utah";
 
 export interface Resort {
   name: string;
@@ -17,7 +18,11 @@ export interface Resort {
 
 // Ikon Pass 2026-27, per Ski Utah's Ikon guide and Ikon's own list.
 export const IKON_RESORTS: Resort[] = [
-  { name: "Palisades Tahoe", area: "Palisades|Squaw|Alpine Meadows", bbox: [39.13, -120.32, 39.22, -120.2] },
+  {
+    name: "Palisades Tahoe",
+    area: "Palisades|Squaw|Alpine Meadows",
+    bbox: [39.13, -120.32, 39.22, -120.2],
+  },
   { name: "Mammoth Mountain", area: "Mammoth", bbox: [37.6, -119.08, 37.67, -118.98] },
   { name: "June Mountain", area: "June", bbox: [37.74, -119.11, 37.79, -119.05] },
   { name: "Bear Mountain", area: "Bear Mountain", bbox: [34.2, -116.9, 34.24, -116.85] },
@@ -91,7 +96,9 @@ export function runsOf(body: unknown): Run[] {
 // Each rating's names, one resort after another in turn, so consecutive runs come from different
 // mountains. Alphabetical within a resort, so a rerun diffs cleanly. A name two resorts share
 // appears once per rating.
-export function trailNameLists(byResort: { resort: string; runs: Run[] }[]): Record<Rating, string[]> {
+export function trailNameLists(
+  byResort: { resort: string; runs: Run[] }[],
+): Record<Rating, string[]> {
   const lists = {} as Record<Rating, string[]>;
   for (const rating of RATINGS) {
     const queues = byResort.map(({ runs }) =>
