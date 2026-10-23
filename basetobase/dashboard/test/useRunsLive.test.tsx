@@ -16,6 +16,7 @@ function summary(id: string, over: Partial<RunSummary> = {}): RunSummary {
     status: "on_the_hill",
     outcome: "pending",
     currentStep: "sweep",
+    createdAt: 1,
     updatedAt: 1,
     ...over,
   };

@@ -1,5 +1,6 @@
-// "hazard": a red warning, for hazards flagged; "bad": a red cross, for a failure.
-export type Tone = "ok" | "bad" | "hazard" | "warn" | "busy" | "idle";
+// "hazard": a red warning, for hazards flagged; "bad": a red cross, for a failure. "landed": a
+// violet flag, for a PR merged: the run went all the way.
+export type Tone = "ok" | "bad" | "hazard" | "warn" | "busy" | "idle" | "landed";
 
 // Shape as well as colour tells the tones apart, and the text beside a mark always says the same.
 export function Mark({ tone }: { tone: Tone }) {
@@ -48,4 +49,11 @@ const MARKS = {
     </>
   ),
   idle: <circle cx="8" cy="8" r="7" className="mark-ring mark-dashed" />,
+  landed: (
+    <>
+      <circle cx="8" cy="8" r="8" className="mark-fill" />
+      <path d="M5.6 12 V4" className="mark-stroke" />
+      <path d="M6.2 4.2 L11.6 6.1 L6.2 8 Z" className="mark-flag" />
+    </>
+  ),
 };

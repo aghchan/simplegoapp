@@ -34,5 +34,6 @@ process.exit(
     repoDir,
     templatesDir,
     workDir: join(runnerTemp, "basetobase"),
+    runAttempt: process.env.GITHUB_RUN_ATTEMPT,
   }),
 );

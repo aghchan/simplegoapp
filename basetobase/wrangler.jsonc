@@ -5,6 +5,8 @@
   "compatibility_flags": ["nodejs_compat"],
   // Workers Logs: console output, readable later in the Cloudflare dashboard.
   "observability": { "enabled": true },
+  // The reconcile cron (dispatch/src/reconcile/cron.ts): GitHub never redelivers a failed webhook.
+  "triggers": { "crons": ["*/5 * * * *"] },
   "durable_objects": {
     "bindings": [
       { "name": "RUNS", "class_name": "RunDO" },

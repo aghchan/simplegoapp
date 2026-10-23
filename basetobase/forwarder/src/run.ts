@@ -7,7 +7,7 @@ import { createInterface } from "node:readline";
 import { finished } from "node:stream/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { EVENT_TEXT_MAX, mapStreamLine } from "../../shared/src/stream.ts";
-import type { AgentBrief, AgentEvent, EventKind } from "../../shared/src/types.ts";
+import type { AgentBrief, AgentEvent, AgentStatus, EventKind } from "../../shared/src/types.ts";
 import { createBatcher, isPermanent, RETRY_DELAYS_MS } from "./batcher.ts";
 import type { Batcher } from "./batcher.ts";
 import { DispatchError } from "./client.ts";
@@ -36,14 +36,22 @@ const KILL_GRACE_MS = 5000;
 // forwarder at once: each of the cancel's three steps waits at most this long.
 const CANCEL_STEP_MS = 2000;
 const CANCEL = Symbol("cancel");
+// Dispatch keeps one event per agent and seq, so each attempt of the job numbers its own: a re-run
+// counting from 0 again would have its first events dropped as already held.
+const SEQ_PER_ATTEMPT = 1_000_000;
+// The agent's statuses in Dispatch on which a job it no longer wants ends green: the review
+// passed, or the run stopped needing it (a push, a close or a merge).
+const GREEN_WHEN_UNWANTED: readonly AgentStatus[] = ["clear", "stopped"];
 
 type Claude = ChildProcessWithoutNullStreams;
 type Lines = { stdout(line: string): void; stderr(line: string): void };
 
 // Runs Claude Code on the brief, streams what it does, and reports how it ended. Resolves to the
 // process exit code: 1 when Dispatch was not told everything it should have been, when claude ran
-// past the deadline, or when the job was cancelled; 0 once Dispatch no longer wants reports.
+// past the deadline, or when the job was cancelled. Once Dispatch no longer wants the agent, the
+// agent's status there decides it instead.
 // `retryDelaysMs` is how long the brief, the verdict and the failure report wait between attempts.
+// `runAttempt` is GITHUB_RUN_ATTEMPT: 1, and one more for each re-run of the job.
 export async function runAgent(o: {
   client: DispatchClient;
   claudeBin: string;
@@ -51,6 +59,7 @@ export async function runAgent(o: {
   repoDir: string;
   templatesDir: string;
   workDir: string;
+  runAttempt?: string;
   batcher?: (send: (b: AgentEvent[]) => Promise<void>) => Batcher;
   retryDelaysMs?: number[];
   signals?: Pick<NodeJS.EventEmitter, "on" | "off">;
@@ -65,10 +74,14 @@ export async function runAgent(o: {
   try {
     brief = await withRetries("fetching the brief", retryDelaysMs, () => o.client.brief());
   } catch (error) {
-    // Dispatch refuses the brief of a stopped run and of an agent that has already reported.
-    if (error instanceof DispatchError && error.status === 403) {
-      warn("the agent is no longer wanted", error);
-      return 0;
+    // The run was stopped before the job started, or this is a re-run of an agent that is done.
+    if (error instanceof DispatchError && error.status === 410) {
+      warn(
+        `Dispatch has this agent as ${error.agent ?? "unknown"} and no longer wants it; a re-run ` +
+          "reviews nothing, push to the pull request for a new run",
+        error,
+      );
+      return exitWhenUnwanted(error.agent);
     }
     warn("fetching the brief failed", error);
     return 1;
@@ -89,6 +102,8 @@ export async function runAgent(o: {
 
   let claude: { child: Claude; exited: Promise<string | undefined> } | undefined;
   let unwanted = false;
+  // The agent's status in Dispatch, from the 410 that set `unwanted`.
+  let agentInDispatch: string | undefined;
   let pastDeadline = false;
   let cancelled = false;
 
@@ -101,7 +116,11 @@ export async function runAgent(o: {
       if (!(error instanceof DispatchError && error.status === 410)) throw error;
       if (unwanted) return;
       unwanted = true;
-      warn("Dispatch no longer wants reports (run stopped or agent finished)", error);
+      agentInDispatch = error.agent;
+      warn(
+        `Dispatch has this agent as ${error.agent ?? "unknown"} and no longer wants reports`,
+        error,
+      );
       batcher.abandon();
       if (claude) stopClaude(claude.child, killGraceMs);
     }
@@ -114,7 +133,7 @@ export async function runAgent(o: {
     unlessUnwanted(() => o.client.events(batch)),
   );
 
-  let seq = 0;
+  let seq = firstSeq(o.runAttempt);
   let tokenRejected = false;
   const push = (kind: EventKind, text: string) =>
     batcher.push({ seq: seq++, ts: Date.now(), kind, text });
@@ -204,9 +223,10 @@ export async function runAgent(o: {
     await untilCancelled(closeTranscript());
     const drained = await untilCancelled(drain(batcher));
     await untilCancelled(upload());
-    if (unwanted) return 0;
+    if (unwanted) return exitWhenUnwanted(agentInDispatch);
     const outcome = await untilCancelled(report(reports, failure, verdictPath, retryDelaysMs));
-    if (unwanted) return 0;
+    // A retried verdict's 410 most likely means its first attempt landed: Dispatch says which.
+    if (unwanted) return exitWhenUnwanted(agentInDispatch);
     // Green means the review passed: a hazards verdict or a failed agent fails the job.
     return drained && outcome === "clear" && !pastDeadline ? 0 : 1;
   }
@@ -257,6 +277,17 @@ export async function runAgent(o: {
   } finally {
     for (const { name, handler } of handlers) signals.off(name, handler);
   }
+}
+
+// Any other status, or none, fails the job.
+function exitWhenUnwanted(agent: string | undefined): number {
+  return GREEN_WHEN_UNWANTED.some((status) => status === agent) ? 0 : 1;
+}
+
+// A value that is not a whole attempt number counts as the first attempt.
+function firstSeq(runAttempt: string | undefined): number {
+  const attempt = Number(runAttempt);
+  return Number.isSafeInteger(attempt) && attempt > 1 ? (attempt - 1) * SEQ_PER_ATTEMPT : 0;
 }
 
 // The prompt goes in on stdin: it holds the whole PR description, which can be longer than the

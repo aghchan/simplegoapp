@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentSnapshot, ReviewOutcome } from "../../shared/src/types.ts";
 import { PipelineRow } from "../src/components/PipelineRow.tsx";
-import { agent, makeRun, START, step } from "./fixtures.ts";
+import { agent, landedRun, makeRun, START, step } from "./fixtures.ts";
 
 const run = makeRun();
 
@@ -84,6 +84,47 @@ describe("PipelineRow", () => {
     renderRow({ steps });
     expect(screen.getByText("Swept")).toHaveTextContent("Swept reached");
     expect(screen.getByText("All clear")).toHaveTextContent("All clear not yet reached");
+  });
+
+  describe("a landed run", () => {
+    const landed = landedRun();
+    const button = (name: RegExp) => screen.getByRole("button", { name });
+
+    it("marks Drop in with the landed mark: a filled circle with a white flag", () => {
+      const { container } = render(
+        <PipelineRow
+          steps={landed.steps}
+          agents={landed.agents}
+          selected="drop_in"
+          now={START + 999_000}
+          onSelect={vi.fn()}
+        />,
+      );
+      const mark = button(/Drop in/).querySelector(".mark-landed");
+      expect(mark).not.toBeNull();
+      expect(mark!.querySelector("circle.mark-fill")).not.toBeNull();
+      expect(mark!.querySelector(".mark-flag")).not.toBeNull();
+      expect(button(/Drop in/)).toHaveTextContent("Done");
+      // Only the merge is landed: the sweep before it stays a green pass.
+      expect(container.querySelectorAll(".mark-landed")).toHaveLength(1);
+      expect(button(/Patrol sweep/).querySelector(".mark-ok")).not.toBeNull();
+    });
+
+    it("says a skipped step was skipped, with no time on it", () => {
+      renderRow({ steps: landed.steps, agents: landed.agents });
+      for (const name of [/Patrol huddle/, /Summit check/, /Send it/]) {
+        expect(button(name).querySelector(".step-meta")).toHaveTextContent(/^Skipped$/);
+        expect(button(name).querySelector(".mark-idle")).not.toBeNull();
+      }
+    });
+
+    it("says a skipped milestone was skipped, not that it is still to come", () => {
+      renderRow({ steps: landed.steps, agents: landed.agents });
+      expect(screen.getByText("All clear")).toHaveTextContent("All clear skipped");
+      expect(screen.getByText("Summit")).toHaveTextContent("Summit skipped");
+      expect(screen.getByText("Open")).toHaveTextContent("Open skipped");
+      expect(screen.getByText("Swept")).toHaveTextContent("Swept reached");
+    });
   });
 
   describe("a done sweep", () => {

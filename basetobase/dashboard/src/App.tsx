@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { RunSummary } from "../../shared/src/types.ts";
 import { getJson, navigateTo, SIGN_IN_URL, SignedOutError } from "./api.ts";
 import { RunPage } from "./pages/RunView.tsx";
-import { RunsList } from "./pages/RunsList.tsx";
+import { newestSpeakingRun, RunsList } from "./pages/RunsList.tsx";
 import { followInternalLink, useRoute, type Route } from "./router.ts";
 import { useRunsLive } from "./useRunsLive.ts";
 
@@ -48,10 +48,12 @@ function Header({ login }: { login?: string }) {
   );
 }
 
-function Page({ route }: { route: Route }) {
+function Page({ route, newestRunId }: { route: Route; newestRunId?: string }) {
   switch (route.page) {
+    // "/" follows the newest run: a newer one takes its place. /runs/:id pins one. Either way the
+    // run on show keeps its key, so pinning it does not load it again.
     case "runs":
-      return <p className="hint">Pick a run to see how it is going.</p>;
+      return newestRunId ? <RunPage key={newestRunId} runId={newestRunId} /> : null;
     case "run":
       return <RunPage key={route.runId} runId={route.runId} />;
     case "notFound":
@@ -93,6 +95,10 @@ export function App() {
     );
   }, []);
   useRunsLive(dashboard.phase === "ready", updateRuns);
+  const newestRunId =
+    dashboard.phase === "ready" ? newestSpeakingRun(dashboard.runs)?.id : undefined;
+  const shownRunId =
+    route.page === "run" ? route.runId : route.page === "runs" ? newestRunId : undefined;
 
   return (
     <div onClick={(event) => followInternalLink(event, navigate)}>
@@ -110,13 +116,10 @@ export function App() {
       {dashboard.phase === "ready" && (
         <div className="layout">
           <aside className="side" aria-label="Runs">
-            <RunsList
-              runs={dashboard.runs}
-              activeRunId={route.page === "run" ? route.runId : undefined}
-            />
+            <RunsList runs={dashboard.runs} activeRunId={shownRunId} />
           </aside>
           <main className="main">
-            <Page route={route} />
+            <Page route={route} newestRunId={newestRunId} />
           </main>
         </div>
       )}

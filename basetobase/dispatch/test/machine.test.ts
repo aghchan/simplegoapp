@@ -12,21 +12,29 @@ import type {
 } from "../../shared/src/types.ts";
 import {
   AGENT_TIMEOUT_MS,
+  JOB_START_MS,
   STALL_MS,
   briefOf,
   checkRunOf,
   createRun,
+  landRun,
   nextAlarm,
+  askCheckRepost,
+  onBriefed,
   onCheckCreated,
+  onCheckReposted,
   onDispatched,
   onEvents,
   onFailure,
+  onRetitled,
   onTick,
   onTranscript,
   onVerdict,
+  replacedCheckOf,
   reviewOutcome,
   snapshotOf,
   stopRun,
+  wantsCheck,
   type Effect,
   type RunState,
   type Transition,
@@ -52,6 +60,11 @@ const URL_2 = "https://github.com/aghchan/simplegoapp/actions/runs/2";
 const CREATED_AT = 1000;
 const DISPATCHED_AT = 1200;
 const KT_DISPATCHED_AT = 1300;
+const BRIEFED_AT = 1400;
+const KT_BRIEFED_AT = 1450;
+const JOB = { githubRunId: "1", jobUrl: URL_1 };
+const KT_JOB = { githubRunId: "2", jobUrl: URL_2 };
+const MERGE_SHA = "abc1234def5678";
 
 // Two patrollers on the backend panel, listed out of roster order on purpose.
 const PATROL: B2BConfig = { ...config, enabledRoles: ["kt-22", "granite-chief"] };
@@ -97,13 +110,23 @@ const hazardVerdict = verdictFor("mainline", 2);
 
 const created = (): Transition => createRun(pr, "r1", t, config, CREATED_AT, () => "n1");
 const dispatchedRun = (): RunState => onDispatched(created().state, ID, DISPATCHED_AT).state;
-const runningRun = (): RunState => onEvents(dispatchedRun(), ID, 3, 1500, URL_1).state;
-const stalledRun = (): RunState => onTick(dispatchedRun(), DISPATCHED_AT + STALL_MS).state;
+// The job has started on GitHub and asked for its brief.
+const briefedRun = (): RunState => onBriefed(dispatchedRun(), ID, BRIEFED_AT, JOB).state;
+const runningRun = (): RunState => onEvents(briefedRun(), ID, 3, 1500, URL_1).state;
+const stalledRun = (): RunState => onTick(briefedRun(), BRIEFED_AT + STALL_MS).state;
+const timedOutRun = (): RunState => onTick(briefedRun(), BRIEFED_AT + AGENT_TIMEOUT_MS).state;
+const landedRun = (): RunState => landRun(sweptBy("clear", "clear"), MERGE_SHA, 3000).state;
 
 // Granite Chief dispatched at DISPATCHED_AT, KT-22 at KT_DISPATCHED_AT, neither heard from.
 function patrolRun(): RunState {
   const s = createRun(pr, "r1", t, PATROL, CREATED_AT, counter()).state;
   return onDispatched(onDispatched(s, GRANITE, DISPATCHED_AT).state, KT, KT_DISPATCHED_AT).state;
+}
+
+// The patrol run once Granite Chief's job is briefed at BRIEFED_AT and KT-22's at KT_BRIEFED_AT.
+function briefedPatrol(): RunState {
+  const s = onBriefed(patrolRun(), GRANITE, BRIEFED_AT, JOB).state;
+  return onBriefed(s, KT, KT_BRIEFED_AT, KT_JOB).state;
 }
 
 // Granite Chief still queued, KT-22 dispatched at KT_DISPATCHED_AT.
@@ -412,7 +435,7 @@ describe("onEvents", () => {
   });
 
   it("events after stall resume running", () => {
-    const resumed = onEvents(stalledRun(), ID, 1, DISPATCHED_AT + STALL_MS + 5000, URL_1);
+    const resumed = onEvents(stalledRun(), ID, 1, BRIEFED_AT + STALL_MS + 5000, URL_1);
     expect(agentOf(resumed.state).status).toBe("running");
     expect(resumed.effects).toEqual([{ type: "broadcast" }]);
   });
@@ -429,6 +452,52 @@ describe("onEvents", () => {
       dispatchedAt: 1100,
       lastEventAt: 1100,
     });
+  });
+});
+
+describe("onBriefed", () => {
+  it("starts the agent's clocks and records its job", () => {
+    const { state, effects } = onBriefed(dispatchedRun(), ID, BRIEFED_AT, JOB);
+    expect(agentOf(state)).toMatchObject({
+      status: "dispatched",
+      dispatchedAt: DISPATCHED_AT,
+      briefedAt: BRIEFED_AT,
+      jobUrl: URL_1,
+    });
+    expect(state.jobRuns).toEqual({ [ID]: "1" });
+    expect(state.updatedAt).toBe(BRIEFED_AT);
+    expect(effects).toEqual([{ type: "broadcast" }]);
+  });
+
+  it("keeps each agent's own job", () => {
+    expect(briefedPatrol().jobRuns).toEqual({ [GRANITE]: "1", [KT]: "2" });
+  });
+
+  it("keeps the job url the agent already has", () => {
+    const { state } = onBriefed(runningRun(), ID, 9000, { githubRunId: "1", jobUrl: URL_2 });
+    expect(agentOf(state).jobUrl).toBe(URL_1);
+  });
+
+  it("restarts the clocks for a re-run of the job, forgetting the last attempt's events", () => {
+    const { state } = onBriefed(runningRun(), ID, 9000, JOB);
+    expect(agentOf(state)).toMatchObject({ status: "running", briefedAt: 9000 });
+    expect(agentOf(state)).not.toHaveProperty("lastEventAt");
+    expect(nextAlarm(state)).toBe(9000 + STALL_MS);
+  });
+
+  it("watches a re-run of a stalled agent for a stall again", () => {
+    const at = BRIEFED_AT + STALL_MS + 5000;
+    const { state } = onBriefed(stalledRun(), ID, at, JOB);
+    expect(agentOf(state).status).toBe("running");
+    expect(nextAlarm(state)).toBe(at + STALL_MS);
+    expect(agentOf(onTick(state, at + STALL_MS).state).status).toBe("stalled");
+  });
+
+  it("puts an agent briefed before its dispatch result came in on the brief's clocks", () => {
+    const { state } = onBriefed(created().state, ID, 1100, JOB);
+    expect(agentOf(state)).toMatchObject({ status: "queued", briefedAt: 1100 });
+    expect(nextAlarm(state)).toBe(1100 + STALL_MS);
+    expectUnchanged(state, onTick(state, CREATED_AT + STALL_MS));
   });
 });
 
@@ -470,18 +539,18 @@ describe("onVerdict", () => {
   });
 
   it("accepts the verdict of an agent that had stalled", () => {
-    const { state } = onVerdict(stalledRun(), ID, clearVerdict, DISPATCHED_AT + STALL_MS + 1);
+    const { state } = onVerdict(stalledRun(), ID, clearVerdict, BRIEFED_AT + STALL_MS + 1);
     expect(agentOf(state).status).toBe("clear");
     expect(state.status).toBe("swept");
   });
 
-  it("leaves the sweep open while another patroller is out", () => {
+  it("leaves the sweep open while another patroller is out, mirroring the verdict", () => {
     const { state, effects } = onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000);
     expect(agentOf(state, GRANITE).status).toBe("clear");
     expect(agentOf(state, KT).status).toBe("dispatched");
     expect(state.status).toBe("on_the_hill");
     expect(stepOf(state, "sweep").status).toBe("active");
-    expect(effects).toEqual([{ type: "broadcast" }]);
+    expect(effects).toEqual([{ type: "broadcast" }, { type: "check" }]);
   });
 
   it("sweeps when the last patroller reports, counting every agent's hazards", () => {
@@ -534,6 +603,16 @@ describe("onFailure", () => {
     ]);
   });
 
+  // The job's failure step may be the first Dispatch hears from it.
+  it("links the job of an agent that failed before its brief", () => {
+    const why = "job failed before the agent reported";
+    const { state } = onFailure(dispatchedRun(), ID, why, 2000, URL_2);
+    expect(agentOf(state)).toMatchObject({ status: "error", summary: why, jobUrl: URL_2 });
+  });
+
+  it("keeps the job link the agent already has", () =>
+    expect(agentOf(onFailure(runningRun(), ID, "boom", 2000, URL_2).state).jobUrl).toBe(URL_1));
+
   it("logs the failure even while another patroller keeps the sweep open", () => {
     const { state, effects } = onFailure(patrolRun(), GRANITE, "boom", 2000);
     expect(agentOf(state, GRANITE)).toMatchObject({ status: "error", summary: "boom" });
@@ -541,6 +620,7 @@ describe("onFailure", () => {
     expect(effects).toEqual([
       { type: "log", text: "granite-chief-sweep-0 failed · boom" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -590,8 +670,7 @@ describe("the sweep's Conditions report", () => {
   });
 
   it("gives the reason of a patroller that never reported", () => {
-    const { state } = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
-    expect(notesOf(state)).toEqual([
+    expect(notesOf(timedOutRun())).toEqual([
       "Review failed",
       "1 of 1 patroller in · 0 hazards · 1 failed",
       "Mainline: timed out",
@@ -644,10 +723,19 @@ describe("reviewOutcome", () => {
 
   it("is none for a sweep with no patrollers", () => expect(reviewOutcome(unpatrolled())).toBe("none"));
 
-  it("fails a patroller that timed out", () =>
-    expect(reviewOutcome(onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS).state)).toBe(
-      "failed",
-    ));
+  it("fails a patroller that timed out", () => expect(reviewOutcome(timedOutRun())).toBe("failed"));
+
+  it("is pending for a run that landed before its sweep was in", () =>
+    expect(reviewOutcome(landRun(runningRun(), MERGE_SHA, 1500).state)).toBe("pending"));
+
+  it.each<[Outcome, Outcome, ReviewOutcome]>([
+    ["clear", "clear", "clear"],
+    ["hazards", "clear", "hazards"],
+    ["clear", "failed", "failed"],
+  ])("keeps a %s, %s sweep's %s once the run is stopped or has landed", (granite, kt, outcome) => {
+    expect(reviewOutcome(stopRun(sweptBy(granite, kt), "PR closed", 3000).state)).toBe(outcome);
+    expect(reviewOutcome(landRun(sweptBy(granite, kt), MERGE_SHA, 3000).state)).toBe(outcome);
+  });
 
   it("fails a sweep that closed around a stopped patroller", () =>
     expect(reviewOutcome(closedAroundStopped())).toBe("failed"));
@@ -658,15 +746,16 @@ describe("reviewOutcome", () => {
 
 describe("watchdog", () => {
   it("stalls after 10 minutes silent, logs once", () => {
-    const a = onTick(dispatchedRun(), DISPATCHED_AT + STALL_MS);
+    const a = onTick(briefedRun(), BRIEFED_AT + STALL_MS);
     expect(agentOf(a.state).status).toBe("stalled");
     expect(
-      onTick(a.state, DISPATCHED_AT + STALL_MS + 1).effects.filter((e) => e.type === "log"),
+      onTick(a.state, BRIEFED_AT + STALL_MS + 1).effects.filter((e) => e.type === "log"),
     ).toHaveLength(0);
   });
 
-  it("logs the stall and broadcasts it", () => {
-    const { state, effects } = onTick(dispatchedRun(), DISPATCHED_AT + STALL_MS);
+  // A stall shows on the dashboard only: the check has nothing new to say.
+  it("logs the stall and broadcasts it, leaving the check alone", () => {
+    const { state, effects } = onTick(briefedRun(), BRIEFED_AT + STALL_MS);
     expect(state.status).toBe("on_the_hill");
     expect(effects).toEqual([
       { type: "log", text: "mainline-sweep-0 stalled · no events for 10m" },
@@ -675,24 +764,24 @@ describe("watchdog", () => {
   });
 
   it("does nothing a minute early", () => {
-    const s = dispatchedRun();
-    expectUnchanged(s, onTick(s, DISPATCHED_AT + STALL_MS - 1));
+    const s = briefedRun();
+    expectUnchanged(s, onTick(s, BRIEFED_AT + STALL_MS - 1));
   });
 
-  it("measures the silence from the last event, not from dispatch", () => {
-    const s = onEvents(dispatchedRun(), ID, 3, 5000, URL_1).state;
+  it("measures the silence from the last event, not from the brief", () => {
+    const s = onEvents(briefedRun(), ID, 3, 5000, URL_1).state;
     expectUnchanged(s, onTick(s, 5000 + STALL_MS - 1));
     expect(agentOf(onTick(s, 5000 + STALL_MS).state).status).toBe("stalled");
   });
 
   it("leaves a stalled agent alone until it times out", () => {
     const s = stalledRun();
-    expectUnchanged(s, onTick(s, DISPATCHED_AT + STALL_MS + 1));
-    expectUnchanged(s, onTick(s, DISPATCHED_AT + AGENT_TIMEOUT_MS - 1));
+    expectUnchanged(s, onTick(s, BRIEFED_AT + STALL_MS + 1));
+    expectUnchanged(s, onTick(s, BRIEFED_AT + AGENT_TIMEOUT_MS - 1));
   });
 
   it("stalls again after resuming, but does not log the second stall", () => {
-    const resumedAt = DISPATCHED_AT + STALL_MS + 5000;
+    const resumedAt = BRIEFED_AT + STALL_MS + 5000;
     const resumed = onEvents(stalledRun(), ID, 1, resumedAt, URL_1).state;
     const again = onTick(resumed, resumedAt + STALL_MS);
     expect(agentOf(again.state).status).toBe("stalled");
@@ -700,9 +789,9 @@ describe("watchdog", () => {
     expect(again.state.stalledLogged).toEqual([ID]);
   });
 
-  it("times out 30 minutes after dispatch", () => {
-    const at = DISPATCHED_AT + AGENT_TIMEOUT_MS;
-    const { state } = onTick(dispatchedRun(), at);
+  it("times out 30 minutes after the brief", () => {
+    const at = BRIEFED_AT + AGENT_TIMEOUT_MS;
+    const { state } = onTick(briefedRun(), at);
     expect(agentOf(state)).toMatchObject({
       status: "error",
       summary: "timed out",
@@ -711,7 +800,7 @@ describe("watchdog", () => {
   });
 
   it("a timeout completes the sweep like any other failure", () => {
-    const { state, effects } = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    const { state, effects } = onTick(briefedRun(), BRIEFED_AT + AGENT_TIMEOUT_MS);
     expect(state.status).toBe("swept");
     expect(effects).toEqual([
       { type: "log", text: "mainline-sweep-0 failed · timed out" },
@@ -723,20 +812,51 @@ describe("watchdog", () => {
   });
 
   it("does not time out a millisecond early", () => {
-    const { state } = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS - 1);
+    const { state } = onTick(briefedRun(), BRIEFED_AT + AGENT_TIMEOUT_MS - 1);
     expect(agentOf(state).status).toBe("stalled");
   });
 
-  it("counts the timeout from dispatch even if the agent is still talking", () => {
-    const chatty = onEvents(dispatchedRun(), ID, 1, DISPATCHED_AT + AGENT_TIMEOUT_MS - 1000, URL_1);
-    expect(agentOf(onTick(chatty.state, DISPATCHED_AT + AGENT_TIMEOUT_MS).state).status).toBe(
+  it("counts the timeout from the brief even if the agent is still talking", () => {
+    const chatty = onEvents(briefedRun(), ID, 1, BRIEFED_AT + AGENT_TIMEOUT_MS - 1000, URL_1);
+    expect(agentOf(onTick(chatty.state, BRIEFED_AT + AGENT_TIMEOUT_MS).state).status).toBe(
       "error",
     );
   });
 
   it("times out a stalled agent", () => {
-    const { state } = onTick(stalledRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    const { state } = onTick(stalledRun(), BRIEFED_AT + AGENT_TIMEOUT_MS);
     expect(agentOf(state)).toMatchObject({ status: "error", summary: "timed out" });
+  });
+
+  // A job that waited in GitHub's queue still gets its 30 minutes.
+  it("counts no time before the brief against the agent", () => {
+    const late = onBriefed(dispatchedRun(), ID, DISPATCHED_AT + JOB_START_MS - 1, JOB).state;
+    expectUnchanged(late, onTick(late, DISPATCHED_AT + JOB_START_MS));
+    expect(nextAlarm(late)).toBe(DISPATCHED_AT + JOB_START_MS - 1 + STALL_MS);
+  });
+
+  it("does not stall an agent whose job has yet to start", () => {
+    const s = dispatchedRun();
+    expectUnchanged(s, onTick(s, DISPATCHED_AT + STALL_MS));
+    expectUnchanged(s, onTick(s, DISPATCHED_AT + JOB_START_MS - 1));
+  });
+
+  it("fails an agent whose job never started, 30 minutes after dispatch", () => {
+    const at = DISPATCHED_AT + JOB_START_MS;
+    const { state, effects } = onTick(dispatchedRun(), at);
+    expect(agentOf(state)).toMatchObject({
+      status: "error",
+      summary: "job never started on GitHub",
+      finishedAt: at,
+    });
+    expect(state.status).toBe("swept");
+    expect(effects).toEqual([
+      { type: "log", text: "mainline-sweep-0 failed · job never started on GitHub" },
+      { type: "log", text: "all 1 sweeps in · 0 hazards · 1 failed" },
+      { type: "index" },
+      { type: "broadcast" },
+      { type: "check" },
+    ]);
   });
 
   it("leaves an agent that is not yet dispatched alone for 10 minutes", () => {
@@ -770,6 +890,7 @@ describe("watchdog", () => {
     expect(effects).toEqual([
       { type: "log", text: "granite-chief-sweep-0 failed · never dispatched" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 
@@ -784,14 +905,14 @@ describe("watchdog", () => {
   });
 
   it("leaves agents that already reported alone", () => {
-    const reported = onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000).state;
-    const { state } = onTick(reported, KT_DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    const reported = onVerdict(briefedPatrol(), GRANITE, verdictFor("granite-chief"), 2000).state;
+    const { state } = onTick(reported, KT_BRIEFED_AT + AGENT_TIMEOUT_MS);
     expect(agentOf(state, GRANITE)).toEqual(agentOf(reported, GRANITE));
     expect(agentOf(state, KT).status).toBe("error");
   });
 
   it("handles every agent due at the same tick with one index and one broadcast", () => {
-    const { state, effects } = onTick(patrolRun(), KT_DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    const { state, effects } = onTick(briefedPatrol(), KT_BRIEFED_AT + AGENT_TIMEOUT_MS);
     expect(state.agents.map((a) => a.status)).toEqual(["error", "error"]);
     expect(state.status).toBe("swept");
     expect(effects).toEqual([
@@ -805,7 +926,7 @@ describe("watchdog", () => {
   });
 
   it("logs each stall at a shared tick, in agent order, with one broadcast", () => {
-    const { state, effects } = onTick(patrolRun(), KT_DISPATCHED_AT + STALL_MS);
+    const { state, effects } = onTick(briefedPatrol(), KT_BRIEFED_AT + STALL_MS);
     expect(state.agents.map((a) => a.status)).toEqual(["stalled", "stalled"]);
     expect(effects).toEqual([
       { type: "log", text: "granite-chief-sweep-0 stalled · no events for 10m" },
@@ -814,8 +935,8 @@ describe("watchdog", () => {
     ]);
   });
 
-  it("times one agent out and stalls another in the same tick", () => {
-    const { state, effects } = onTick(patrolRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
+  it("times one agent out and stalls another in the same tick, mirroring the failure", () => {
+    const { state, effects } = onTick(briefedPatrol(), BRIEFED_AT + AGENT_TIMEOUT_MS);
     expect(agentOf(state, GRANITE)).toMatchObject({ status: "error", summary: "timed out" });
     expect(agentOf(state, KT).status).toBe("stalled");
     expect(state.status).toBe("on_the_hill");
@@ -823,6 +944,7 @@ describe("watchdog", () => {
       { type: "log", text: "granite-chief-sweep-0 failed · timed out" },
       { type: "log", text: "kt-22-sweep-0 stalled · no events for 10m" },
       { type: "broadcast" },
+      { type: "check" },
     ]);
   });
 });
@@ -835,13 +957,33 @@ describe("stopRun", () => {
     expect(state.updatedAt).toBe(1500);
   });
 
-  it("logs the reason, then indexes, broadcasts and mirrors it to the check run", () =>
+  it("logs the reason, indexes, broadcasts and mirrors it to the check, then cancels the job", () =>
     expect(stopRun(runningRun(), "PR closed", 1500).effects).toEqual([
       { type: "log", text: "stopped · PR closed" },
       { type: "index" },
       { type: "broadcast" },
       { type: "check" },
+      { type: "cancel", agentId: ID },
     ]));
+
+  it("cancels only the jobs GitHub has started for agents still out", () => {
+    // Granite Chief briefed and still out, KT-22 reported without a brief on record.
+    const graniteOut = onVerdict(
+      onBriefed(patrolRun(), GRANITE, BRIEFED_AT, JOB).state,
+      KT,
+      verdictFor("kt-22"),
+      1600,
+    ).state;
+    const cancelsOf = (s: RunState) =>
+      stopRun(s, "PR closed", 5000).effects.filter((effect) => effect.type === "cancel");
+    expect(cancelsOf(graniteOut)).toEqual([{ type: "cancel", agentId: GRANITE }]);
+    // Both briefed; Granite Chief has reported.
+    const ktOut = onVerdict(briefedPatrol(), GRANITE, verdictFor("granite-chief"), 1600).state;
+    expect(cancelsOf(ktOut)).toEqual([{ type: "cancel", agentId: KT }]);
+  });
+
+  it("cancels nothing while no job has started", () =>
+    expect(effectTypes(stopRun(patrolRun(), "PR closed", 1500).effects)).not.toContain("cancel"));
 
   it("leaves finished and upcoming steps as they were", () => {
     const before = runningRun();
@@ -862,6 +1004,7 @@ describe("stopRun", () => {
   it.each<[string, () => RunState]>([
     ["a queued", () => created().state],
     ["a dispatched", dispatchedRun],
+    ["a briefed", briefedRun],
     ["a running", runningRun],
     ["a stalled", stalledRun],
   ])("marks %s agent stopped, with the reason and the time", (_label, build) => {
@@ -907,22 +1050,165 @@ describe("stopRun", () => {
     expectUnchanged(stopped, stopRun(stopped, "PR closed", 1600));
   });
 
-  it("does not stop a run that is already swept", () => {
-    const swept = onVerdict(runningRun(), ID, clearVerdict, 2000).state;
-    expectUnchanged(swept, stopRun(swept, "PR closed", 2500));
+  it.each<RunStatus>(["failed", "landed"])("leaves a %s run alone", (status) => {
+    const s: RunState = { ...sweptBy("clear", "clear"), status };
+    expectUnchanged(s, stopRun(s, "PR closed", 3000));
+  });
+
+  describe("a swept run", () => {
+    it("is stopped, keeping its sweep and its agents", () => {
+      const swept = sweptBy("hazards", "clear");
+      const { state } = stopRun(swept, "superseded by head59", 3000);
+      expect(state).toEqual({ ...swept, status: "stopped", updatedAt: 3000 });
+    });
+
+    // The sweep's conclusion on GitHub stands.
+    it("logs, indexes and broadcasts, but leaves the check alone", () =>
+      expect(stopRun(sweptBy("clear", "clear"), "PR closed", 3000).effects).toEqual([
+        { type: "log", text: "stopped · PR closed" },
+        { type: "index" },
+        { type: "broadcast" },
+      ]));
+
+    it("is a no-op the second time", () => {
+      const stopped = stopRun(sweptBy("clear", "clear"), "PR closed", 3000).state;
+      expectUnchanged(stopped, stopRun(stopped, "PR closed", 3100));
+    });
+  });
+});
+
+describe("landRun", () => {
+  const SHA7 = "abc1234";
+
+  it("lands a swept run on the merge commit", () => {
+    const { state } = landRun(sweptBy("clear", "clear"), MERGE_SHA, 3000);
+    expect(state).toMatchObject({ status: "landed", mergeSha: MERGE_SHA, updatedAt: 3000 });
+  });
+
+  it("skips the steps not built yet, and drops in as merged on GitHub", () => {
+    const swept = sweptBy("clear", "clear");
+    const { state } = landRun(swept, MERGE_SHA, 3000);
+    expect(state.steps).toEqual([
+      stepOf(swept, "lift_line"),
+      stepOf(swept, "trail_map"),
+      stepOf(swept, "sweep"),
+      { id: "huddle", status: "skipped", notes: ["No huddle until M3."] },
+      { id: "summit", status: "skipped", notes: ["No summit check until M4."] },
+      {
+        id: "drop_in",
+        status: "done",
+        startedAt: 3000,
+        finishedAt: 3000,
+        notes: [`Merged on GitHub as ${SHA7}.`],
+      },
+      { id: "send_it", status: "skipped", notes: ["Deploy is manual until M4."] },
+    ]);
+  });
+
+  it("skips the huddle and summit only while they are pending", () => {
+    const swept = sweptBy("clear", "clear");
+    const huddled: RunState = {
+      ...swept,
+      steps: swept.steps.map((step) =>
+        step.id === "huddle" ? { ...step, status: "done", notes: ["Quorum met."] } : step,
+      ),
+    };
+    const { state } = landRun(huddled, MERGE_SHA, 3000);
+    expect(stepOf(state, "huddle")).toEqual(stepOf(huddled, "huddle"));
+    expect(stepOf(state, "summit").status).toBe("skipped");
+  });
+
+  // Its check concluded with the sweep, and stays as GitHub has it.
+  it("logs, indexes and broadcasts a finished review, leaving its check alone", () =>
+    expect(landRun(sweptBy("hazards", "clear"), MERGE_SHA, 3000).effects).toEqual([
+      { type: "log", text: `landed · merged as ${SHA7}` },
+      { type: "index" },
+      { type: "broadcast" },
+    ]));
+
+  it("keeps the agents of a finished review as they were", () => {
+    const swept = sweptBy("clear", "failed");
+    expect(landRun(swept, MERGE_SHA, 3000).state.agents).toEqual(swept.agents);
+  });
+
+  describe("merged mid-review", () => {
+    it("stops the agents still out and their step", () => {
+      const { state } = landRun(runningRun(), MERGE_SHA, 3000);
+      expect(agentOf(state)).toMatchObject({
+        status: "stopped",
+        summary: "stopped · PR merged",
+        finishedAt: 3000,
+      });
+      expect(stepOf(state, "sweep")).toMatchObject({ status: "stopped", finishedAt: 3000 });
+      expect(state.status).toBe("landed");
+    });
+
+    it("ends the check and cancels the jobs GitHub has started", () =>
+      expect(landRun(runningRun(), MERGE_SHA, 3000).effects).toEqual([
+        { type: "log", text: `landed · merged as ${SHA7}` },
+        { type: "index" },
+        { type: "broadcast" },
+        { type: "check" },
+        { type: "cancel", agentId: ID },
+      ]));
+
+    it("cancels nothing for an agent whose job never started", () =>
+      expect(effectTypes(landRun(dispatchedRun(), MERGE_SHA, 3000).effects)).not.toContain(
+        "cancel",
+      ));
+
+    it("lands a run that was stopped", () => {
+      const stopped = stopRun(runningRun(), "PR closed", 2000).state;
+      const { state, effects } = landRun(stopped, MERGE_SHA, 3000);
+      expect(state.status).toBe("landed");
+      expect(agentOf(state)).toEqual(agentOf(stopped));
+      expect(effectTypes(effects)).toEqual(["log", "index", "broadcast", "check"]);
+    });
+  });
+
+  it("is a no-op once landed, so a repeated merge event does not log twice", () => {
+    const landed = landedRun();
+    expectUnchanged(landed, landRun(landed, MERGE_SHA, 4000));
+    expectUnchanged(landed, landRun(landed, "fff0000", 4000));
+  });
+
+  it("ends the watch on the run", () =>
+    expect(nextAlarm(landRun(runningRun(), MERGE_SHA, 3000).state)).toBeNull());
+});
+
+describe("onRetitled", () => {
+  it("takes the new title, keeping the goal the agents were briefed with", () => {
+    const before = runningRun();
+    const { state, effects } = onRetitled(before, "orders: cancel endpoint", 3000);
+    expect(state).toEqual({ ...before, prTitle: "orders: cancel endpoint", updatedAt: 3000 });
+    expect(effects).toEqual([{ type: "index" }, { type: "broadcast" }]);
+  });
+
+  it.each<[string, () => RunState]>([
+    ["swept", () => sweptBy("clear", "clear")],
+    ["stopped", () => stopRun(runningRun(), "PR closed", 2000).state],
+    ["landed", landedRun],
+  ])("retitles a %s run", (_label, build) =>
+    expect(onRetitled(build(), "orders: cancel endpoint", 4000).state.prTitle).toBe(
+      "orders: cancel endpoint",
+    ));
+
+  it("is a no-op for the title the run already has", () => {
+    const s = runningRun();
+    expectUnchanged(s, onRetitled(s, s.prTitle, 3000));
   });
 });
 
 const lateArrivals: [string, (s: RunState) => Transition][] = [
   ["onDispatched", (s) => onDispatched(s, ID, 9000)],
+  ["onBriefed", (s) => onBriefed(s, ID, 9000, JOB)],
   ["onEvents", (s) => onEvents(s, ID, 3, 9000, URL_1)],
   ["onVerdict", (s) => onVerdict(s, ID, hazardVerdict, 9000)],
   ["onFailure", (s) => onFailure(s, ID, "boom", 9000)],
-  ["onTick", (s) => onTick(s, DISPATCHED_AT + AGENT_TIMEOUT_MS)],
-  ["stopRun", (s) => stopRun(s, "PR closed again", 9000)],
+  ["onTick", (s) => onTick(s, BRIEFED_AT + AGENT_TIMEOUT_MS)],
 ];
 
-describe.each<RunStatus>(["swept", "stopped", "failed"])("a %s run", (status) => {
+describe.each<RunStatus>(["swept", "stopped", "landed", "failed"])("a %s run", (status) => {
   it.each(lateArrivals)("ignores %s", (_name, run) => {
     const s: RunState = { ...runningRun(), status };
     expectUnchanged(s, run(s));
@@ -935,6 +1221,7 @@ describe("an agent that already reported", () => {
 
   it.each<[string, (s: RunState) => Transition]>([
     ["a dispatch", (s) => onDispatched(s, GRANITE, 9000)],
+    ["a brief", (s) => onBriefed(s, GRANITE, 9000, JOB)],
     ["events", (s) => onEvents(s, GRANITE, 3, 9000, URL_1)],
     ["a verdict", (s) => onVerdict(s, GRANITE, verdictFor("granite-chief", 1), 9000)],
     ["a failure", (s) => onFailure(s, GRANITE, "boom", 9000)],
@@ -958,6 +1245,7 @@ describe("an agent that is stopped", () => {
 
   it.each<[string, (s: RunState) => Transition]>([
     ["a dispatch", (s) => onDispatched(s, GRANITE, 9000)],
+    ["a brief", (s) => onBriefed(s, GRANITE, 9000, JOB)],
     ["events", (s) => onEvents(s, GRANITE, 3, 9000, URL_1)],
     ["a verdict", (s) => onVerdict(s, GRANITE, verdictFor("granite-chief", 1), 9000)],
     ["a failure", (s) => onFailure(s, GRANITE, "boom", 9000)],
@@ -967,7 +1255,7 @@ describe("an agent that is stopped", () => {
   });
 
   it("is off the watchdog", () => {
-    expect(nextAlarm(graniteStopped())).toBe(KT_DISPATCHED_AT + STALL_MS);
+    expect(nextAlarm(graniteStopped())).toBe(KT_DISPATCHED_AT + JOB_START_MS);
     const { state } = onTick(graniteStopped(), DISPATCHED_AT + AGENT_TIMEOUT_MS);
     expect(agentOf(state, GRANITE).status).toBe("stopped");
   });
@@ -982,6 +1270,7 @@ describe("an agent that is stopped", () => {
 describe("an agent the run does not have", () => {
   it.each<[string, (s: RunState) => Transition]>([
     ["onDispatched", (s) => onDispatched(s, "nobody-sweep-0", 9000)],
+    ["onBriefed", (s) => onBriefed(s, "nobody-sweep-0", 9000, JOB)],
     ["onEvents", (s) => onEvents(s, "nobody-sweep-0", 3, 9000, URL_1)],
     ["onVerdict", (s) => onVerdict(s, "nobody-sweep-0", clearVerdict, 9000)],
     ["onFailure", (s) => onFailure(s, "nobody-sweep-0", "boom", 9000)],
@@ -1014,8 +1303,7 @@ describe("onTranscript", () => {
   });
 
   it("is recorded after a watchdog timeout", () => {
-    const timedOut = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS).state;
-    const { state, effects } = onTranscript(timedOut, ID);
+    const { state, effects } = onTranscript(timedOutRun(), ID);
     expect(state.status).toBe("swept");
     expect(agentOf(state)).toMatchObject({ status: "error", hasTranscript: true });
     expect(effects).toEqual([{ type: "broadcast" }]);
@@ -1037,25 +1325,25 @@ describe("onTranscript", () => {
 
 describe("nextAlarm", () => {
   it("nextAlarm is the earliest stall or timeout", () =>
-    expect(nextAlarm(dispatchedRun())).toBe(DISPATCHED_AT + STALL_MS));
+    expect(nextAlarm(briefedRun())).toBe(BRIEFED_AT + STALL_MS));
 
   it("counts the stall from the last event", () => {
-    const s = onEvents(dispatchedRun(), ID, 1, 5000, URL_1).state;
+    const s = onEvents(briefedRun(), ID, 1, 5000, URL_1).state;
     expect(nextAlarm(s)).toBe(5000 + STALL_MS);
   });
 
   it("is the timeout when the stall would only come after it", () => {
-    const late = onEvents(dispatchedRun(), ID, 1, DISPATCHED_AT + AGENT_TIMEOUT_MS - 1000, URL_1);
-    expect(nextAlarm(late.state)).toBe(DISPATCHED_AT + AGENT_TIMEOUT_MS);
+    const late = onEvents(briefedRun(), ID, 1, BRIEFED_AT + AGENT_TIMEOUT_MS - 1000, URL_1);
+    expect(nextAlarm(late.state)).toBe(BRIEFED_AT + AGENT_TIMEOUT_MS);
   });
 
   it("asks only for the timeout once the agent has stalled", () =>
-    expect(nextAlarm(stalledRun())).toBe(DISPATCHED_AT + AGENT_TIMEOUT_MS));
+    expect(nextAlarm(stalledRun())).toBe(BRIEFED_AT + AGENT_TIMEOUT_MS));
 
   it("takes the earliest across agents", () => {
-    expect(nextAlarm(patrolRun())).toBe(DISPATCHED_AT + STALL_MS);
-    const granite = onEvents(patrolRun(), GRANITE, 1, 5000, URL_1).state;
-    expect(nextAlarm(granite)).toBe(KT_DISPATCHED_AT + STALL_MS);
+    expect(nextAlarm(briefedPatrol())).toBe(BRIEFED_AT + STALL_MS);
+    const granite = onEvents(briefedPatrol(), GRANITE, 1, 5000, URL_1).state;
+    expect(nextAlarm(granite)).toBe(KT_BRIEFED_AT + STALL_MS);
   });
 
   it("gives an agent that is not yet dispatched until 10 minutes after the run was created", () =>
@@ -1064,20 +1352,25 @@ describe("nextAlarm", () => {
   it("takes the undispatched agent's deadline when it is the earliest", () =>
     expect(nextAlarm(queuedBesideDispatched())).toBe(CREATED_AT + STALL_MS));
 
-  it("drops that deadline once the agent is dispatched", () => {
-    const dispatched = onDispatched(created().state, ID, DISPATCHED_AT).state;
-    expect(nextAlarm(dispatched)).toBe(DISPATCHED_AT + STALL_MS);
+  it("gives a dispatched agent's job 30 minutes to start", () =>
+    expect(nextAlarm(dispatchedRun())).toBe(DISPATCHED_AT + JOB_START_MS));
+
+  it("starts the stall and timeout clocks at the brief", () => {
+    expect(nextAlarm(briefedRun())).toBe(BRIEFED_AT + STALL_MS);
+    expect(nextAlarm(onTick(briefedRun(), BRIEFED_AT + STALL_MS).state)).toBe(
+      BRIEFED_AT + AGENT_TIMEOUT_MS,
+    );
   });
 
   it("ignores agents that have reported", () => {
-    const reported = onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000).state;
-    expect(nextAlarm(reported)).toBe(KT_DISPATCHED_AT + STALL_MS);
+    const reported = onVerdict(briefedPatrol(), GRANITE, verdictFor("granite-chief"), 2000).state;
+    expect(nextAlarm(reported)).toBe(KT_BRIEFED_AT + STALL_MS);
   });
 
   it("is null once a run is stopped", () =>
     expect(nextAlarm(stopRun(runningRun(), "PR closed", 1500).state)).toBeNull());
 
-  it.each<RunStatus>(["swept", "stopped", "failed"])(
+  it.each<RunStatus>(["swept", "stopped", "landed", "failed"])(
     "is null for a %s run, even with an agent still out",
     (status) => expect(nextAlarm({ ...runningRun(), status })).toBeNull(),
   );
@@ -1092,9 +1385,11 @@ describe("nextAlarm", () => {
     ["a queued agent", () => created().state],
     ["a queued agent beside a dispatched one", queuedBesideDispatched],
     ["a dispatched agent", dispatchedRun],
+    ["a briefed agent", briefedRun],
     ["a running agent", runningRun],
     ["a stalled agent", stalledRun],
     ["two patrollers", patrolRun],
+    ["two briefed patrollers", briefedPatrol],
   ])("for %s, nothing is due before the alarm and something is due at it", (_label, build) => {
     const s = build();
     const at = nextAlarm(s);
@@ -1108,20 +1403,25 @@ describe("nextAlarm", () => {
 
   it.each<[string, () => RunState, number[]]>([
     [
-      "two dispatched patrollers",
+      "two dispatched patrollers whose jobs never start",
       patrolRun,
+      [DISPATCHED_AT + JOB_START_MS, KT_DISPATCHED_AT + JOB_START_MS],
+    ],
+    [
+      "two briefed patrollers",
+      briefedPatrol,
       [
-        DISPATCHED_AT + STALL_MS,
-        KT_DISPATCHED_AT + STALL_MS,
-        DISPATCHED_AT + AGENT_TIMEOUT_MS,
-        KT_DISPATCHED_AT + AGENT_TIMEOUT_MS,
+        BRIEFED_AT + STALL_MS,
+        KT_BRIEFED_AT + STALL_MS,
+        BRIEFED_AT + AGENT_TIMEOUT_MS,
+        KT_BRIEFED_AT + AGENT_TIMEOUT_MS,
       ],
     ],
     ["a run nobody dispatched", () => created().state, [CREATED_AT + STALL_MS]],
     [
       "a patroller never dispatched beside one that was",
       queuedBesideDispatched,
-      [CREATED_AT + STALL_MS, KT_DISPATCHED_AT + STALL_MS, KT_DISPATCHED_AT + AGENT_TIMEOUT_MS],
+      [CREATED_AT + STALL_MS, KT_DISPATCHED_AT + JOB_START_MS],
     ],
   ])("alarms for %s always make progress and end with the run swept", (_label, build, expected) => {
     let s = build();
@@ -1147,6 +1447,8 @@ describe("snapshotOf", () => {
     "agentNames",
     "stalledLogged",
     "checkRunId",
+    "checkReposts",
+    "jobRuns",
   ];
 
   it("snapshot hides nonces", () =>
@@ -1162,6 +1464,12 @@ describe("snapshotOf", () => {
   it("hides the check run id", () => {
     const s = onCheckCreated(runningRun(), 501).state;
     expect(snapshotOf(s)).not.toHaveProperty("checkRunId");
+    expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
+  });
+
+  it("hides an owed repost of the check", () => {
+    const s = askCheckRepost(runningRun()).state;
+    expect(snapshotOf(s)).not.toHaveProperty("checkReposts");
     expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
   });
 
@@ -1188,7 +1496,14 @@ describe("snapshotOf", () => {
 
   it("is the run state without its private fields, plus the review outcome", () => {
     const s = runningRun();
+    expect(s.jobRuns).toEqual({ [ID]: "1" });
     expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
+  });
+
+  it("carries the merge commit once the run has landed", () => {
+    const s = landedRun();
+    expect(snapshotOf(s)).toMatchObject({ status: "landed", mergeSha: MERGE_SHA });
+    expect(snapshotOf(s)).toEqual(publicOf(s, "clear"));
   });
 
   it.each<[string, () => RunState, ReviewOutcome]>([
@@ -1248,8 +1563,7 @@ describe("the check run", () => {
   });
 
   it("names a patroller that timed out", () => {
-    const s = onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS).state;
-    expect(checkOf(s)).toMatchObject({
+    expect(checkOf(timedOutRun())).toMatchObject({
       conclusion: "failure",
       output: { title: "Mainline failed: timed out" },
     });
@@ -1270,6 +1584,50 @@ describe("the check run", () => {
       conclusion: "cancelled",
       output: { title: "Stopped" },
     }));
+
+  it("is cancelled when the PR merged before the review finished", () =>
+    expect(checkOf(landRun(runningRun(), MERGE_SHA, 1500).state)).toMatchObject({
+      status: "completed",
+      conclusion: "cancelled",
+      output: { title: "Merged before the review finished" },
+    }));
+
+  it.each<[Outcome, Outcome, "success" | "failure", string]>([
+    ["clear", "clear", "success", "All clear"],
+    ["hazards", "clear", "failure", "2 hazards flagged"],
+    ["clear", "failed", "failure", "KT-22 failed: boom"],
+  ])("keeps a %s, %s sweep's %s once the run is stopped or has landed", (...sweep) => {
+    const [granite, kt, conclusion, title] = sweep;
+    const stopped = stopRun(swept(granite, kt), "PR closed", 3000).state;
+    const landed = landRun(swept(granite, kt), MERGE_SHA, 3000).state;
+    for (const s of [stopped, landed]) {
+      expect(checkOf(s)).toEqual(checkOf(swept(granite, kt)));
+      expect(checkOf(s)).toMatchObject({ status: "completed", conclusion, output: { title } });
+    }
+  });
+
+  it("keeps a neutral review neutral once the run has landed", () =>
+    expect(checkOf(landRun(unpatrolled(), MERGE_SHA, 3000).state)).toMatchObject({
+      conclusion: "neutral",
+    }));
+
+  it("tallies each patroller's report while the sweep is open", () => {
+    const s = onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief", 1), 2000).state;
+    expect(checkOf(s)).toEqual({
+      name: "Base to Base",
+      details_url: DETAILS,
+      status: "in_progress",
+      output: {
+        title: "Red Dog Face · patrol sweep",
+        summary: [
+          "1 of 2 patrollers in · 1 hazard · 0 failed",
+          "Granite Chief: 1 found.",
+          "**GOAL-1** Hazard 1 — Granite Chief",
+          LINK,
+        ].join("\n\n"),
+      },
+    });
+  });
 
   it("is neutral, never a success, for a run with no patroller to wait for", () =>
     expect(checkOf(unpatrolled())).toMatchObject({
@@ -1293,8 +1651,11 @@ describe("the check run", () => {
       unpatrolled(),
       closedAroundStopped(),
       stopRun(runningRun(), "PR closed", 1500).state,
-      onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS).state,
+      timedOutRun(),
       { ...swept("clear", "clear"), status: "failed" as const },
+      ...outcomes.map((kt) => stopRun(swept("clear", kt), "PR closed", 3000).state),
+      ...outcomes.map((kt) => landRun(swept("clear", kt), MERGE_SHA, 3000).state),
+      landRun(runningRun(), MERGE_SHA, 1500).state,
     ];
     for (const s of runs) {
       expect(checkOf(s).conclusion === "success").toBe(reviewOutcome(s) === "clear");
@@ -1322,22 +1683,28 @@ describe("the check run", () => {
     expect(summary.endsWith(`…\n\n${LINK}`)).toBe(true);
   });
 
-  it("is mirrored on every change of run status, and only then", () => {
+  // A finished sweep's conclusion stands, whatever becomes of the run.
+  it("is mirrored whenever what it shows changes, and only then", () => {
     const mirrored = (transition: Transition) => effectTypes(transition.effects).includes("check");
     expect(mirrored(created())).toBe(true);
     expect(mirrored(onVerdict(runningRun(), ID, clearVerdict, 2000))).toBe(true);
     expect(mirrored(onFailure(runningRun(), ID, "boom", 2000))).toBe(true);
-    expect(mirrored(onTick(dispatchedRun(), DISPATCHED_AT + AGENT_TIMEOUT_MS))).toBe(true);
+    expect(mirrored(onTick(briefedRun(), BRIEFED_AT + AGENT_TIMEOUT_MS))).toBe(true);
     expect(mirrored(stopRun(runningRun(), "PR closed", 1500))).toBe(true);
+    expect(mirrored(landRun(runningRun(), MERGE_SHA, 1500))).toBe(true);
+    expect(mirrored(onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000))).toBe(
+      true,
+    );
+    expect(mirrored(onFailure(patrolRun(), GRANITE, "boom", 2000))).toBe(true);
 
     expect(mirrored(onDispatched(created().state, ID, DISPATCHED_AT))).toBe(false);
-    expect(mirrored(onEvents(dispatchedRun(), ID, 2, 1500, URL_1))).toBe(false);
-    expect(mirrored(onTick(dispatchedRun(), DISPATCHED_AT + STALL_MS))).toBe(false);
+    expect(mirrored(onBriefed(dispatchedRun(), ID, BRIEFED_AT, JOB))).toBe(false);
+    expect(mirrored(onEvents(briefedRun(), ID, 2, 1500, URL_1))).toBe(false);
+    expect(mirrored(onTick(briefedRun(), BRIEFED_AT + STALL_MS))).toBe(false);
     expect(mirrored(onTranscript(runningRun(), ID))).toBe(false);
-    expect(mirrored(onVerdict(patrolRun(), GRANITE, verdictFor("granite-chief"), 2000))).toBe(
-      false,
-    );
-    expect(mirrored(onFailure(patrolRun(), GRANITE, "boom", 2000))).toBe(false);
+    expect(mirrored(onRetitled(runningRun(), "orders: cancel endpoint", 1600))).toBe(false);
+    expect(mirrored(stopRun(sweptBy("clear", "clear"), "PR closed", 3000))).toBe(false);
+    expect(mirrored(landRun(sweptBy("clear", "clear"), MERGE_SHA, 3000))).toBe(false);
   });
 
   describe("onCheckCreated", () => {
@@ -1357,7 +1724,89 @@ describe("the check run", () => {
       const stopped = stopRun(runningRun(), "PR closed", 1500).state;
       expect(onCheckCreated(stopped, 501).state.checkRunId).toBe(501);
     });
+
+    // Its create may have been sent before the ask, so it is not the repost.
+    it("leaves a repost owed", () => {
+      const asked = askCheckRepost(runningRun()).state;
+      expect(onCheckCreated(asked, 501).state).toEqual({ ...asked, checkRunId: 501 });
+    });
   });
+
+  // A run stopped on the head may have posted its check after this run's, and GitHub reads the
+  // newest check run of a name.
+  describe("askCheckRepost", () => {
+    it("owes a fresh check run, taking no clock", () => {
+      const before = onCheckCreated(runningRun(), 501).state;
+      const { state, effects } = askCheckRepost(before);
+      expect(state).toEqual({ ...before, checkReposts: 1 });
+      expect(effects).toEqual([{ type: "check" }]);
+    });
+
+    it("counts an ask that comes while a repost is owed", () =>
+      expect(askCheckRepost(askCheckRepost(runningRun()).state).state.checkReposts).toBe(2));
+
+    it("asks for a swept run's", () =>
+      expect(askCheckRepost(swept("clear", "clear")).effects).toEqual([{ type: "check" }]));
+
+    it.each<[string, () => RunState]>([
+      ["stopped", () => stopRun(runningRun(), "PR closed", 2000).state],
+      ["landed", landedRun],
+    ])("asks nothing of a %s run", (_label, build) => {
+      const s = build();
+      expectUnchanged(s, askCheckRepost(s));
+    });
+  });
+
+  describe("onCheckReposted", () => {
+    it("takes the new id and settles the repost it made", () => {
+      const before = onCheckCreated(runningRun(), 501).state;
+      const { state, effects } = onCheckReposted(askCheckRepost(before).state, 502, 1);
+      expect(state).toEqual({ ...before, checkRunId: 502 });
+      expect(effects).toEqual([]);
+    });
+
+    it("leaves owed an ask that came after the repost read the run", () => {
+      const twice = askCheckRepost(askCheckRepost(runningRun()).state).state;
+      expect(onCheckReposted(twice, 502, 1).state).toMatchObject({
+        checkRunId: 502,
+        checkReposts: 2,
+      });
+    });
+  });
+
+  // Created now, a cancelled check could be newer on the head than the check of the run that
+  // replaced this one.
+  describe("wantsCheck", () => {
+    const stopped = (s: RunState) => stopRun(s, "superseded by 9f8e7d6", 2000).state;
+    const withCheck = () => onCheckCreated(runningRun(), 501).state;
+    it.each<[string, boolean, () => RunState]>([
+      ["a run on the hill", true, runningRun],
+      ["a review stopped after its check was created", true, () => stopped(withCheck())],
+      ["a review stopped before its check was created", false, () => stopped(runningRun())],
+      [
+        "a review landed before its check was created",
+        false,
+        () => landRun(runningRun(), MERGE_SHA, 2000).state,
+      ],
+      [
+        "a finished sweep stopped before its check was created",
+        true,
+        () => stopped(swept("clear", "clear")),
+      ],
+    ])("%s: %s", (_label, wanted, build) => expect(wantsCheck(build())).toBe(wanted));
+  });
+
+  it("marks a replaced check run skipped, linking the run", () =>
+    expect(replacedCheckOf(runningRun(), PUBLIC)).toEqual({
+      name: "Base to Base",
+      details_url: DETAILS,
+      status: "completed",
+      conclusion: "skipped",
+      output: {
+        title: "Replaced by a newer check run",
+        summary: `Red Dog Face posted its check again on this commit.\n\n${LINK}`,
+      },
+    }));
 });
 
 describe("briefOf", () => {
@@ -1395,14 +1844,22 @@ describe("purity", () => {
     run: (s: RunState, now: number) => Transition,
   ][] = [
     ["onDispatched", created().state, 4000, (s, now) => onDispatched(s, ID, now)],
-    ["onEvents", dispatchedRun(), 4000, (s, now) => onEvents(s, ID, 2, now, URL_1)],
+    ["onBriefed", dispatchedRun(), 4000, (s, now) => onBriefed(s, ID, now, JOB)],
+    ["onBriefed again", runningRun(), 4000, (s, now) => onBriefed(s, ID, now, JOB)],
+    ["onEvents", briefedRun(), 4000, (s, now) => onEvents(s, ID, 2, now, URL_1)],
     ["onVerdict", runningRun(), 4000, (s, now) => onVerdict(s, ID, hazardVerdict, now)],
     ["onFailure", runningRun(), 4000, (s, now) => onFailure(s, ID, "boom", now)],
-    ["onTick stalling", dispatchedRun(), DISPATCHED_AT + STALL_MS, (s, now) => onTick(s, now)],
+    ["onTick stalling", briefedRun(), BRIEFED_AT + STALL_MS, (s, now) => onTick(s, now)],
     [
       "onTick timing out",
       stalledRun(),
-      DISPATCHED_AT + AGENT_TIMEOUT_MS,
+      BRIEFED_AT + AGENT_TIMEOUT_MS,
+      (s, now) => onTick(s, now),
+    ],
+    [
+      "onTick failing a job that never started",
+      dispatchedRun(),
+      DISPATCHED_AT + JOB_START_MS,
       (s, now) => onTick(s, now),
     ],
     [
@@ -1418,6 +1875,15 @@ describe("purity", () => {
       4000,
       (s, now) => stopRun(s, "PR closed", now),
     ],
+    ["stopRun of a swept run", sweptBy("clear", "clear"), 4000, (s, now) => stopRun(s, "x", now)],
+    ["landRun", runningRun(), 4000, (s, now) => landRun(s, MERGE_SHA, now)],
+    [
+      "landRun of a swept run",
+      sweptBy("clear", "clear"),
+      4000,
+      (s, now) => landRun(s, MERGE_SHA, now),
+    ],
+    ["onRetitled", runningRun(), 4000, (s, now) => onRetitled(s, "orders: cancel", now)],
   ];
 
   it.each(changing)("%s changes the state without touching its input", (_n, input, now, run) => {
@@ -1452,16 +1918,19 @@ describe("purity", () => {
     const walk = (): unknown => {
       let s = createRun(pr, "r1", t, PATROL, CREATED_AT, counter()).state;
       s = onDispatched(onDispatched(s, GRANITE, DISPATCHED_AT).state, KT, KT_DISPATCHED_AT).state;
+      s = onBriefed(onBriefed(s, GRANITE, BRIEFED_AT, JOB).state, KT, KT_BRIEFED_AT, KT_JOB).state;
       s = onEvents(s, GRANITE, 2, 1500, URL_1).state;
-      s = onTick(s, KT_DISPATCHED_AT + STALL_MS).state;
+      s = onTick(s, KT_BRIEFED_AT + STALL_MS).state;
       s = onTranscript(s, KT).state;
+      s = onRetitled(s, "orders: cancel", 1900).state;
       s = onVerdict(s, GRANITE, verdictFor("granite-chief", 1), 2000).state;
       nextAlarm(s);
       briefOf(s, KT, PATROL);
       checkRunOf(s, "https://b2b.example");
       const stopped = stopRun(s, "PR closed", 2200).state;
+      const landed = landRun(s, MERGE_SHA, 2300).state;
       s = onFailure(s, KT, "boom", 2500).state;
-      return [snapshotOf(s), snapshotOf(stopped)];
+      return [snapshotOf(s), snapshotOf(stopped), snapshotOf(landed)];
     };
     const clock = vi.spyOn(Date, "now");
     const uuid = vi.spyOn(crypto, "randomUUID");
@@ -1477,6 +1946,7 @@ describe("a whole run", () => {
   it("walks from lift line to swept", () => {
     let s = created().state;
     s = onDispatched(s, ID, DISPATCHED_AT).state;
+    s = onBriefed(s, ID, BRIEFED_AT, JOB).state;
     s = onEvents(s, ID, 4, 1500, URL_1).state;
     s = onTick(s, 1500 + STALL_MS).state;
     s = onEvents(s, ID, 2, 1500 + STALL_MS + 1000, URL_2).state;
@@ -1504,6 +1974,7 @@ describe("a whole run", () => {
       round: 0,
       status: "hazards",
       dispatchedAt: DISPATCHED_AT,
+      briefedAt: BRIEFED_AT,
       lastEventAt: 1500 + STALL_MS + 1000,
       finishedAt: 700_000,
       jobUrl: URL_1,

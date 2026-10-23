@@ -9,8 +9,11 @@ import type {
 } from "../../shared/src/types.ts";
 import {
   activeRunNames,
-  findActiveRuns,
+  findOpenRuns,
+  findPrRuns,
   listRuns,
+  openRunPrs,
+  runsOnHead,
   summaryOf,
   upsertRun,
 } from "../src/runs/index.ts";
@@ -72,6 +75,7 @@ describe("run index", () => {
         status: "on_the_hill",
         outcome: "pending",
         currentStep: "sweep",
+        createdAt: 1000,
         updatedAt: 5,
       },
     ]);
@@ -152,13 +156,67 @@ describe("run index", () => {
     expect(await activeRunNames(env.DB, rating)).toEqual(["Red Dog Face"]);
   });
 
-  it("finds a pull request's runs on the hill", async () => {
-    await indexRun("hill", "on_the_hill", 1, { headSha: "sha-a" });
-    await indexRun("done", "swept", 1, { headSha: "sha-b" });
-    await indexRun("other-pr", "on_the_hill", 1, { prNumber: 59 });
-    await indexRun("other-repo", "on_the_hill", 1, { repo: "eve/simplegoapp" });
-    expect(await findActiveRuns(env.DB, "aghchan/simplegoapp", 58)).toEqual([
-      { id: "hill", headSha: "sha-a" },
-    ]);
+  describe("a pull request's runs", () => {
+    const REPO = "aghchan/simplegoapp";
+    const byId = (runs: { id: string }[]) => runs.map((run) => run.id).sort();
+
+    beforeEach(async () => {
+      await indexRun("hill", "on_the_hill", 1, { headSha: "sha-a", createdAt: 10 });
+      await indexRun("swept", "swept", 1, { headSha: "sha-b", prTitle: "old title" });
+      await indexRun("landed", "landed", 1, { headSha: "sha-c" });
+      await indexRun("stopped", "stopped", 1, { headSha: "sha-d" });
+      await indexRun("failed", "failed", 1, { headSha: "sha-e" });
+      await indexRun("other-pr", "on_the_hill", 1, { prNumber: 59 });
+      await indexRun("other-repo", "on_the_hill", 1, { repo: "eve/simplegoapp" });
+    });
+
+    // Open: the runs that still speak for their PR.
+    it("findOpenRuns finds those on the hill or swept, with what a reconcile reads", async () => {
+      const open = await findOpenRuns(env.DB, REPO, 58);
+      expect(byId(open)).toEqual(["hill", "swept"]);
+      expect(open.find((run) => run.id === "hill")).toEqual({
+        id: "hill",
+        headSha: "sha-a",
+        status: "on_the_hill",
+        prTitle: "orders: add cancel endpoint",
+        createdAt: 10,
+      });
+      expect(open.find((run) => run.id === "swept")).toMatchObject({ prTitle: "old title" });
+    });
+
+    it("findPrRuns finds them whatever their status", async () =>
+      expect(byId(await findPrRuns(env.DB, REPO, 58))).toEqual([
+        "failed",
+        "hill",
+        "landed",
+        "stopped",
+        "swept",
+      ]));
+
+    it("openRunPrs names each PR with an open run once", async () => {
+      await indexRun("hill-2", "on_the_hill", 1);
+      await indexRun("closed-pr", "stopped", 1, { prNumber: 60 });
+      expect(await openRunPrs(env.DB)).toEqual([
+        { repo: REPO, prNumber: 58 },
+        { repo: REPO, prNumber: 59 },
+        { repo: "eve/simplegoapp", prNumber: 58 },
+      ]);
+    });
+
+    it("runsOnHead says whether that head's runs are open, all ended, or none", async () => {
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-a")).toBe("open");
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-b")).toBe("open");
+      for (const sha of ["sha-c", "sha-d", "sha-e"]) {
+        expect(await runsOnHead(env.DB, REPO, 58, sha)).toBe("ended");
+      }
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-z")).toBe("none");
+      expect(await runsOnHead(env.DB, REPO, 59, "sha-a")).toBe("none");
+      expect(await runsOnHead(env.DB, "eve/simplegoapp", 58, "sha-a")).toBe("none");
+    });
+
+    it("runsOnHead counts a head open while any of its runs is", async () => {
+      await indexRun("stopped-on-a", "stopped", 1, { headSha: "sha-a" });
+      expect(await runsOnHead(env.DB, REPO, 58, "sha-a")).toBe("open");
+    });
   });
 });

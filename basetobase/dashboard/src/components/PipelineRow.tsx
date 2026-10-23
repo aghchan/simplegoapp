@@ -14,6 +14,7 @@ const STEP_TONES: Record<StepStatus, Tone> = {
   active: "busy",
   pending: "idle",
   stopped: "idle",
+  skipped: "idle",
 };
 
 const STEP_STATUS_TEXT: Record<StepStatus, string> = {
@@ -21,6 +22,7 @@ const STEP_STATUS_TEXT: Record<StepStatus, string> = {
   active: "On it",
   pending: "Waiting",
   stopped: "Stopped",
+  skipped: "Skipped",
 };
 
 // A done step with a review outcome is green only when the review was clear.
@@ -37,7 +39,9 @@ export function timeOnStep(step: StepSnapshot, now: number): number {
   return step.startedAt === undefined ? 0 : (step.finishedAt ?? now) - step.startedAt;
 }
 
+// A done Drop in is the merge: the PR went all the way.
 function toneOf(step: StepSnapshot): Tone {
+  if (step.id === "drop_in" && step.status === "done") return "landed";
   if (step.status === "done" && step.outcome) return OUTCOME_TONES[step.outcome];
   return STEP_TONES[step.status];
 }
@@ -89,9 +93,10 @@ function StepButton(p: {
   const { step, selected } = p;
   const label = STEP_LABELS[step.id];
   const outcome = outcomeText(step, p.agents);
+  // A step that never ran has no time to show.
   const text =
-    step.status === "pending"
-      ? STEP_STATUS_TEXT.pending
+    step.status === "pending" || step.status === "skipped"
+      ? STEP_STATUS_TEXT[step.status]
       : [STEP_STATUS_TEXT[step.status], outcome, formatDuration(timeOnStep(step, p.now))]
           .filter((part) => part !== undefined)
           .join(" · ");
@@ -124,6 +129,11 @@ export function PipelineRow(p: {
       {p.steps.map((step) => {
         const milestone = STEP_LABELS[step.id].milestone;
         const reached = step.status === "done";
+        const flagText = reached
+          ? " reached"
+          : step.status === "skipped"
+            ? " skipped"
+            : " not yet reached";
         return (
           <div key={step.id} className="pipeline-step">
             <StepButton
@@ -137,7 +147,7 @@ export function PipelineRow(p: {
               <span className={reached ? "milestone milestone-reached" : "milestone"}>
                 <Flag reached={reached} tone={step.outcome ? toneOf(step) : undefined} />
                 {milestone}
-                <span className="sr-only">{reached ? " reached" : " not yet reached"}</span>
+                <span className="sr-only">{flagText}</span>
               </span>
             )}
           </div>

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RunSummary } from "../../shared/src/types.ts";
+import type { RunStatus, RunSummary } from "../../shared/src/types.ts";
 import { App } from "../src/App.tsx";
 import * as api from "../src/api.ts";
 import { FakeWebSocket, makeRun } from "./fixtures.ts";
@@ -16,6 +16,7 @@ const RUNS: RunSummary[] = [
     status: "on_the_hill",
     outcome: "pending",
     currentStep: "sweep",
+    createdAt: 1,
     updatedAt: 1,
   },
 ];
@@ -27,13 +28,32 @@ function stubApi(answers: Record<string, () => Response>): void {
   );
 }
 
-function signedIn(): void {
+// Started after r1, for another PR.
+const NEWER: RunSummary = {
+  ...RUNS[0]!,
+  id: "r2",
+  prNumber: 59,
+  runName: "Home Run",
+  createdAt: 2,
+  updatedAt: 2,
+};
+
+const RUN_PAGES: Record<string, () => Response> = {
+  "/api/runs/r1": () => Response.json({ run: makeRun(), log: [] }),
+  "/api/runs/r2": () =>
+    Response.json({ run: makeRun({ id: "r2", prTitle: "orders: list endpoint" }), log: [] }),
+};
+
+function signedIn(runs: RunSummary[] = RUNS): void {
   stubApi({
     "/api/me": () => Response.json({ login: "aghchan" }),
-    "/api/runs": () => Response.json(RUNS),
-    "/api/runs/r1": () => Response.json({ run: makeRun(), log: [] }),
+    "/api/runs": () => Response.json(runs),
+    ...RUN_PAGES,
   });
 }
+
+const fetchesOf = (path: string) =>
+  vi.mocked(fetch).mock.calls.filter(([called]) => called === path).length;
 
 describe("App", () => {
   beforeEach(() => {
@@ -88,13 +108,80 @@ describe("App", () => {
   });
 
   it("opens a run without reloading the page", async () => {
-    signedIn();
+    signedIn([NEWER, ...RUNS]);
     render(<App />);
-    await userEvent.click(await screen.findByRole("link", { name: /Red Dog Face/ }));
+    await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" });
+    await userEvent.click(screen.getByRole("link", { name: /Red Dog Face/ }));
     expect(
       await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
     ).toBeVisible();
     expect(window.location.pathname).toBe("/runs/r1");
+  });
+
+  describe("the front page", () => {
+    it("shows the newest run, by when it started, and marks it as open", async () => {
+      // Listed second: r1 was updated more recently.
+      signedIn([{ ...RUNS[0]!, updatedAt: 9 }, NEWER]);
+      render(<App />);
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" }),
+      ).toBeVisible();
+      expect(screen.getByRole("link", { name: /Home Run/ })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(screen.getByRole("link", { name: /Red Dog Face/ })).not.toHaveAttribute(
+        "aria-current",
+      );
+      expect(window.location.pathname).toBe("/");
+      expect(fetchesOf("/api/runs/r1")).toBe(0);
+    });
+
+    it("keeps the run on show, without loading it again, when its link pins it", async () => {
+      signedIn();
+      render(<App />);
+      await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" });
+      await userEvent.click(screen.getByRole("link", { name: /Red Dog Face/ }));
+      expect(window.location.pathname).toBe("/runs/r1");
+      expect(
+        screen.getByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+      ).toBeVisible();
+      expect(fetchesOf("/api/runs/r1")).toBe(1);
+    });
+
+    // Dispatch keeps the newest open run on the PR's head, so a race can leave a run it stopped
+    // newer than the one that is live or landed.
+    it.each<[RunStatus]>([["on_the_hill"], ["landed"]])(
+      "shows a PR's %s run, not a newer one Dispatch stopped",
+      async (status) => {
+        const stopped: RunSummary = {
+          ...RUNS[0]!,
+          id: "r2",
+          runName: "Home Run",
+          status: "stopped",
+          createdAt: 5,
+          updatedAt: 5,
+        };
+        signedIn([{ ...RUNS[0]!, status, createdAt: 4, updatedAt: 4 }, stopped]);
+        render(<App />);
+        expect(
+          await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+        ).toBeVisible();
+        expect(screen.getByRole("link", { name: /Red Dog Face/ })).toHaveAttribute(
+          "aria-current",
+          "page",
+        );
+        expect(fetchesOf("/api/runs/r2")).toBe(0);
+      },
+    );
+
+    it("shows no run when there are none", async () => {
+      signedIn([]);
+      render(<App />);
+      expect(await screen.findByText(/No runs yet/)).toBeVisible();
+      expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
   });
 
   it("moves to another run with its own data and socket", async () => {
@@ -139,7 +226,7 @@ describe("App", () => {
   describe("keeping the runs list live", () => {
     const POLL_MS = 5000;
     const LOBBY = /\/api\/live$/;
-    const OTHER: RunSummary = { ...RUNS[0]!, id: "r2", prNumber: 59, runName: "Home Run" };
+    const OTHER = NEWER;
     let runs: () => Response;
     const runsCalls = () =>
       vi.mocked(fetch).mock.calls.filter(([path]) => path === "/api/runs").length;
@@ -178,6 +265,7 @@ describe("App", () => {
       stubApi({
         "/api/me": () => Response.json({ login: "aghchan" }),
         "/api/runs": () => runs(),
+        ...RUN_PAGES,
       });
     });
     afterEach(() => {
@@ -198,6 +286,40 @@ describe("App", () => {
       act(() => socket.send({ type: "summary", run: { ...OTHER, updatedAt: 2 } }));
       expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
       expect(screen.getByRole("link", { name: /Red Dog Face/ })).toBeVisible();
+    });
+
+    it("moves the front page to a newer run the lobby announces", async () => {
+      const socket = await loaded();
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+      ).toBeVisible();
+      act(() => socket.open());
+      await settle();
+      act(() => socket.send({ type: "summary", run: OTHER }));
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "orders: list endpoint" }),
+      ).toBeVisible();
+      expect(screen.getByRole("link", { name: /Home Run/ })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(window.location.pathname).toBe("/");
+    });
+
+    it("keeps a pinned run on show when a newer one arrives", async () => {
+      window.history.replaceState(null, "", "/runs/r1");
+      const socket = await loaded();
+      await screen.findByRole("heading", { level: 1, name: "orders: add cancel endpoint" });
+      act(() => socket.open());
+      await settle();
+      act(() => socket.send({ type: "summary", run: OTHER }));
+      expect(await screen.findByRole("link", { name: /Home Run/ })).toBeVisible();
+      await settle();
+      expect(
+        screen.getByRole("heading", { level: 1, name: "orders: add cancel endpoint" }),
+      ).toBeVisible();
+      expect(screen.getByRole("link", { name: /Home Run/ })).not.toHaveAttribute("aria-current");
+      expect(fetchesOf("/api/runs/r2")).toBe(0);
     });
 
     it("moves a run the lobby says was stopped to Closed", async () => {

@@ -1,8 +1,25 @@
 import type { Rating } from "../../../shared/src/config.ts";
-import type { RunSnapshot, RunSummary, StepId, StepSnapshot } from "../../../shared/src/types.ts";
+import type {
+  RunSnapshot,
+  RunStatus,
+  RunSummary,
+  StepId,
+  StepSnapshot,
+} from "../../../shared/src/types.ts";
 import type { RunDO } from "../run/do.ts";
 
 const DEFAULT_LIST_LIMIT = 50;
+// Open runs still speak for their PR: a later push, close or merge must reach them.
+const OPEN = "status IN ('on_the_hill', 'swept')";
+
+// A PR's run as its reconcile reads it from the index.
+export interface IndexedRun {
+  id: string;
+  headSha: string;
+  status: RunStatus;
+  prTitle: string;
+  createdAt: number;
+}
 
 export function runStub(env: Env, runId: string): DurableObjectStub<RunDO> {
   return env.RUNS.get(env.RUNS.idFromName(runId));
@@ -43,6 +60,7 @@ export function summaryOf(s: RunSnapshot): RunSummary {
     status: s.status,
     outcome: s.outcome,
     currentStep: currentStep(s.steps),
+    createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   };
 }
@@ -55,7 +73,7 @@ export async function listRuns(
     .prepare(
       `SELECT id, pr_number AS prNumber, pr_title AS prTitle, run_name AS runName, rating, status,
          COALESCE(outcome, 'pending') AS outcome, current_step AS currentStep,
-         updated_at AS updatedAt FROM runs
+         created_at AS createdAt, updated_at AS updatedAt FROM runs
        ORDER BY status = 'on_the_hill' DESC, updated_at DESC LIMIT ?`,
     )
     .bind(limit)
@@ -71,18 +89,64 @@ export async function activeRunNames(db: D1Database, rating: Rating): Promise<st
   return results.map((row) => row.runName);
 }
 
-export async function findActiveRuns(
+export async function findOpenRuns(
   db: D1Database,
   repo: string,
   prNumber: number,
-): Promise<{ id: string; headSha: string }[]> {
+): Promise<IndexedRun[]> {
+  return prRuns(db, repo, prNumber, true);
+}
+
+export async function findPrRuns(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+): Promise<IndexedRun[]> {
+  return prRuns(db, repo, prNumber, false);
+}
+
+export async function openRunPrs(db: D1Database): Promise<{ repo: string; prNumber: number }[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, head_sha AS headSha FROM runs
-       WHERE repo = ? AND pr_number = ? AND status = 'on_the_hill'`,
+      `SELECT DISTINCT repo, pr_number AS prNumber FROM runs WHERE ${OPEN}
+       ORDER BY repo, pr_number`,
+    )
+    .all<{ repo: string; prNumber: number }>();
+  return results;
+}
+
+// The PR's runs on the head: "open" while any still speaks for the PR, "ended" once every one has
+// stopped or landed, "none" without a run.
+export async function runsOnHead(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+  headSha: string,
+): Promise<"open" | "ended" | "none"> {
+  const row = await db
+    .prepare(
+      `SELECT MAX(${OPEN}) AS open FROM runs WHERE repo = ? AND pr_number = ? AND head_sha = ?`,
+    )
+    .bind(repo, prNumber, headSha)
+    .first<{ open: number | null }>();
+  const open = row?.open ?? null;
+  if (open === null) return "none";
+  return open === 1 ? "open" : "ended";
+}
+
+async function prRuns(
+  db: D1Database,
+  repo: string,
+  prNumber: number,
+  openOnly: boolean,
+): Promise<IndexedRun[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, head_sha AS headSha, status, pr_title AS prTitle, created_at AS createdAt
+       FROM runs WHERE repo = ? AND pr_number = ? ${openOnly ? `AND ${OPEN}` : ""}`,
     )
     .bind(repo, prNumber)
-    .all<{ id: string; headSha: string }>();
+    .all<IndexedRun>();
   return results;
 }
 

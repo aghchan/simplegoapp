@@ -3,9 +3,9 @@ import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Triage } from "../../shared/src/triage.ts";
 import type { LobbyMessage, RunSummary } from "../../shared/src/types.ts";
-import { lobbyStub } from "../src/lobby/do.ts";
+import { announce, lobbyStub } from "../src/lobby/do.ts";
 import { listRuns, runStub } from "../src/runs/index.ts";
-import { prRef, stubGitHub } from "./helpers.ts";
+import { envWith, prRef, stubGitHub } from "./helpers.ts";
 
 const triage: Triage = {
   panels: ["backend"],
@@ -25,6 +25,7 @@ const summary: RunSummary = {
   status: "on_the_hill",
   outcome: "pending",
   currentStep: "sweep",
+  createdAt: 1,
   updatedAt: 1,
 };
 
@@ -86,6 +87,20 @@ describe("LobbyDO", () => {
     await vi.waitFor(() => expect(messages).toEqual([{ type: "summary", run: summary }]));
   });
 
+  it("announce says whether the lobby heard", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await announce(env, summary)).toBe(true);
+    const down = envWith(env, {
+      LOBBY: {
+        idFromName: () => env.LOBBY.idFromName("lobby"),
+        get() {
+          throw new Error("lobby unreachable");
+        },
+      },
+    });
+    expect(await announce(down, summary)).toBe(false);
+  });
+
   it("a closed viewer socket fails neither the call nor the other viewers", async () => {
     const viewers = [await listen(), await listen(), await listen()];
     // Called inside the lobby, before the runtime drops the socket it just closed: it is still
@@ -135,6 +150,39 @@ describe("a run's index writes reach the lobby", () => {
     const later = await startRun();
     await vi.waitFor(() => expect(about(messages, later)).not.toHaveLength(0));
     expect(about(messages, id)).toEqual([]);
+  });
+
+  // Nothing else would send a finished run's row to an open runs list again.
+  it("again when the lobby missed it, until it hears", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { messages } = await listen();
+    const id = `lobby-r${++runCount}`;
+    const stub = runStub(env, id);
+    await stub.start(prRef(), id, triage);
+    await runInDurableObject(stub, (instance) => {
+      const real = Reflect.get(instance, "env") as Env;
+      let refusals = 1;
+      const lobby = {
+        idFromName: (name: string) => real.LOBBY.idFromName(name),
+        get(lobbyId: DurableObjectId) {
+          if (refusals-- > 0) throw new Error("lobby unreachable");
+          return real.LOBBY.get(lobbyId);
+        },
+      };
+      Object.defineProperty(instance, "env", { value: { ...real, LOBBY: lobby } });
+    });
+    await stub.stop("PR closed");
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("lobby unreachable"));
+    const { alarm } = await runInDurableObject(stub, async (_instance, state) => ({
+      alarm: await state.storage.getAlarm(),
+    }));
+    expect(alarm).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect(about(messages, id).at(-1)?.run).toMatchObject({ status: "on_the_hill" });
+
+    await stub.view();
+    await vi.waitFor(() =>
+      expect(about(messages, id).at(-1)?.run).toMatchObject({ status: "stopped" }),
+    );
   });
 
   it("and a lobby that fails does not fail the run", async () => {

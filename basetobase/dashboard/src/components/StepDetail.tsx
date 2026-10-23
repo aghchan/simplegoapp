@@ -44,6 +44,8 @@ function TimeOnStep({ step, now }: { step: StepSnapshot; now: number }) {
       return <p className="step-time">Done · took {took}</p>;
     case "stopped":
       return <p className="step-time">Stopped after {took}</p>;
+    case "skipped":
+      return <p className="step-time">Skipped</p>;
   }
 }
 

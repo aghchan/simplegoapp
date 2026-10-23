@@ -83,6 +83,35 @@ export function makeRun(over: Partial<RunSnapshot> = {}): RunSnapshot {
   };
 }
 
+export const MERGE_SHA = "4f7e2a19c0d3b5a6e8f1d2c3b4a5968778695a4b";
+
+// Merged on GitHub after a clear sweep, as landRun leaves it (notes as the machine writes them).
+export function landedRun(over: Partial<RunSnapshot> = {}): RunSnapshot {
+  const mergedAt = START + 60_000;
+  const base = makeRun();
+  return makeRun({
+    status: "landed",
+    outcome: "clear",
+    mergeSha: MERGE_SHA,
+    steps: [
+      base.steps[0]!,
+      base.steps[1]!,
+      step("sweep", "done", { startedAt: START, finishedAt: START + 9000, outcome: "clear" }),
+      step("huddle", "skipped", { notes: ["No huddle until M3."] }),
+      step("summit", "skipped", { notes: ["No summit check until M4."] }),
+      step("drop_in", "done", {
+        startedAt: mergedAt,
+        finishedAt: mergedAt,
+        notes: ["Merged on GitHub as 4f7e2a1."],
+      }),
+      step("send_it", "skipped", { notes: ["Deploy is manual until M4."] }),
+    ],
+    agents: base.agents.map((each) => ({ ...each, status: "clear" as const })),
+    updatedAt: mergedAt,
+    ...over,
+  });
+}
+
 export function line(
   id: number,
   agentId: string | null = null,

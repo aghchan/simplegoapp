@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Panel } from "../../../shared/src/config.ts";
-import { RATING_LABELS } from "../../../shared/src/labels.ts";
+import { RATING_LABELS, RUN_STATUS_LABELS } from "../../../shared/src/labels.ts";
 import type { LogLine, RunSnapshot, StepId } from "../../../shared/src/types.ts";
 import { getJson, navigateTo, NotFoundError, SIGN_IN_URL, SignedOutError } from "../api.ts";
 import { GithubLink } from "../components/GithubLink.tsx";
+import { Mark } from "../components/Mark.tsx";
 import { PipelineRow } from "../components/PipelineRow.tsx";
 import { StepDetail } from "../components/StepDetail.tsx";
 import { TrailRating } from "../components/TrailRating.tsx";
@@ -18,8 +19,10 @@ const CONNECTION_TEXT: Record<Connection, string> = {
   reconnecting: "Reconnecting…",
 };
 
-// The step the run is on; a stopped run is on the step it was stopped in.
+// The step the run is on; a stopped run is on the step it was stopped in. A landed run is on Drop
+// in, even one merged mid-review whose sweep was stopped.
 export function defaultStep(run: RunSnapshot): StepId {
+  if (run.status === "landed") return "drop_in";
   const current = run.steps.find((s) => s.status === "active" || s.status === "stopped");
   return current?.id ?? run.steps.findLast((s) => s.status === "done")?.id ?? "lift_line";
 }
@@ -39,14 +42,26 @@ export function RunView({ live }: { live: RunLive }) {
   const selected = picked ?? defaultStep(run);
   const step = run.steps.find((s) => s.id === selected);
   const done = run.steps.filter((s) => s.status === "done").length;
+  const skipped = run.steps.filter((s) => s.status === "skipped").length;
   const panels = run.panels.map((panel) => PANEL_NAMES[panel]).join(" + ");
+  const landed = run.status === "landed";
 
   return (
     <div className="run-view">
-      <section className="card pr-head" aria-label="Pull request">
+      <section
+        className={landed ? "card pr-head pr-head-landed" : "card pr-head"}
+        aria-label="Pull request"
+      >
         <div className="pr-info">
           <div className="chips">
             <span className="mono pr-number">#{run.prNumber}</span>
+            {landed && (
+              <span className="chip chip-landed">
+                <Mark tone="landed" />
+                {RUN_STATUS_LABELS.landed}
+                {run.mergeSha && ` as ${run.mergeSha.slice(0, 7)}`}
+              </span>
+            )}
             <span className="chip">{panels} run</span>
             <span className="chip chip-rating">
               <TrailRating rating={run.rating} size={11} />
@@ -71,7 +86,8 @@ export function RunView({ live }: { live: RunLive }) {
         <div className="section-head">
           <h2 className="card-title">The run</h2>
           <span className="hint">
-            {done} of {run.steps.length} done · flags mark milestones
+            {done} of {run.steps.length} done{skipped > 0 && ` · ${skipped} skipped`} · flags mark
+            milestones
           </span>
         </div>
         <PipelineRow
