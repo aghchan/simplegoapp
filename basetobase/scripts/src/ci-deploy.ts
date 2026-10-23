@@ -58,6 +58,7 @@ const io: DeployIO = {
   subject: async (commit) => (await run("git", ["log", "-1", "--format=%s", commit], true)).out.trim(),
   wrangler: async (args) => (await run("npx", ["wrangler", ...args], false)).status === 0,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  now: () => Date.now(),
   log: (line) => console.log(line),
   summary(line) {
     summaries.push(line);

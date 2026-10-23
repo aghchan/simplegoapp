@@ -27,6 +27,7 @@ interface Fake {
   wranglerCalls: string[][];
   summary: string[];
   sleeps: number;
+  healthCalls: number;
 }
 
 // /health answers come off `healths` in order; the last one repeats.
@@ -38,11 +39,18 @@ function fake(o: {
   changed?: boolean;
   subject?: string;
   wrangler?: (args: string[]) => boolean;
+  // How long each /health call takes on the fake clock.
+  healthMs?: number;
 }): Fake {
-  const f: Fake = { io: undefined as unknown as DeployIO, wranglerCalls: [], summary: [], sleeps: 0 };
+  const f: Fake = { io: undefined as unknown as DeployIO, wranglerCalls: [], summary: [], sleeps: 0, healthCalls: 0 };
   const healths = [...o.healths];
+  let clock = 0;
   f.io = {
-    health: async () => (healths.length > 1 ? healths.shift() : healths[0]),
+    health: async () => {
+      f.healthCalls += 1;
+      clock += o.healthMs ?? 0;
+      return healths.length > 1 ? healths.shift() : healths[0];
+    },
     hasCommit: async (sha) => (o.commits ?? [SHA, OLDER, NEWER]).includes(sha),
     isAncestor: async (a, d) => (o.ancestors ?? []).some(([x, y]) => x === a && y === d),
     workerChanged: async () => o.changed ?? true,
@@ -51,9 +59,11 @@ function fake(o: {
       f.wranglerCalls.push(args);
       return o.wrangler ? o.wrangler(args) : true;
     },
-    sleep: async () => {
+    sleep: async (ms) => {
       f.sleeps += 1;
+      clock += ms;
     },
+    now: () => clock,
     log: () => {},
     summary: (line) => f.summary.push(line),
   };
@@ -93,6 +103,16 @@ describe("skipReason", () => {
   it("skips when a newer commit is live: deploys can finish out of order", async () => {
     const io = fake({ healths: [], ancestors: [[SHA, NEWER]] }).io;
     expect(await skipReason(io, live(NEWER), SHA)).toBe("a newer commit (9f8e7d6) is already live");
+  });
+
+  it("never deploys over a newer commit, even one /health finds unhealthy for a moment", async () => {
+    const io = fake({ healths: [], ancestors: [[SHA, NEWER]] }).io;
+    expect(await skipReason(io, live(NEWER, { ok: false }), SHA)).toBe("a newer commit (9f8e7d6) is already live");
+  });
+
+  it("deploys over an older commit that is unhealthy", async () => {
+    const io = fake({ healths: [], ancestors: [[OLDER, SHA]], changed: false }).io;
+    expect(await skipReason(io, live(OLDER, { ok: false }), SHA)).toBeUndefined();
   });
 
   it("skips when nothing the Worker ships changed since the live commit", async () => {
@@ -163,9 +183,40 @@ describe("runDeploy", () => {
     expect(f.summary[0]).toContain("wrangler deploy failed for 4f7e2a1");
   });
 
-  it("checks a deploy that went out despite wrangler's error like any other", async () => {
-    const f = fake({ healths: [live(OLDER), live(SHA)], wrangler: (args) => args[0] !== "deploy" });
-    expect(await runDeploy(f.io, SHA, TIMING)).toBe("deployed");
+  it("fails, without a rollback, a deploy that serves healthy after wrangler's error: its triggers may be stale", async () => {
+    const f = fake({ healths: [live(OLDER), live(SHA, { version: "v-new" })], wrangler: (args) => args[0] !== "deploy" });
+    expect(await runDeploy(f.io, SHA, TIMING)).toBe("failed");
+    expect(f.wranglerCalls.map((args) => args[0])).toEqual(["d1", "deploy"]);
+    expect(f.summary[0]).toContain("4f7e2a1 serves healthy as version v-new, but wrangler deploy failed after it went live");
+  });
+
+  it("rolls back a deploy that went out broken after wrangler's error", async () => {
+    const f = fake({
+      healths: [live(OLDER, { version: "v-old" }), live(SHA, { ok: false, version: "v-new" }), live(SHA, { ok: false }), live(SHA, { ok: false }), live(SHA, { ok: false }), live(SHA, { ok: false }), live(SHA, { ok: false }), live(OLDER, { version: "v-old" })],
+      wrangler: (args) => args[0] !== "deploy",
+    });
+    expect(await runDeploy(f.io, SHA, TIMING)).toBe("rolled back");
+    expect(f.wranglerCalls.at(-1)?.slice(0, 2)).toEqual(["rollback", "v-old"]);
+  });
+
+  it("goes back to the version that served before when /health stops answering after wrangler's error", async () => {
+    const f = fake({ healths: [live(OLDER, { version: "v-old" }), undefined, undefined, undefined, undefined, undefined, undefined, live(OLDER, { version: "v-old" })], wrangler: (args) => args[0] !== "deploy" });
+    expect(await runDeploy(f.io, SHA, TIMING)).toBe("rolled back");
+    expect(f.wranglerCalls.at(-1)?.slice(0, 2)).toEqual(["rollback", "v-old"]);
+  });
+
+  it("leaves another version that answers alone after wrangler's error", async () => {
+    const f = fake({ healths: [live(OLDER, { version: "v-old" }), live(OLDER, { version: "v-by-hand" })], wrangler: (args) => args[0] !== "deploy" });
+    expect(await runDeploy(f.io, SHA, TIMING)).toBe("failed");
+    expect(f.wranglerCalls.map((args) => args[0])).toEqual(["d1", "deploy"]);
+    expect(f.summary[0]).toContain("Not deployed: wrangler deploy failed for 4f7e2a1. Live: version v-by-hand");
+  });
+
+  it("does not roll back blind when wrangler fails and nothing ever answered /health", async () => {
+    const f = fake({ healths: [undefined], wrangler: (args) => args[0] !== "deploy" });
+    expect(await runDeploy(f.io, SHA, TIMING)).toBe("failed");
+    expect(f.wranglerCalls.map((args) => args[0])).toEqual(["d1", "deploy"]);
+    expect(f.summary[0]).toContain("/health never answered. See what serves: npx wrangler deployments list");
   });
 
   it("rolls back to the version that served before when the commit never shows healthy", async () => {
@@ -191,6 +242,14 @@ describe("runDeploy", () => {
     // 5 s at 1 s a poll, twice.
     expect(f.sleeps).toBe(10);
     expect(f.summary[0]).toContain("Rolled back to version v-old; /health has not confirmed it.");
+  });
+
+  it("counts slow /health calls against the wait, not just the pauses between them", async () => {
+    // Each call takes 4 s on a 5 s budget: the second call ends the wait.
+    const f = fake({ healths: [live(OLDER, { version: "v-old" }), live(OLDER, { version: "v-other" })], healthMs: 4_000 });
+    await runDeploy(f.io, SHA, TIMING);
+    // 1 before, 2 waiting for the new version, 2 waiting for the rollback.
+    expect(f.healthCalls).toBe(5);
   });
 
   it("rolls back to the previous version when none answered /health before", async () => {

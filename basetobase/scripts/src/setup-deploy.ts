@@ -2,16 +2,21 @@
 // (scripts/src/ci-deploy.ts). Also the last step of `npm run setup`. Rerunnable: each step skips
 // what already exists.
 import {
+  accountProblem,
   accountsOf,
+  branchPoliciesOf,
   DEPLOY_ENVIRONMENT,
   DEPLOY_PROBES,
   deployTokenUrl,
+  GH_SIGNED_IN,
   looksLikeCloudflareToken,
+  MAIN_BRANCH_POLICY,
+  probeProblem,
   productionEnvironment,
   REPO,
-  tokenIsActive,
+  tokenProblem,
 } from "./setup-lib.ts";
-import { ask, askHidden, has, openBrowser, sh, step, yes } from "./io.ts";
+import { askHidden, has, openBrowser, sh, step, yes } from "./io.ts";
 
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 const IN_ENV = ["--env", DEPLOY_ENVIRONMENT, "--repo", REPO];
@@ -22,16 +27,31 @@ interface Account {
 }
 
 async function main(): Promise<void> {
-  if (!(await has("gh", ["auth", "status"]))) {
-    throw new Error("gh is not signed in: run `gh auth login`");
+  if (!(await has("gh", GH_SIGNED_IN))) {
+    throw new Error("gh is not signed in to github.com: run `gh auth login`");
   }
 
   step("Production environment");
-  const environment = ["api", "-X", "PUT", `repos/${REPO}/environments/${DEPLOY_ENVIRONMENT}`, "--input", "-"];
-  await sh("gh", environment, { input: JSON.stringify(productionEnvironment()), capture: true });
-  console.log("Only protected branches can deploy to it, so only main reads its secrets.");
-  if (!(await has("gh", ["api", `repos/${REPO}/branches/main/protection`]))) {
-    console.log("main is not protected, so nothing can deploy yet: run `npm run setup` (Branch protection).");
+  const environment = `repos/${REPO}/environments/${DEPLOY_ENVIRONMENT}`;
+  await sh("gh", ["api", "-X", "PUT", environment, "--input", "-"], {
+    input: JSON.stringify(productionEnvironment()),
+    capture: true,
+  });
+  const policies = branchPoliciesOf(
+    JSON.parse(await sh("gh", ["api", `${environment}/deployment-branch-policies`], { capture: true })),
+  );
+  if (!policies.some((p) => p.name === MAIN_BRANCH_POLICY.name && p.type === MAIN_BRANCH_POLICY.type)) {
+    await sh("gh", ["api", "-X", "POST", `${environment}/deployment-branch-policies`, "--input", "-"], {
+      input: JSON.stringify(MAIN_BRANCH_POLICY),
+      capture: true,
+    });
+  }
+  console.log("Only main can deploy to it, so only main's workflows read its secrets.");
+  const others = policies.filter((p) => p.name !== MAIN_BRANCH_POLICY.name).map((p) => p.name);
+  if (others.length > 0) {
+    console.log(
+      `It also lets ${others.join(", ")} deploy; only main should: https://github.com/${REPO}/settings/environments`,
+    );
   }
 
   step("Cloudflare deploy token");
@@ -70,7 +90,7 @@ async function deployToken(): Promise<{ token: string; account: Account }> {
   }
 }
 
-// The account the token deploys to, or why it cannot.
+// The account the token reaches, or why it is refused.
 async function checkToken(token: string): Promise<Account | string> {
   const get = async (path: string) => {
     const res = await fetch(`${CLOUDFLARE_API}${path}`, { headers: { Authorization: `Bearer ${token}` } }).catch(
@@ -81,26 +101,18 @@ async function checkToken(token: string): Promise<Account | string> {
     return { status: res.status, body: (await res.json().catch(() => undefined)) as unknown };
   };
   const verify = await get("/user/tokens/verify");
-  if (!tokenIsActive(verify.body)) return `Cloudflare does not accept that token (HTTP ${verify.status}).`;
+  const refused = tokenProblem(verify.status, verify.body);
+  if (refused) return refused;
   const accounts = accountsOf((await get("/accounts")).body);
-  if (accounts.length === 0) return "That token reaches no account: give it yours under Account Resources.";
-  const account = accounts.length === 1 ? accounts[0]! : await pickAccount(accounts);
+  const scope = accountProblem(accounts);
+  if (scope) return scope;
+  const account = accounts[0]!;
   for (const probe of DEPLOY_PROBES) {
-    const { status } = await get(probe.path(account.id));
-    if (status !== 200) {
-      return `That token cannot read ${probe.what} (HTTP ${status}): it needs ${probe.permission}. Create it again from the link.`;
-    }
+    const problem = probeProblem(probe, (await get(probe.path(account.id))).status);
+    if (problem) return problem;
   }
-  console.log(`The token deploys to ${account.name}.`);
+  console.log(`The token reads Workers and D1 in ${account.name}. Its edit rights show at the first deploy.`);
   return account;
-}
-
-async function pickAccount(accounts: Account[]): Promise<Account> {
-  accounts.forEach((account, i) => console.log(`${i + 1}. ${account.name}`));
-  for (;;) {
-    const picked = accounts[Number(await ask("Which account runs Base to Base? Number:")) - 1];
-    if (picked) return picked;
-  }
 }
 
 main().catch((error: unknown) => {

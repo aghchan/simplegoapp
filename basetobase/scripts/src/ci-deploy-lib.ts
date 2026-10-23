@@ -21,6 +21,7 @@ export interface DeployIO {
   // True when wrangler exits 0.
   wrangler(args: string[]): Promise<boolean>;
   sleep(ms: number): Promise<void>;
+  now(): number;
   log(line: string): void;
   // A line for the job summary, which is also where a failure's reason goes.
   summary(line: string): void;
@@ -30,7 +31,8 @@ export type Outcome = "skipped" | "deployed" | "rolled back" | "failed";
 
 export interface Timing {
   pollMs: number;
-  // How long /health has to show the new version, and later the one rolled back to.
+  // How long /health has to show the new version, and later the one rolled back to. Measured by
+  // the clock: a /health call that hangs counts against it.
   timeoutMs: number;
 }
 
@@ -60,20 +62,22 @@ export function parseHealth(body: unknown): Health | undefined {
   return { ok, version, tag: tag || null };
 }
 
-// Why this commit needs no deploy, or undefined when it does. Only a healthy live version is kept.
+// Why this commit needs no deploy, or undefined when it does.
 export async function skipReason(
   io: DeployIO,
   live: Health | undefined,
   sha: string,
 ): Promise<string | undefined> {
-  if (!live?.ok || !live.tag) return undefined;
+  if (!live?.tag) return undefined;
   const liveShort = live.tag.slice(0, 7);
-  if (live.tag === sha) return "this commit is already live";
   // A commit main no longer has (history rewritten) says nothing about what is live.
-  if (!(await io.hasCommit(live.tag))) return undefined;
-  // Deploys can finish out of order: a later push's job may have shipped first.
-  if (await io.isAncestor(sha, live.tag)) return `a newer commit (${liveShort}) is already live`;
-  if (!(await io.workerChanged(live.tag, sha))) {
+  const known = live.tag !== sha && (await io.hasCommit(live.tag));
+  // Deploys can finish out of order. A newer live commit wins even while unhealthy: its own job
+  // rolls it back, and an older one would not mend it.
+  if (known && (await io.isAncestor(sha, live.tag))) return `a newer commit (${liveShort}) is already live`;
+  if (!live.ok) return undefined;
+  if (live.tag === sha) return "this commit is already live";
+  if (known && !(await io.workerChanged(live.tag, sha))) {
     return `nothing the Worker ships changed since ${liveShort}, which is live`;
   }
   return undefined;
@@ -106,19 +110,37 @@ export async function runDeploy(io: DeployIO, sha: string, timing: Timing = TIMI
     return "failed";
   }
   const message = `${short} ${await io.subject(sha)}`.slice(0, 100);
-  if (!(await io.wrangler(["deploy", "--tag", sha, "--message", message]))) {
-    const now = await io.health();
-    if (now?.tag !== sha) {
-      io.summary(`Not deployed: wrangler deploy failed for ${short}. ${describe(now)}.`);
+  // wrangler can fail after the version went live (its cron and workers.dev route come after), so
+  // /health says what happened either way.
+  const deployed = await io.wrangler(["deploy", "--tag", sha, "--message", message]);
+  const { found, last } = await waitFor(io, timing, (h) => h.ok && h.tag === sha);
+  if (found && deployed) {
+    io.summary(`Deployed ${short} as version ${found.version}.`);
+    return "deployed";
+  }
+  if (found) {
+    io.summary(
+      `${short} serves healthy as version ${found.version}, but wrangler deploy failed after it went ` +
+        "live, so its cron or workers.dev route may be stale. Rerun this job.",
+    );
+    return "failed";
+  }
+  if (!deployed && last?.tag !== sha) {
+    // Another version answers, so this one never went out; a rollback would only undo that one.
+    if (last) {
+      io.summary(`Not deployed: wrangler deploy failed for ${short}. ${describe(last)}.`);
       return "failed";
     }
-    // It went out despite the error, so it is checked like any other.
-  }
-
-  const serving = await waitFor(io, timing, (h) => h.ok && h.tag === sha);
-  if (serving) {
-    io.summary(`Deployed ${short} as version ${serving.version}.`);
-    return "deployed";
+    // No answer, and no version known to go back to: a rollback could go one too far.
+    if (!before) {
+      io.summary(
+        `wrangler deploy failed for ${short}, and /health never answered. ` +
+          "See what serves: npx wrangler deployments list",
+      );
+      return "failed";
+    }
+    // No answer: it may have gone out broken. Going back to the version that served before is
+    // harmless if it never left.
   }
   return rollBack(io, timing, before, sha);
 }
@@ -138,7 +160,7 @@ async function rollBack(
     io.summary(`${failed}, and the rollback failed too. Roll back by hand: npx wrangler rollback`);
     return "failed";
   }
-  const back = await waitFor(io, timing, (h) => (target ? h.version === target : h.tag !== sha));
+  const { found: back } = await waitFor(io, timing, (h) => (target ? h.version === target : h.tag !== sha));
   if (!back) {
     io.summary(`${failed}. Rolled back${target ? ` to version ${target}` : ""}; /health has not confirmed it.`);
   } else {
@@ -148,21 +170,22 @@ async function rollBack(
   return "rolled back";
 }
 
-// Polls /health until `good` holds or the time is up.
+// Polls /health until `good` holds or the time is up, and says what it saw last.
 async function waitFor(
   io: DeployIO,
   timing: Timing,
   good: (health: Health) => boolean,
-): Promise<Health | undefined> {
-  let last: Health | undefined;
-  for (let waited = 0; ; waited += timing.pollMs) {
-    last = await io.health();
-    if (last && good(last)) return last;
-    if (waited >= timing.timeoutMs) break;
+): Promise<{ found?: Health; last?: Health }> {
+  const deadline = io.now() + timing.timeoutMs;
+  for (;;) {
+    const last = await io.health();
+    if (last && good(last)) return { found: last, last };
+    if (io.now() >= deadline) {
+      io.log(`Gave up waiting. ${describe(last)}.`);
+      return { last };
+    }
     await io.sleep(timing.pollMs);
   }
-  io.log(`Gave up waiting. ${describe(last)}.`);
-  return undefined;
 }
 
 function describe(health: Health | undefined): string {

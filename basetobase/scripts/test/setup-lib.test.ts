@@ -1,9 +1,11 @@
 import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  accountProblem,
   accountsOf,
   appIdFrom,
   appManifest,
+  branchPoliciesOf,
   branchProtection,
   d1Id,
   DEPLOY_PROBES,
@@ -12,7 +14,9 @@ import {
   kvId,
   looksLikeClaudeToken,
   looksLikeCloudflareToken,
+  MAIN_BRANCH_POLICY,
   manifestPage,
+  probeProblem,
   productionEnvironment,
   publicUrlOf,
   tokenFrom,
@@ -23,6 +27,7 @@ import {
   workersDevUrl,
   type AppConversion,
   tokenIsActive,
+  tokenProblem,
 } from "../src/setup-lib.ts";
 
 // wrangler.jsonc as committed before setup: the real file holds the owner's ids once setup has run.
@@ -245,10 +250,54 @@ describe("deploy token", () => {
   });
 });
 
-describe("productionEnvironment", () => {
-  it("lets only protected branches deploy, so a pull request's workflow never reads its secrets", () => {
+describe("token refusals", () => {
+  const ACTIVE = { success: true, result: { id: "t", status: "active" } };
+
+  it("takes an active user token", () => {
+    expect(tokenProblem(200, ACTIVE)).toBeUndefined();
+  });
+
+  it("points an account token, or a mistyped one, back to the user-token link", () => {
+    const invalid = { success: false, errors: [{ code: 1000, message: "Invalid API Token" }] };
+    expect(tokenProblem(401, invalid)).toContain("Make one from the link above (My Profile → API Tokens)");
+  });
+
+  it("names the status for anything else", () => {
+    expect(tokenProblem(503, undefined)).toBe("Cloudflare does not accept that token (HTTP 503).");
+  });
+
+  it("wants exactly one account: the form preselects all of them", () => {
+    const one = { id: "a1", name: "Owner" };
+    expect(accountProblem([one])).toBeUndefined();
+    expect(accountProblem([])).toContain("reaches no account");
+    expect(accountProblem([one, { id: "a2", name: "Work" }])).toBe(
+      "That token reaches 2 accounts. Limit Account Resources to the one that runs Base to Base, then paste the new token.",
+    );
+  });
+
+  it("names the permission a failed probe needs", () => {
+    const [workers] = DEPLOY_PROBES;
+    expect(probeProblem(workers!, 200)).toBeUndefined();
+    expect(probeProblem(workers!, 403)).toBe(
+      "That token cannot read Workers (HTTP 403): it needs Workers Scripts · Edit. Make it again from the link.",
+    );
+  });
+});
+
+describe("production environment", () => {
+  it("names main as the only branch that may deploy, whatever main's protection", () => {
     expect(productionEnvironment()).toEqual({
-      deployment_branch_policy: { protected_branches: true, custom_branch_policies: false },
+      deployment_branch_policy: { protected_branches: false, custom_branch_policies: true },
     });
+    expect(MAIN_BRANCH_POLICY).toEqual({ name: "main", type: "branch" });
+  });
+
+  it("reads the environment's branch policies", () => {
+    const body = { total_count: 2, branch_policies: [{ id: 1, name: "main", type: "branch" }, { id: 2, name: "release/*" }] };
+    expect(branchPoliciesOf(body)).toEqual([
+      { name: "main", type: "branch" },
+      { name: "release/*", type: "branch" },
+    ]);
+    expect(branchPoliciesOf({ message: "Not Found" })).toEqual([]);
   });
 });

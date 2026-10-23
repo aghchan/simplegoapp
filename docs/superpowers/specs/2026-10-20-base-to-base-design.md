@@ -63,7 +63,8 @@ and the controls to intervene.
   Designed so adding one later is configuration, not a rewrite.
 - Agents that start work from issues/tickets. v1 starts at "PR opened".
 - Notifications beyond GitHub's own (PR comments @mention the owner).
-- Auto-rollback of a bad deploy.
+- Auto-rollback of a bad app deploy (Render). Base to Base's own deploy job
+  rolls back (§8).
 
 **Anti-goals — failures even if everything "technically works"**
 
@@ -354,18 +355,15 @@ summit check on the new merge ref first. Merge method: squash
   poll Render's API until the deploy is live, then `GET /health` on the
   Palisades URL (the framework registers `/health` automatically). Healthy →
   **Open**.
-- **Cloudflare** (Base to Base itself, `basetobase/**`): `wrangler deploy`
-  from an Actions job, then a health check on Dispatch. Because a bad
-  Dispatch deploy can break the thing that deploys it, the owner keeps a
-  manual fallback (`wrangler rollback`). PRs that touch `basetobase/` are
-  not patrolled or auto-deployed until milestone 5 (§17); until then Base to
-  Base is deployed by hand.
-  **Auto-deploy (built ahead of M5):** basetobase-ci deploys main itself once
-  its tests pass: migrations, `wrangler deploy` tagged with the commit, then
-  `GET /health` must show that commit healthy within two minutes, or it rolls
-  back to the version that served before. The token lives in a GitHub
-  environment only protected branches can use. Patrolling `basetobase/` PRs
-  stays M5.
+- **Cloudflare** (Base to Base itself, `basetobase/**`), **built ahead of
+  M5:** basetobase-ci deploys main itself once its tests pass: D1
+  migrations, `wrangler deploy` tagged with the commit, then `GET /health`
+  must show that commit healthy within two minutes, or it rolls back to the
+  version that served before. The Cloudflare token lives in a GitHub
+  environment only main can use. Because a bad Dispatch deploy can break the
+  thing that deploys it, this runs in CI rather than through Dispatch, and
+  the owner keeps a manual fallback (`wrangler rollback`). Patrolling PRs
+  that touch `basetobase/` stays milestone 5 (§17).
 
 Adapters are chosen by changed paths (monorepo): Go changes deploy to
 Render, `basetobase/` changes deploy to Cloudflare, and a PR touching both
@@ -373,7 +371,8 @@ deploys both, in parallel. The run is **Open** only when every deploy it
 needed is healthy.
 
 A failed deploy marks the run Failed in *Needs you*. Render keeps the
-previous deploy serving when a build fails; no auto-rollback in v1.
+previous deploy serving when a build fails; no auto-rollback of app
+deploys in v1.
 
 ## 9. Dashboard
 
@@ -511,7 +510,11 @@ The rating is display-only in v1. It does not change the panel or models
   - Patrollers: `contents: read`. They can run the app and tests but can't
     push.
   - Groomer: `contents: write` (the job's `GITHUB_TOKEN`) to push to the PR
-    branch.
+    branch. **Before M3:** main must refuse that token, since main deploys
+    Base to Base itself (§8) and a push of an unpatrolled head, which gets a
+    neutral check, passes branch protection. A ruleset restricting updates to
+    main (owner bypass; the App too once M4 merges) does it, and the neutral
+    check should go only to heads the owner pushed.
 - **Forwarder.** A small wrapper process in the job:
   - batches stream-json events to Dispatch about every 2 seconds, which keeps
     well under Cloudflare's free 100k requests a day
@@ -720,6 +723,10 @@ with exact click-paths, at the milestone that first needs each one:
     for its App ID)
 - **Claude token:** `claude setup-token`, stored as the
   `CLAUDE_CODE_OAUTH_TOKEN` secret in each watched repo.
+- **Auto-deploy token:** `npm run setup:deploy` (also `npm run setup`'s last
+  step once gh is signed in): a Cloudflare user token with Workers Scripts
+  and D1 edit and account settings read, limited to the one account, stored
+  in the GitHub environment `production`, which only main can use.
 - **Render and Neon:**
   - a Render web service for simplegoapp (Palisades), with auto-deploy off,
     since Dispatch triggers deploys through the deploy hook
@@ -742,7 +749,8 @@ milestone is the skeleton, visible end to end. The plan may regroup the rest.
      transcript
 2. Full patrol sweep, verdicts, hazards table, evidence.
 3. Huddle loop, Groomer, wind hold, owner actions, Lift closed, concurrency
-   cap.
+   cap. First, main refuses Actions and App tokens (Groomer's permissions,
+   §11).
 4. Summit check, merge, Render deploy adapter, the simplegoapp prerequisites
    (§13).
 5. Frontend panel with Playwright screenshots, the first time a dashboard PR

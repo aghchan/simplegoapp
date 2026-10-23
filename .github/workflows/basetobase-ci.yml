@@ -9,6 +9,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# main's runs queue one at a time in push order, and a newer push replaces one still waiting, so
+# main's newest commit always deploys last. A group on the deploy job alone would queue jobs in the
+# order they reach it: an older run's deploy could cancel a newer one waiting. Pull requests queue
+# per branch.
+concurrency:
+  group: basetobase-ci-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -59,10 +66,6 @@ jobs:
     environment:
       name: production
       url: ${{ vars.BASETOBASE_URL }}
-    # One deploy at a time. A newer push's deploy waits; the script skips one already overtaken.
-    concurrency:
-      group: basetobase-deploy
-      cancel-in-progress: false
     defaults:
       run:
         working-directory: basetobase

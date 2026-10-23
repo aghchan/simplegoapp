@@ -150,6 +150,10 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
+// `gh auth status` alone fails when any account on any host has a problem, even with a working
+// github.com account active.
+export const GH_SIGNED_IN = ["auth", "status", "--active", "--hostname", "github.com"];
+
 // The deploy job's Cloudflare token (basetobase-ci, environment production): Workers to ship the
 // Worker, D1 to migrate, account settings to find the account. Nothing else.
 export const DEPLOY_ENVIRONMENT = "production";
@@ -195,6 +199,22 @@ export function tokenIsActive(body: unknown): boolean {
   return typeof result === "object" && result !== null && (result as { status?: unknown }).status === "active";
 }
 
+function errorCodesOf(body: unknown): unknown[] {
+  if (typeof body !== "object" || body === null) return [];
+  const { errors } = body as { errors?: unknown };
+  return Array.isArray(errors) ? errors.map((error: { code?: unknown }) => error?.code) : [];
+}
+
+// Why the pasted token is refused, or undefined. Cloudflare answers 1000 for an invalid token, which
+// is also what an account-owned token gets from the user endpoint.
+export function tokenProblem(status: number, body: unknown): string | undefined {
+  if (tokenIsActive(body)) return undefined;
+  if (errorCodesOf(body).includes(1000)) {
+    return "Cloudflare does not take that as a user token. Make one from the link above (My Profile → API Tokens), not an account token.";
+  }
+  return `Cloudflare does not accept that token (HTTP ${status}).`;
+}
+
 // GET /accounts
 export function accountsOf(body: unknown): { id: string; name: string }[] {
   const result = resultOf(body);
@@ -206,8 +226,35 @@ export function accountsOf(body: unknown): { id: string; name: string }[] {
   );
 }
 
-// Only protected branches (main) may deploy, so a workflow on a pull request's branch, an agent's
-// included, never reads the environment's secrets.
+// The form preselects all accounts; a token that keeps that reaches more than Base to Base needs.
+export function accountProblem(accounts: { id: string; name: string }[]): string | undefined {
+  if (accounts.length === 0) return "That token reaches no account: give it yours under Account Resources.";
+  if (accounts.length > 1) {
+    return `That token reaches ${accounts.length} accounts. Limit Account Resources to the one that runs Base to Base, then paste the new token.`;
+  }
+  return undefined;
+}
+
+// A probe reads, so a token with only read rights passes it too: edit rights show at the first deploy.
+export function probeProblem(probe: (typeof DEPLOY_PROBES)[number], status: number): string | undefined {
+  if (status === 200) return undefined;
+  return `That token cannot read ${probe.what} (HTTP ${status}): it needs ${probe.permission}. Make it again from the link.`;
+}
+
+// Only main may deploy: a branch policy naming it, rather than "protected branches", which lets
+// every branch deploy whenever no branch is protected.
 export function productionEnvironment() {
-  return { deployment_branch_policy: { protected_branches: true, custom_branch_policies: false } };
+  return { deployment_branch_policy: { protected_branches: false, custom_branch_policies: true } };
+}
+
+export const MAIN_BRANCH_POLICY = { name: "main", type: "branch" };
+
+// GET /repos/{repo}/environments/{name}/deployment-branch-policies
+export function branchPoliciesOf(body: unknown): { name: string; type: string }[] {
+  if (typeof body !== "object" || body === null) return [];
+  const { branch_policies: policies } = body as { branch_policies?: unknown };
+  if (!Array.isArray(policies)) return [];
+  return policies.flatMap((policy: { name?: unknown; type?: unknown }) =>
+    typeof policy.name === "string" ? [{ name: policy.name, type: typeof policy.type === "string" ? policy.type : "branch" }] : [],
+  );
 }

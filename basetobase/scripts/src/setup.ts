@@ -11,6 +11,7 @@ import {
   CHECK_NAME,
   d1Id,
   D1_NAME,
+  GH_SIGNED_IN,
   kvId,
   KV_BINDING,
   KV_TITLE,
@@ -89,7 +90,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const gh = await has("gh", ["auth", "status"]);
+  const gh = await has("gh", GH_SIGNED_IN);
   step("Repo secret and variable");
   if (gh) {
     await sh("gh", ["variable", "set", "BASETOBASE_URL", "--repo", REPO, "--body", url]);
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
     console.log(
       `At https://github.com/${REPO}/settings/branches: main requires "${CHECK_NAME}" from the App, admins too.`,
     );
+    console.log("Then, with gh signed in, `npm run setup:deploy` lets main deploy itself.");
   }
 
   if (gh) {
