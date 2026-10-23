@@ -433,6 +433,21 @@ beneath it. `/` opens the newest run.
 over the lobby socket (`/api/live`), polling `/api/runs` every 5 s only while
 that is down. `npm run e2e` proves both in a real browser.
 
+**Retry (built):** "Re-run this step on a fresh runner", for a failure. A
+step with failed patrollers offers *Retry the failed patroller(s)*; each
+failed patroller's Debug panel offers *Retry <name>*. Only a failed agent
+(`error`) of an open run (`on_the_hill`, `swept`) can be retried: a verdict
+stands, and a stopped or landed run no longer speaks for its PR. Each retried
+agent gets a fresh job and a fresh nonce (its old job's late reports get 403,
+and the job is cancelled); the others' reports stand. The step reopens, the
+run goes back on the hill, and a fresh *Base to Base* check run is posted in
+progress, since a completed one cannot go back. Its card reads
+*attempt N*. API: `POST /api/runs/{id}/steps/{step}/retry` (every failed
+agent of the step) and `POST /api/runs/{id}/agents/{agent}/retry`: 202
+`{retried}`, 409 with nothing to retry. Owner session plus an `Origin`
+matching `PUBLIC_URL`. The pipeline's own CI jobs (basetobase-ci) already
+re-run singly from GitHub's *Re-run failed jobs*.
+
 **Look:** night-navy header with a ridgeline, snow-white panels, condensed
 uppercase headings like trail signage, monospace logs on dark. Trail-rating
 symbols are standard: green circle, blue square, black diamond, double black

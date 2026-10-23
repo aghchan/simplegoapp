@@ -48,15 +48,15 @@ export interface RunState extends Omit<RunSnapshot, "outcome"> {
 }
 
 // "check" mirrors the run's current state onto its check run. It comes after the run's own work
-// and the dashboard, so GitHub never holds them up. "cancel" asks GitHub to cancel an agent's job;
-// best effort, it comes after the check.
+// and the dashboard, so GitHub never holds them up. "cancel" asks GitHub to cancel one of an
+// agent's jobs; best effort, it comes after the check.
 export type Effect =
   | { type: "dispatch"; agentId: string }
   | { type: "log"; text: string }
   | { type: "index" }
   | { type: "broadcast" }
   | { type: "check" }
-  | { type: "cancel"; agentId: string };
+  | { type: "cancel"; agentId: string; githubRunId: string };
 
 export interface Transition {
   state: RunState;
@@ -284,6 +284,86 @@ export function stopRun(s: RunState, reason: string, now: number): Transition {
   };
 }
 
+// What an owner's retry covers: one agent, or every failed agent on a step.
+export type RetryTarget = { step: StepId } | { agentId: string };
+
+// The agents a retry of `target` runs again: failed ones, while the run is open. A stopped or
+// landed run no longer speaks for its PR, so nobody is waiting on its review.
+export function retryableAgents(s: RunState, target: RetryTarget): string[] {
+  if (s.status !== "on_the_hill" && s.status !== "swept") return [];
+  const covered = (agent: AgentSnapshot) =>
+    "step" in target ? agent.step === target.step : agent.id === target.agentId;
+  return s.agents.filter((agent) => agent.status === "error" && covered(agent)).map((a) => a.id);
+}
+
+// The owner runs failed agents again instead of the whole run: each gets a fresh job, and a fresh
+// nonce that its old job's late reports fail. The step they were on reopens; the other agents'
+// reports stand. A check run cannot go from completed back to in progress, so a new one is posted.
+export function retryAgents(
+  s: RunState,
+  target: RetryTarget,
+  now: number,
+  nonce: () => string,
+): Transition {
+  const ids = retryableAgents(s, target);
+  if (ids.length === 0) return unchanged(s);
+  const retried = s.agents.filter((agent) => ids.includes(agent.id));
+  // The agent's count once this retry is made. The first run was attempt 1.
+  const retriesAfter = (agent: AgentSnapshot) => (agent.retries ?? 0) + 1;
+  // Only what the agent was started with: nothing its failed attempt left may carry over.
+  const agents = s.agents.map((agent): AgentSnapshot => {
+    if (!ids.includes(agent.id)) return agent;
+    const { id, role, step, round } = agent;
+    return {
+      id,
+      role,
+      step,
+      round,
+      status: "queued",
+      hasTranscript: false,
+      hazards: [],
+      retries: retriesAfter(agent),
+      retriedAt: now,
+    };
+  });
+  const nonces = { ...s.nonces };
+  for (const id of ids) nonces[id] = nonce();
+  // The old jobs are no longer the agents': a stop must not cancel them in place of the new ones.
+  const jobRuns = Object.fromEntries(
+    Object.entries(s.jobRuns ?? {}).filter(([id]) => !ids.includes(id)),
+  );
+  const reopened = new Set(retried.map((agent) => agent.step));
+  const steps = s.steps.map((step): StepSnapshot => {
+    if (!reopened.has(step.id)) return step;
+    return { id: step.id, status: "active", startedAt: step.startedAt ?? now, notes: [] };
+  });
+  const state: RunState = {
+    ...s,
+    status: "on_the_hill",
+    steps,
+    agents,
+    nonces,
+    jobRuns,
+    stalledLogged: s.stalledLogged.filter((id) => !ids.includes(id)),
+    checkReposts: (s.checkReposts ?? 0) + 1,
+    updatedAt: now,
+  };
+  return {
+    state,
+    effects: [
+      ...retried.map((agent): Effect => ({
+        type: "log",
+        text: `${agent.id} retried · attempt ${retriesAfter(agent) + 1}`,
+      })),
+      { type: "index" },
+      ...ids.map((agentId): Effect => ({ type: "dispatch", agentId })),
+      { type: "broadcast" },
+      { type: "check" },
+      ...jobCancels(s, retried),
+    ],
+  };
+}
+
 // GitHub merged the PR on the run's head. Until M4 deploys, that is the end of the line.
 export function landRun(s: RunState, mergeSha: string, now: number): Transition {
   if (s.status === "landed") return unchanged(s);
@@ -494,7 +574,7 @@ function deadlinesOf(agent: AgentSnapshot, createdAt: number): Deadline[] {
   }
   // A lost dispatch result (the Durable Object can reset mid-call) would leave it queued forever.
   if (agent.dispatchedAt === undefined) {
-    return [{ at: createdAt + STALL_MS, failure: "never dispatched" }];
+    return [{ at: (agent.retriedAt ?? createdAt) + STALL_MS, failure: "never dispatched" }];
   }
   // Time in GitHub's queue is not the agent's: nothing stalls before the brief.
   return [{ at: agent.dispatchedAt + JOB_START_MS, failure: "job never started on GitHub" }];
@@ -540,10 +620,15 @@ function halted(s: RunState, summary: string, now: number): { state: RunState; c
     if (isTerminal(agent)) return agent;
     return { ...agent, status: "stopped", summary, finishedAt: now };
   });
-  const cancels = live
-    .filter((agent) => s.jobRuns?.[agent.id] !== undefined)
-    .map((agent): Effect => ({ type: "cancel", agentId: agent.id }));
-  return { state: { ...s, steps, agents, updatedAt: now }, cancels };
+  return { state: { ...s, steps, agents, updatedAt: now }, cancels: jobCancels(s, live) };
+}
+
+// A cancel for each of these agents' jobs GitHub has started.
+function jobCancels(s: RunState, agents: AgentSnapshot[]): Effect[] {
+  return agents.flatMap((agent): Effect[] => {
+    const githubRunId = s.jobRuns?.[agent.id];
+    return githubRunId === undefined ? [] : [{ type: "cancel", agentId: agent.id, githubRunId }];
+  });
 }
 
 function failed(s: RunState, id: string, reason: string, now: number): Transition {

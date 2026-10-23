@@ -34,10 +34,13 @@ import {
   onTranscript,
   onVerdict,
   replacedCheckOf,
+  retryableAgents,
+  retryAgents,
   snapshotOf,
   stopRun,
   wantsCheck,
   type Effect,
+  type RetryTarget,
   type RunState,
   type Transition,
 } from "./machine.ts";
@@ -50,6 +53,10 @@ const CHECK_PENDING_KEY = "checkPending";
 const RETRY_MS = 60_000;
 const LOG_TEXT_MAX = 2000;
 const SNAPSHOT_LOG_LINES = 500;
+// A retry's job numbers its events from 0 again, as each attempt of a job re-run on GitHub does
+// from (attempt − 1) × 1 000 000. A stride per retry keeps them clear of the earlier jobs' seqs,
+// which the log would drop as ones it already holds.
+const RETRY_SEQ_STRIDE = 1_000_000_000;
 
 // A mapped copy, because an interface does not satisfy the SQL row type's index signature.
 type LogRow = Pick<LogLine, keyof LogLine>;
@@ -112,10 +119,12 @@ export class RunDO extends DurableObject<Env> {
   ): Promise<Report> {
     const admitted = await this.admit(agentId, nonce);
     if (admitted === "forbidden" || "gone" in admitted) return admitted;
+    // A retry changes the nonce, so the count cannot change under a job that got this far.
+    const retries = admitted.agents.find((agent) => agent.id === agentId)?.retries ?? 0;
     const lines = events.flatMap((event) => {
       const line = this.appendLog({
         agentId,
-        agentSeq: event.seq,
+        agentSeq: event.seq + retries * RETRY_SEQ_STRIDE,
         ts: event.ts,
         kind: event.kind,
         text: event.text,
@@ -169,6 +178,18 @@ export class RunDO extends DurableObject<Env> {
 
   async land(mergeSha: string): Promise<void> {
     await this.step((s, now) => landRun(s, mergeSha, now));
+  }
+
+  // The owner's retry: the agents run again, none when the target has no failed agent to run, and
+  // null for a run that never started.
+  async retry(target: RetryTarget): Promise<string[] | null> {
+    if (!(await this.load())) return null;
+    let retried: string[] = [];
+    await this.step((s, now) => {
+      retried = retryableAgents(s, target);
+      return retryAgents(s, target, now, () => crypto.randomUUID());
+    });
+    return retried;
   }
 
   async retitle(title: string): Promise<void> {
@@ -361,7 +382,7 @@ export class RunDO extends DurableObject<Env> {
         await this.queueCheck(() => this.syncCheck());
         return;
       case "cancel":
-        await this.cancel(effect.agentId);
+        await this.cancel(effect.agentId, effect.githubRunId);
         return;
     }
   }
@@ -410,13 +431,11 @@ export class RunDO extends DurableObject<Env> {
     }
   }
 
-  // Best effort, never retried: a job the cancel misses stops on the 410 its next report gets.
-  private async cancel(agentId: string): Promise<void> {
-    const state = await this.loaded();
-    const githubRunId = state.jobRuns?.[agentId];
-    if (githubRunId === undefined) return;
+  // Best effort, never retried: a job the cancel misses stops on the 410 or 403 its next report
+  // gets.
+  private async cancel(agentId: string, githubRunId: string): Promise<void> {
     try {
-      await this.github(state).cancelWorkflowRun(this.env.REPO, githubRunId);
+      await this.github(await this.loaded()).cancelWorkflowRun(this.env.REPO, githubRunId);
     } catch (error) {
       const why = error instanceof Error ? error.message : String(error);
       console.error(`cancelling ${agentId}'s job: ${why}`);

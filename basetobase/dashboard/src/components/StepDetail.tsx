@@ -12,6 +12,7 @@ import { GithubLink } from "./GithubLink.tsx";
 import { PatrolCards, patroller } from "./PatrolCards.tsx";
 import { timeOnStep } from "./PipelineRow.tsx";
 import { RadioLog } from "./RadioLog.tsx";
+import { RetryButton } from "./RetryButton.tsx";
 import { Transcript } from "./Transcript.tsx";
 
 // A patroller's lines belong to its step. Dispatch's belong to the latest step that had begun by
@@ -49,8 +50,18 @@ function TimeOnStep({ step, now }: { step: StepSnapshot; now: number }) {
   }
 }
 
+// What Dispatch will run again (retryableAgents): a failed patroller, while the run is open.
+function retryable(run: RunSnapshot, agent: AgentSnapshot): boolean {
+  return agent.status === "error" && (run.status === "on_the_hill" || run.status === "swept");
+}
+
 // Keyed by the agent it is about, so picking another patroller starts it closed.
-function DebugPanel(p: { runId: string; agent: AgentSnapshot; canChoose: boolean }) {
+function DebugPanel(p: {
+  runId: string;
+  agent: AgentSnapshot;
+  canChoose: boolean;
+  canRetry: boolean;
+}) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const { agent } = p;
   return (
@@ -74,6 +85,13 @@ function DebugPanel(p: { runId: string; agent: AgentSnapshot; canChoose: boolean
         <GithubLink className="btn" href={agent.jobUrl}>
           GitHub Actions job
         </GithubLink>
+        {p.canRetry && (
+          <RetryButton
+            key={agent.retries ?? 0}
+            path={`/api/runs/${p.runId}/agents/${agent.id}/retry`}
+            label={`Retry ${patroller(agent.role).name}`}
+          />
+        )}
       </div>
       {!agent.hasTranscript && <p className="hint">No transcript uploaded yet.</p>}
       <div id="transcript">
@@ -102,6 +120,7 @@ export function StepDetail(p: {
     () => Object.fromEntries(run.agents.map((agent) => [agent.id, patroller(agent.role).name])),
     [run.agents],
   );
+  const failed = agents.filter((agent) => retryable(run, agent));
   const scope = picked
     ? `${patroller(picked.role).name} only`
     : agents.length > 0
@@ -116,6 +135,20 @@ export function StepDetail(p: {
           <span className="step-title-plain"> · {label.plain}</span>
         </h2>
         <TimeOnStep step={step} now={p.now} />
+        {failed.length > 0 && (
+          <div className="step-actions">
+            {/* Keyed by the attempts, so a retry that fails again gets a fresh button. */}
+            <RetryButton
+              key={failed.map((agent) => `${agent.id}:${agent.retries ?? 0}`).join(" ")}
+              path={`/api/runs/${run.id}/steps/${step.id}/retry`}
+              label={
+                failed.length === 1
+                  ? "Retry the failed patroller"
+                  : `Retry the ${failed.length} failed patrollers`
+              }
+            />
+          </div>
+        )}
       </div>
 
       <div className="detail-block">
@@ -167,6 +200,7 @@ export function StepDetail(p: {
           runId={run.id}
           agent={debugAgent}
           canChoose={agents.length > 1 && !picked}
+          canRetry={retryable(run, debugAgent)}
         />
       )}
     </section>

@@ -131,6 +131,14 @@ export async function checksOn(headSha: string): Promise<CheckCall[]> {
   return created ? calls.filter((c) => c.id === created.id) : [];
 }
 
+// The newest Base to Base check run on this commit, as its last create or update left it: GitHub
+// reads only the newest of a name.
+export async function newestCheckOn(headSha: string): Promise<CheckCall["body"] | undefined> {
+  const calls = await hook<CheckCall[]>("checks");
+  const created = calls.findLast((c) => c.method === "POST" && c.body.head_sha === headSha);
+  return created && calls.findLast((c) => c.id === created.id)?.body;
+}
+
 // The run's agent jobs, as the fake's Actions queued them.
 export async function jobsOf(runId: string): Promise<Job[]> {
   return (await hook<Job[]>("jobs")).filter((job) => job.inputs.run_id === runId);
@@ -167,6 +175,17 @@ export async function patrol(job: Job, hazards: string[] = []): Promise<void> {
     method: "POST",
     headers: { Authorization: `Bearer ${job.token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ run_id, agent_id, nonce, verdict }),
+  });
+  expect(res.status).toBe(204);
+}
+
+// The job's last step, for a job that died before its agent reported.
+export async function failJob(job: Job, reason: string): Promise<void> {
+  const { run_id, agent_id, nonce } = job.inputs;
+  const res = await fetch(`${baseURL}/agent/failure`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${job.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id, agent_id, nonce, reason }),
   });
   expect(res.status).toBe(204);
 }

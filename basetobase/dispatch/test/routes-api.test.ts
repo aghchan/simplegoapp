@@ -41,6 +41,20 @@ async function get(path: string, call: Call = {}): Promise<Response> {
   return app.fetch(req, call.workerEnv ?? env, createExecutionContext());
 }
 
+// A POST from the dashboard's own page, as a browser sends it; `origin` null sends none.
+async function post(
+  path: string,
+  call: Call & { origin?: string | null } = {},
+): Promise<Response> {
+  const headers = new Headers(call.headers);
+  const cookie = call.cookie === undefined ? await signedIn() : call.cookie;
+  if (cookie !== null) headers.set("Cookie", cookie);
+  const origin = call.origin === undefined ? new URL(env.PUBLIC_URL).origin : call.origin;
+  if (origin !== null) headers.set("Origin", origin);
+  const req = new Request(`https://b2b.test${path}`, { method: "POST", headers });
+  return app.fetch(req, call.workerEnv ?? env, createExecutionContext());
+}
+
 let runCount = 0;
 
 async function startRun(): Promise<string> {
@@ -305,5 +319,69 @@ describe("GET /api/live", () => {
       }),
     );
     socket.close();
+  });
+});
+
+describe("POST retries", () => {
+  const stepRetry = (runId: string) => `/api/runs/${runId}/steps/sweep/retry`;
+  const agentRetry = (runId: string) => `/api/runs/${runId}/agents/${AGENT}/retry`;
+
+  // A run whose one agent has failed: its dispatch was refused.
+  async function failedRun(): Promise<string> {
+    stubGitHub({
+      [`POST /repos/aghchan/simplegoapp/actions/workflows/basetobase-agent.yml/dispatches`]: () =>
+        new Response(null, { status: 422 }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const runId = await startRun();
+    vi.restoreAllMocks();
+    return runId;
+  }
+
+  it.each([stepRetry, agentRetry])("runs the failed agent again: %s", async (path) => {
+    const runId = await failedRun();
+    const dispatched = stubGitHub();
+    const res = await post(path(runId));
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ retried: [AGENT] });
+    expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
+    expect(dispatched).toMatchObject([{ run_id: runId, agent_id: AGENT }]);
+  });
+
+  it("409 when there is nothing to retry", async () => {
+    const runId = await startRun();
+    for (const path of [stepRetry(runId), agentRetry(runId)]) {
+      const res = await post(path);
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "nothing to retry" });
+    }
+  });
+
+  it("404 for a run that never started, or a step there is no such thing as", async () => {
+    expect((await post(stepRetry("no-such-run"))).status).toBe(404);
+    expect((await post(agentRetry("no-such-run"))).status).toBe(404);
+    const runId = await startRun();
+    const res = await post(`/api/runs/${runId}/steps/everything/retry`);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not found" });
+  });
+
+  it("401 without a session", async () => {
+    const res = await post(stepRetry("r1"), { cookie: null });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "signed out" });
+  });
+
+  it.each([
+    ["another site", "https://evil.example"],
+    ["another Worker on the same workers.dev subdomain", "https://other.soulygrail.workers.dev"],
+    ["no origin", null],
+  ])("403 for a POST from %s, retrying nothing", async (_name, origin) => {
+    const runId = await failedRun();
+    const dispatched = stubGitHub();
+    const res = await post(agentRetry(runId), { origin });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "cross-origin request" });
+    expect(dispatched).toEqual([]);
   });
 });
