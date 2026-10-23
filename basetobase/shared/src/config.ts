@@ -35,6 +35,9 @@ export interface B2BConfig {
   infraGlobs: string[];
   // A PR touching any of these is not patrolled at all.
   unpatrolledGlobs: string[];
+  // All a PR of the trail-names refresh workflow may touch. One touching anything else gets no
+  // check, so it cannot merge.
+  refreshGlobs: string[];
   thresholds: {
     greenLines: number;
     greenFiles: number;
@@ -58,6 +61,7 @@ export function loadConfig(raw: unknown): B2BConfig {
     riskGlobs: asStringArray(root.riskGlobs, "riskGlobs"),
     infraGlobs: asStringArray(root.infraGlobs, "infraGlobs"),
     unpatrolledGlobs: asStringArray(root.unpatrolledGlobs, "unpatrolledGlobs"),
+    refreshGlobs: asStringArray(root.refreshGlobs, "refreshGlobs"),
     thresholds: asThresholds(root.thresholds),
     trailNames: asTrailNames(root.trailNames),
     roster,

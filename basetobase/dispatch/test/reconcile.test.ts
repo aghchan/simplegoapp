@@ -384,6 +384,22 @@ describe("the reconcile cron", () => {
     expect(dispatches).toHaveLength(1);
   });
 
+  // The trail-names refresh workflow's PR, whose webhook was lost: it gets its neutral check.
+  it("gives the start path to the refresh workflow's PR", async () => {
+    const names = () =>
+      Response.json([
+        { filename: "basetobase/config/trail-names.json", additions: 9, deletions: 3 },
+      ]);
+    const bot = { user: { login: "github-actions[bot]" } };
+    gitHub(
+      { pulls: [listed(58, "head58", bot)], unchecked: ["head58"] },
+      { [`${pullPath(58)}/files`]: names },
+    );
+    await reconcileRepo(env);
+    expect(await listRuns(env.DB)).toEqual([]);
+    expect(logs).toHaveBeenCalledWith(`reconcile: ${REPO}#58: ignored head58: unpatrolled`);
+  });
+
   // An unpatrolled PR's neutral check, say.
   it("leaves a head that has this App's check", async () => {
     gitHub({ pulls: [listed(58, "head58")], checked: ["head58"] });

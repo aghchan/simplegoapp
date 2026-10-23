@@ -24,6 +24,15 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...raw, unpatrolledGlobs: ["basetobase/**", 7] })).toThrow(
       /unpatrolledGlobs\[1\]/,
     ));
+  it("requires the refresh globs", () =>
+    expect(() => loadConfig({ ...raw, refreshGlobs: undefined })).toThrow(
+      /refreshGlobs must be an array/,
+    ));
+  it("lets the refresh workflow touch the trail names and their saved answers only", () =>
+    expect(config.refreshGlobs).toEqual([
+      "basetobase/config/trail-names.json",
+      "basetobase/scripts/overpass/*.json",
+    ]));
   it("leaves Base to Base's own files unpatrolled", () =>
     expect(config.unpatrolledGlobs).toEqual([
       "basetobase/**",

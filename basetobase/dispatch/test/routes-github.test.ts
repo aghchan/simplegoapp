@@ -200,7 +200,7 @@ describe("POST /github/webhook", () => {
         id: runId,
         prNumber: 58,
         rating: "green",
-        runName: "Easy Slider",
+        runName: config.trailNames.green[0],
         status: "on_the_hill",
       });
       expect(dispatches).toMatchObject([{ run_id: runId, sha: "head58" }]);
@@ -224,7 +224,7 @@ describe("POST /github/webhook", () => {
       });
       await deliver(other);
       const names = (await listRuns(env.DB)).map((run) => run.runName).sort();
-      expect(names).toEqual(["Easy Slider", "Ramp Run"]);
+      expect(names).toEqual(config.trailNames.green.slice(0, 2).sort());
     });
 
     // The names only keep runs apart, so the run starts all the same.
@@ -496,6 +496,65 @@ describe("POST /github/webhook", () => {
         expect(await statuses()).toEqual({ [first]: "stopped", [runId]: "on_the_hill" });
         expect(await logOf(first)).toContain("stopped · superseded by head58");
       });
+    });
+  });
+
+  // basetobase-trail-names.yml opens its PRs as Actions' own bot: neutral like the owner's own
+  // Base to Base PRs while they carry trail names alone, and no check at all otherwise.
+  describe("the trail-names refresh workflow's PRs", () => {
+    const listing =
+      (...files: Record<string, unknown>[]) =>
+      () =>
+        Response.json(files.map((file) => ({ additions: 1, deletions: 1, ...file })));
+    const names = { filename: "basetobase/config/trail-names.json" };
+    const saved = { filename: "basetobase/scripts/overpass/alta.json" };
+    const refresh = () => prPayload({ author: "github-actions[bot]" });
+
+    function checksPosted(): Record<string, unknown>[] {
+      const posted: Record<string, unknown>[] = [];
+      dispatches = github({
+        [FILES_PATH]: listing(names, saved),
+        [CHECKS_PATH]: async (req) => {
+          posted.push(await req.json());
+          return Response.json({ id: 9 }, { status: 201 });
+        },
+      });
+      return posted;
+    }
+
+    it("gets the neutral check when it touches the names and saved answers only", async () => {
+      const posted = checksPosted();
+      expect(await (await deliver(refresh())).json()).toEqual({ ignored: "unpatrolled" });
+      expect(posted).toMatchObject([{ head_sha: "head58", conclusion: "neutral" }]);
+      expect(await listRuns(env.DB)).toEqual([]);
+    });
+
+    it.each([
+      ["any other file", [names, { filename: "basetobase/dispatch/src/index.ts" }]],
+      ["a file renamed into the names", [{ ...names, previous_filename: "main.go" }]],
+      ["a saved answer outside its folder", [{ filename: "basetobase/scripts/overpass/x/y.json" }]],
+      ["a path in another case", [{ filename: "BaseToBase/config/trail-names.json" }]],
+      ["no file at all", []],
+    ])("gets no check, so cannot merge, when it touches %s", async (_label, files) => {
+      const posted: unknown[] = [];
+      dispatches = github({
+        [FILES_PATH]: listing(...files),
+        [CHECKS_PATH]: () => {
+          posted.push(true);
+          return Response.json({ id: 9 }, { status: 201 });
+        },
+      });
+      expect(await (await deliver(refresh())).json()).toEqual({ ignored: "author" });
+      expect(posted).toEqual([]);
+      expect(await listRuns(env.DB)).toEqual([]);
+      expect(dispatches).toEqual([]);
+    });
+
+    it("leaves the owner's own PRs as they were", async () => {
+      dispatches = github({
+        [FILES_PATH]: listing(names, { filename: "basetobase/dispatch/src/index.ts" }),
+      });
+      expect(await (await deliver(opened())).json()).toEqual({ ignored: "unpatrolled" });
     });
   });
 

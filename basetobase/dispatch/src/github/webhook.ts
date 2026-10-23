@@ -32,6 +32,10 @@ interface Identity {
 
 type Fields = Record<string, unknown>;
 
+// The trail-names refresh workflow (basetobase-trail-names.yml) opens its PRs as Actions' own
+// bot. startPr holds them to refreshGlobs: one that touches anything else gets no check.
+export const REFRESH_AUTHOR = "github-actions[bot]";
+
 const SIGNATURE_HEADER = /^sha256=([0-9a-fA-F]{64})$/;
 // synchronize is a push to the PR: it starts a sweep on the new head.
 const STARTING_ACTIONS = ["opened", "reopened", "ready_for_review", "synchronize"];
@@ -87,7 +91,7 @@ function pullRequestTrigger(payload: Fields, id: Identity): Trigger {
   if (pr.repo !== id.repo) return ignore("repo");
   // A missing or deleted head repository cannot be shown to be ours, so it counts as a fork.
   if (fields(fields(pull.head).repo).full_name !== pr.repo) return ignore("fork");
-  if (pr.author !== id.owner) return ignore("author");
+  if (pr.author !== id.owner && pr.author !== REFRESH_AUTHOR) return ignore("author");
   const { repo, number: prNumber, installationId } = pr;
   if (retitle) return { kind: "retitle", repo, prNumber, installationId };
   return { kind: "start", pr, retarget };

@@ -1,0 +1,85 @@
+# Refreshes Base to Base's run names from OpenStreetMap every week (basetobase/scripts/src/
+# trail-names.ts), and opens or updates a pull request when the names changed. Merging it deploys
+# them. Overpass is reachable from GitHub's runners, and a mountain it fails to answer falls back
+# on its saved answer in basetobase/scripts/overpass/.
+#
+# Its PRs come from Actions' own bot. Dispatch gives them the neutral Base to Base check only while
+# they touch nothing but refreshGlobs (config/basetobase.json), so main can take them. A PR opened
+# with this token starts no workflow, so this job runs the checks basetobase-ci would.
+# Needs Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+name: basetobase-trail-names
+on:
+  schedule:
+    # Mondays, 09:17 UTC.
+    - cron: "17 9 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: basetobase-trail-names
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Twelve mountains, each waiting on Overpass's slots for minutes at worst.
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: basetobase
+        # pipefail, so the generator's exit code survives tee.
+        shell: bash
+    env:
+      BRANCH: basetobase/trail-names
+      TITLE: "basetobase: refresh trail names from OpenStreetMap"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Fetch the trail names
+        run: |
+          npm run trail-names 2>&1 | tee "$RUNNER_TEMP/trail-names.log"
+          { echo '```'; cat "$RUNNER_TEMP/trail-names.log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      # The names, not the file: its dates and the saved answers' change on every run.
+      - name: Compare the names with main's
+        id: names
+        run: |
+          if diff -q <(git show HEAD:./config/trail-names.json | jq -S .trailNames) \
+              <(jq -S .trailNames config/trail-names.json) > /dev/null; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The names are main's already." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.names.outputs.changed == 'true'
+        run: npm ci
+      - if: steps.names.outputs.changed == 'true'
+        run: npm run typecheck
+      - if: steps.names.outputs.changed == 'true'
+        run: npm test
+      - name: Open or update the pull request
+        if: steps.names.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add config/trail-names.json scripts/overpass
+          git commit -m "$TITLE"
+          # The branch is this workflow's alone: each run replaces it with a fresh commit on main.
+          git push --force origin "$BRANCH"
+          {
+            echo "The weekly refresh of Base to Base's run names from OpenStreetMap (\`npm run trail-names\`)."
+            echo "Merging it deploys them."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/trail-names.log"
+            echo '```'
+          } > "$RUNNER_TEMP/body.md"
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          fi

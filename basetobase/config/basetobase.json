@@ -25,6 +25,7 @@
     "basetobase/package.json"
   ],
   "unpatrolledGlobs": ["basetobase/**", ".basetobase/**", ".github/workflows/basetobase-*.yml"],
+  "refreshGlobs": ["basetobase/config/trail-names.json", "basetobase/scripts/overpass/*.json"],
   "thresholds": {
     "greenLines": 50,
     "greenFiles": 3,

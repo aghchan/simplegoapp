@@ -498,7 +498,11 @@ regenerates it: one Overpass query per mountain, names alphabetical within a
 mountain and dealt from the mountains in turn, so consecutive runs come from
 different mountains. Each mountain's last good Overpass answer is kept in
 `scripts/overpass/`, refreshed on every good call; when Overpass is down, slow
-or answers unusably, that mountain's names come from its saved answer.
+or answers unusably, that mountain's names come from its saved answer. A
+weekly workflow (`basetobase-trail-names.yml`) runs it on GitHub and opens a
+PR, from Actions' bot, when the names changed; merging deploys them. Dispatch
+gives that bot's PRs the neutral check only while they touch nothing but the
+names and the saved answers (`refreshGlobs`); any other bot PR gets no check.
 Attribution: OpenStreetMap contributors (ODbL). Until
 it first runs, the file holds a hand-picked seed (Green: Easy Slider, Ramp
 Run, Bunny Hill; Blue: Home Run, Tomlinson's, Shirley Bowl, Champs Elysees;
