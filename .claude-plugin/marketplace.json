@@ -1,0 +1,1 @@
+{"name":"simplegoapp","description":"simplegoapp's development standard, shipped as Claude Code plugins","owner":{"name":"aghchan"},"plugins":[{"name":"standard","source":"./plugins/standard","description":"simplegoapp's development standard: system design before code"}]}
