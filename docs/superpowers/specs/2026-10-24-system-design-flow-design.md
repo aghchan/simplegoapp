@@ -395,6 +395,14 @@ anyone confirming it. If it doesn't, settle the fallback before building
 the rest. The fallback might be a setup hook in the project or an
 account-level install.
 
+**Spike result (2026-10-24): failed.** A fresh cloud session on the branch,
+with the plugin declared in `.claude/settings.json`, answered no on all
+three checks: no `standard:system-design` skill, no rules in its context,
+and `claude plugin list` printed "No plugins installed". Project-declared
+marketplaces register only after the folder-trust dialog, and a headless
+cloud session never shows it. The fallback goes to the owner before any
+further work.
+
 **Patrol prompts stay in this repo.** The design lenses ship in the plugin,
 and the PR patrol's prompts (`.basetobase/patrol/`, Granite Chief's
 included) stay where Base to Base reads them. Reading them for other
