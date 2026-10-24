@@ -138,10 +138,12 @@ the designer's call, each grounded in how the repo already works:
     without committed end-to-end tests.
 12. **Approaches:** two or three, what each trades off, which was picked
     and why.
-13. **Decisions:** the owner's, marked **(owner)**, and Claude's, marked
+13. **Delivery:** how the work splits into PRs or milestones, each named so
+    a PR can point at it (§8).
+14. **Decisions:** the owner's, marked **(owner)**, and Claude's, marked
     **(designer's call)**.
-14. **Left to the builder.**
-15. **Design review** (appendix, written by the loop): the panel, each
+15. **Left to the builder.**
+16. **Design review** (appendix, written by the loop): the panel, each
     round's challenges and how each was settled, and the quorum line.
 
 Short size: the same headings, one or two lines each. "None" needs a
@@ -166,6 +168,12 @@ most about 40 lines.
 | Mainline (functionality) | FUN | "How we'll know it works" is a concrete list of end-to-end tests that would catch the failures the design describes. |
 | Magic Carpet (UX) | UX | Only when the design adds or changes a screen: flows, loading/empty/error states, keyboard, phone width. |
 | Bluebird (design) | DSN | Only for screens: consistency with the established look, hierarchy, WCAG AA contrast. |
+| Builder | BLD | Always on the panel: could a builder plan from this without guessing? Places where a wrong guess would matter. |
+
+The builder lens is `superpowers:brainstorming`'s builder check, moved into
+the loop so it re-checks every revision like the others
+**(designer's call)**. It is a design-only lens, not a roster role: it never
+reviews PRs. It lives at `.basetobase/design/builder.md`.
 
 `_challenge.md` carries the patrol's adversarial stance (from
 `patrol/_verdict.md`), adapted to a document:
@@ -218,7 +226,7 @@ A project skill, `.claude/skills/system-design/SKILL.md`
      twice goes to the owner **(designer's call: two rounds)**.
 4. **Owner questions.** One message, most important first, each giving the
    challenge, the specialist, why the design doesn't settle it, and
-   Claude's proposed answer. The owner's answers go into §13 as
+   Claude's proposed answer. The owner's answers go into §14 as
    **(owner)**. An owner ruling closes its challenge: the specialists
    re-check everything else, but not that point.
 5. **Re-check.** Every specialist on the panel reads the revised design,
@@ -234,13 +242,13 @@ The loop never gives up on its own (owner). Whatever it can't settle goes
 to the owner, and it carries on until quorum. The owner is the tiebreaker,
 not a timeout.
 
-Claude writes the review record (§4.15) as it goes: the panel, each
+Claude writes the review record (§4.16) as it goes: the panel, each
 round's challenges, how each was settled (revised in §n, defended with a
 reason, owner decision, withdrawn), and finally "Quorum: GOAL, QLT, SCL,
-INF, SEC, FUN clear on revision N".
+INF, SEC, FUN, BLD clear on revision N".
 
-The skill replaces `superpowers:brainstorming`'s builder check for designs
-that go through it: the specialists ask the builder's questions and more
+The builder lens (§5) takes the place of `superpowers:brainstorming`'s
+separate builder check for designs that go through this loop
 **(designer's call)**. The root CLAUDE.md says so, which makes it win over
 the plugin.
 
@@ -254,27 +262,59 @@ the design. Code starts once that PR is merged **(designer's call)**.
 So the approved design is on the default branch before any code PR opens,
 and a code PR cannot rewrite the design it is held to (§8).
 
+**Changing an approved design** **(designer's call)**. A design is a living
+document, but it changes only through the loop:
+- The revision is drafted on a branch, and the panel challenges it. The
+  review record gains a new round.
+- The owner approves it, and it lands in its own design PR before any code
+  that depends on it.
+- main always holds the last approved version. Code PRs that point at the
+  design are held to that version until the revision merges.
+- A code PR never edits any design file. As-built notes, which the Base to
+  Base spec carries today, go in through a design PR as well.
+
 ## 8. The PR check (owner)
 
-The code PR's description carries one line: `Design: <path>`. Base to Base
-already reads the PR title and body as the run's goal, so Granite Chief
-sees it.
+The code PR's description names its design: `Design: <path>`, or
+`Design: <path> §<n>` for one part from the design's delivery section
+(§4.13). Several lines are allowed when a PR delivers parts of several
+designs **(designer's call)**. Base to Base already reads the PR title and
+body as the run's goal, so Granite Chief sees them.
+
+A simple bug fix has no design. Its PR names the promise it restores
+instead, `Fixes: <path>`: the test, doc, spec or contract that says what the
+code should do **(designer's call)**. Granite Chief can't ask anyone, so it
+checks that claim rather than guessing.
 
 Granite Chief joins the PR patrol (`enabledRoles`), with its first patrol
 template, `.basetobase/patrol/granite-chief.md`. Its scope stays goal fit,
 and the template adds:
 
-- **No design:** no `Design:` line, and the change is more than a simple
-  bug fix (§3) → hazard.
+- **No design:** no `Design:` line, and either no `Fixes:` line or a
+  change beyond the fix it names → hazard. The second case covers a
+  contract, schema, config key, dependency or service changed by a
+  "simple bug fix".
 - **Design not approved:** the linked design isn't marked approved on the
   default branch → hazard.
-- **Design rewritten:** the PR modifies its own design → hazard. Changes
-  to a design go back through the loop.
-- **Drift:** the PR does something the design doesn't say, or leaves out
-  something it does → hazard. That includes a contract, table, config key,
-  dependency or service that the design didn't list.
+- **Design edited:** a code PR modifies any design file → hazard. Changes
+  to a design go back through the loop (§7).
+- **Drift:** the PR does something outside the parts it names, or leaves
+  out something those parts include → hazard. That includes a contract,
+  table, config key, dependency or service that the design didn't list.
 - **Source:** the design is read as it is on the default branch, never
   from the PR head.
+
+**Design PRs** **(designer's call)**. A PR whose every file is a design under
+`docs/superpowers/specs/` gets Granite Chief's design rules instead:
+- the status is approved
+- the review record ends in a quorum line on the final revision
+- no challenge is left open
+- the panel follows the size rule (§3)
+
+This is the automated check that a design didn't skip the loop. Adding the
+specs folder to `unpatrolledGlobs` was rejected: one matching file makes a
+whole PR unpatrolled, so a code PR that also touched a spec would skip the
+patrol.
 
 A PR that touches Base to Base's own files is unpatrolled until M5
 (`unpatrolledGlobs`), so for those changes only the session rule (§3)
@@ -284,7 +324,7 @@ applies.
 
 **New files:**
 - the template
-- nine lens prompts and `_challenge.md`
+- eight specialist lenses, the builder lens and `_challenge.md`
 - the skill
 - Granite Chief's patrol template
 
@@ -296,8 +336,8 @@ applies.
 
 **Cost:**
 - No new services or hosting.
-- Claude usage: one subagent per specialist per round in the session, about
-  six per round for a backend feature.
+- Claude usage: one subagent per lens per round in the session, about seven
+  per round for a backend feature.
 - Granite Chief adds one Actions runner and one Claude session to every
   patrolled PR, on top of Mainline. That is the only ongoing cost.
 
