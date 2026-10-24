@@ -51,24 +51,25 @@ jobs:
           --health-retries 10
     steps:
       # Templates and forwarder come from the default branch, never from the pull request.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: b2b
           persist-credentials: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: repo
           ref: ${{ inputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       # The agent runs pull request code; a cache it saved would be restored by trusted builds.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: repo/go.mod
           cache: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
+          package-manager-cache: false
       - run: npm install -g @anthropic-ai/claude-code@${{ env.CLAUDE_CODE_VERSION }}
       - run: cp b2b/.basetobase/ci/local.yml repo/local.yml
       - run: exec node b2b/basetobase/forwarder/src/main.ts
