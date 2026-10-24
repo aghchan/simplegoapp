@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "simplegoapp": {
+      "source": {
+        "source": "github",
+        "repo": "aghchan/simplegoapp",
+        "ref": "claude/cicd-always-on-agent-q922hp"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "standard@simplegoapp": true
+  }
+}
