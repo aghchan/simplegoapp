@@ -2,6 +2,11 @@
 
 **Status:** draft, for the owner's review.
 
+**Part 1 of 3** of the development standard every project cloned from this
+repo follows (owner). Part 2 is the iOS standard and starter. Part 3 is
+making clones work: reusable CI, Base to Base watching every project, and
+the regular upgrade.
+
 ## 1. Intent
 
 Every change bigger than a simple bug fix gets a written system design
@@ -9,7 +14,12 @@ before its first line of code. The design follows one template. The
 patrol's specialists challenge it the way they challenge PRs today, and
 Claude answers them in a loop until they all agree. Anything the design
 never decided goes to the owner, who signs off on the result. The code PR
-is then held to that design.
+is then held to that design. Only the owner can let a change skip it, in
+an emergency (§8).
+
+This repo is the base every future project is cloned from (owner). Every
+project follows this standard exactly, with no rules of its own, and
+upgrades by taking this repo's newest release (owner, §9).
 
 Why: Base to Base checks a change only after it exists. By then, a wrong
 call on scale, infrastructure or how the change fits the existing code is
@@ -26,7 +36,9 @@ The flow, start to finish:
    owner (§6).
 4. **Sign-off.** The owner approves; the design lands on main (§7).
 5. **Plan and build.** `superpowers:writing-plans`, then implementation.
-6. **PR check.** Granite Chief holds the code PR to its design (§8).
+6. **PR check.** Granite Chief holds the code PR to its design. In an
+   emergency the owner can waive a missing design, and only the owner
+   (§8).
 
 **Success looks like:**
 
@@ -39,6 +51,8 @@ The flow, start to finish:
   specialists.
 - A code PR that drifts from its design fails, the same way a PR with an
   open hazard fails.
+- A project cloned from this base has the whole flow without setting
+  anything up, and gets each improvement by taking the newest release.
 
 ## 2. Goals, non-goals, anti-goals
 
@@ -46,22 +60,31 @@ The flow, start to finish:
 
 1. A system design template with a full and a short size (§4).
 2. One design-review prompt per specialist, in the patrol's style (§5).
-3. A project skill that runs the challenge loop in a Claude Code session
-   (§6).
-4. A rule, in the root CLAUDE.md, that anything bigger than a simple bug
-   fix needs an approved design first (§3).
+3. A skill that runs the challenge loop in a Claude Code session (§6).
+4. The rule that anything bigger than a simple bug fix needs an approved
+   design first (§3), stated at the start of every session.
 5. Granite Chief on the PR patrol, holding each PR to its design (§8).
+6. An emergency bypass that only the owner can grant (§8).
+7. All of it delivered as a Claude Code plugin published from this repo,
+   so a project gets the flow by enabling it and upgrades by updating it
+   (owner, §9).
 
 **Non-goals**
 
 - A design run inside Base to Base, with specialists on Actions runners
-  and the challenges on the dashboard. That was approach B (§10). It waits
+  and the challenges on the dashboard. That was approach B (§11). It waits
   for the huddle (milestone M3). The prompts here are written so it can
   reuse them unchanged.
-- Apps built from the simplegoapp template, such as recruiter. This covers
-  simplegoapp itself, Base to Base included.
-- Changing the superpowers plugin. It is external; the repo's own skill
-  and CLAUDE.md take precedence over it.
+- Base to Base watching other repos, reusable CI workflows, and the bot
+  that keeps projects on the newest release. Those belong to part 3. Until
+  then, the PR check (§8) runs on this repo.
+- Swift rules for the specialists, and screen design for iOS. Those belong
+  to part 2. This part writes the lenses so a language's rules sit in their
+  own block (§5).
+- Rules of a project's own. Every project follows the standard exactly
+  (owner).
+- Changing the superpowers plugin. It is external; this standard's rules
+  take precedence over it (§3).
 
 **Anti-goals — failures even if everything works**
 
@@ -94,15 +117,21 @@ it asks the owner before deciding.
   sections are not "None" **(designer's call)**. Claude names the panel and
   why in the review record, and the owner can add anyone.
 
-The rule goes in the root CLAUDE.md, which every session reads. It also
-points `docs/BEST_PRACTICES.md` §9 (the new-feature checklist) at the
+The rule reaches every session through the plugin (§9). A session-start
+hook states it, together with the standard's other rules: the design comes
+first, and this standard's loop wins over `superpowers:brainstorming`'s
+builder check. A project's own CLAUDE.md never needs a copy of it.
+`docs/BEST_PRACTICES.md` §9 (the new-feature checklist) points at the
 flow.
+
+In a session, Claude never skips the design on its own. If the owner says
+a change is an emergency, Claude builds it without one and says the PR
+will need the owner's bypass (§8).
 
 ## 4. The template
 
-`docs/superpowers/templates/system-design.md` **(designer's call)**. A
-finished design is saved as
-`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, as today.
+The template ships in the plugin (§9). A finished design is saved in the
+project as `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, as today.
 
 Header: title, size (full or short), status (draft, in review, approved
 YYYY-MM-DD), and a link to the conversation or issue it came from.
@@ -151,12 +180,17 @@ reason.
 
 ## 5. The specialists' design lenses
 
-One prompt per specialist in `.basetobase/design/<role-id>.md`, plus a
-shared `.basetobase/design/_challenge.md` (stance and output contract),
-mirroring `.basetobase/patrol/` **(designer's call)**. The roles, prefixes
-and names come from the roster (basetobase/config/basetobase.json). Each
-file follows the patrol's house style: one imperative rule per line, at
-most about 40 lines.
+One prompt per specialist, plus a shared `_challenge.md` (stance and output
+contract), all shipped in the plugin (§9) and laid out like
+`.basetobase/patrol/` **(designer's call)**. The roles, prefixes and names
+come from the roster (basetobase/config/basetobase.json). Each file
+follows the patrol's house style: one imperative rule per line, at most
+about 40 lines.
+
+Rules that depend on a language sit in their own block in each lens, such
+as Go's dependency directions in Corduroy's **(designer's call)**. A
+specialist applies the blocks for the languages the design touches. Part 2
+adds the Swift blocks.
 
 | Specialist | Prefix | Challenges in the design |
 |---|---|---|
@@ -173,7 +207,7 @@ most about 40 lines.
 The builder lens is `superpowers:brainstorming`'s builder check, moved into
 the loop so it re-checks every revision like the others
 **(designer's call)**. It is a design-only lens, not a roster role: it never
-reviews PRs. It lives at `.basetobase/design/builder.md`.
+reviews PRs. It ships in the plugin with the other lenses.
 
 `_challenge.md` carries the patrol's adversarial stance (from
 `patrol/_verdict.md`), adapted to a document:
@@ -208,8 +242,8 @@ call)**:
 
 ## 6. The challenge loop (owner)
 
-A project skill, `.claude/skills/system-design/SKILL.md`
-**(designer's call)**, runs it in the session:
+The plugin's `system-design` skill **(designer's call)** runs it in the
+session:
 
 1. **Draft.** Claude fills in the template from the agreed what and why,
    reading the code each section touches.
@@ -249,8 +283,7 @@ INF, SEC, FUN, BLD clear on revision N".
 
 The builder lens (§5) takes the place of `superpowers:brainstorming`'s
 separate builder check for designs that go through this loop
-**(designer's call)**. The root CLAUDE.md says so, which makes it win over
-the plugin.
+**(designer's call)**. The plugin's session-start rules say so (§3).
 
 ## 7. Sign-off
 
@@ -320,28 +353,79 @@ A PR that touches Base to Base's own files is unpatrolled until M5
 (`unpatrolledGlobs`), so for those changes only the session rule (§3)
 applies.
 
-## 9. What this adds and costs
+**Emergency bypass (owner).** Only the owner can let a PR skip its design:
+- **Where:** the run's page on the Base to Base dashboard. Its sign-in is
+  the owner's own GitHub login, which Claude cannot use. A comment or a
+  line in the PR wouldn't do: Claude opens PRs and comments under the
+  owner's GitHub account, so the patrol couldn't tell the owner from
+  Claude.
+- **The control:** a run with Granite Chief's missing-design finding shows
+  "Bypass design (emergency)". It is the dashboard's
+  existing owner-only, same-origin API. It asks for no reason (owner).
+- **What it waives:** that one finding on that one PR. Every other hazard
+  and failure still counts, and Granite Chief's other rules still apply.
+- **Record:** the run records the bypass and its time, and the check run
+  says so.
+- **Owed design (designer's call, owner approved):** a bypassed change owes
+  a short design written after the fact, naming the PR, so its decisions
+  still get challenged. The dashboard lists bypasses whose design is still
+  owed, and an entry clears when that design lands.
+
+## 9. Delivery and upgrades (owner)
+
+The flow ships as a Claude Code plugin published from this repo
+**(designer's call, within the owner's choice of remote references)**:
+- **Contents:** the template, the lenses with `_challenge.md`, the
+  `system-design` skill, and the session-start hook carrying the rules
+  (§3).
+- **This repo** hosts the marketplace that lists the plugin.
+- **A project** enables it in its `.claude/settings.json`, and every
+  session there gets the flow. A project holds no copies of any of it.
+- **This repo** enables its own plugin the same way.
+
+**Upgrades (owner).** Projects keep up by taking this repo's newest release.
+Releases are version tags with a short upgrade note **(designer's call)**.
+Part 3 adds the weekly bot that moves each project to the newest release
+through a PR, so each upgrade passes the project's own CI before it lands.
+Until then, updating the plugin is one command.
+
+**Spike first (designer's call):** confirm that a plugin enabled in a
+repo's settings installs itself in a Claude Code cloud session, without
+anyone confirming it. If it doesn't, settle the fallback before building
+the rest. The fallback might be a setup hook in the project or an
+account-level install.
+
+**Patrol prompts stay in this repo.** The design lenses ship in the plugin,
+and the PR patrol's prompts (`.basetobase/patrol/`, Granite Chief's
+included) stay where Base to Base reads them. Reading them for other
+repos is part 3.
+
+## 10. What this adds and costs
 
 **New files:**
-- the template
-- eight specialist lenses, the builder lens and `_challenge.md`
-- the skill
+- the plugin, with its marketplace entry: the template, eight specialist
+  lenses, the builder lens and `_challenge.md`, the skill, and the
+  session-start hook
 - Granite Chief's patrol template
 
 **Edits:**
-- the root CLAUDE.md
+- `.claude/settings.json`, which enables the plugin here
 - `docs/BEST_PRACTICES.md` §9
-- `.basetobase/CLAUDE.md`, which gains the design folder
 - `enabledRoles`
+- Dispatch and the dashboard: the bypass (an API route, a machine
+  transition that waives one finding, the run's record, the owed-designs
+  list)
 
 **Cost:**
-- No new services or hosting.
+- No new services or hosting. The plugin is served from this GitHub repo.
 - Claude usage: one subagent per lens per round in the session, about seven
   per round for a backend feature.
 - Granite Chief adds one Actions runner and one Claude session to every
   patrolled PR, on top of Mainline. That is the only ongoing cost.
 
-## 10. Approaches (owner picked A)
+## 11. Approaches
+
+**The loop (owner picked A):**
 
 - **A. The loop runs in the Claude Code session (picked).**
   - How: a repo skill starts the specialists as subagents, Claude answers
@@ -363,7 +447,18 @@ applies.
   file. It isn't versioned with the code, and the PR check couldn't read it
   from the default branch.
 
-## 11. Left to the builder
+**Delivery to projects (owner picked remote references):**
+- **Remote references (picked).** CI calls this repo's workflows, the flow
+  is a plugin, and Base to Base reads prompts from this repo. Nothing is
+  copied. The owner accepted keeping several references current, which the
+  regular upgrade handles.
+- **Synced copies.** A tool in this repo writes the standard's files into
+  each project at the version in its `go.mod`, and CI blocks local edits.
+  It had one version pin, but left copies in every project.
+- **Git submodule.** Ruled out: GitHub won't run workflows from a
+  submodule, and Claude Code won't load skills from one.
+
+## 12. Left to the builder
 
 - How a specialist subagent is prompted beyond its lens and
   `_challenge.md`, and which model it runs on (the session's by default).
@@ -373,3 +468,8 @@ applies.
   e.g. `git show origin/<default>:<path>` in the PR checkout, which is
   fetched with full history.
 - The exact wording of every prompt, within the house style.
+- How Dispatch recognises the missing-design finding it may waive, e.g. a
+  fixed hazard id or title from Granite Chief's template.
+- How an after-the-fact design names the PR it covers, and how the owed
+  list learns it has landed.
+- The plugin's name and layout.
