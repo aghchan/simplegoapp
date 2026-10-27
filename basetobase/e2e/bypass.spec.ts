@@ -50,9 +50,17 @@ test("a: the owner bypasses the missing-design finding, and the design owed clea
   expect(Date.now() - sent).toBeLessThanOrEqual(LIVE_MS);
   await expect(prLink(group(page, "Swept · patrol done"), pr)).toBeVisible({ timeout: LIVE_MS });
   await expect(prLink(group(page, "Wind hold · needs you"), pr)).toHaveCount(0);
+  // The check GitHub reads says the pass is the owner's bypass, in its title and its summary.
   await expect
     .poll(() => newestCheckOn(pull.head.sha), { timeout: LIVE_MS })
-    .toMatchObject({ status: "completed", conclusion: "success" });
+    .toMatchObject({
+      status: "completed",
+      conclusion: "success",
+      output: {
+        title: "All clear · design bypassed",
+        summary: expect.stringContaining("Design bypassed"),
+      },
+    });
   await expect(prLink(group(page, "Designs owed"), pr)).toBeVisible({ timeout: LIVE_MS });
   await expect(bypass).toHaveCount(0);
   await screenshot(page, testInfo, "bypass-a-owed");

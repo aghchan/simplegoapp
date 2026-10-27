@@ -814,6 +814,7 @@ describe("RunDO", () => {
             head_sha: "head58",
             status: "completed",
             conclusion: "success",
+            output: expect.objectContaining({ title: "All clear · design bypassed" }),
           }),
         },
         { method: "PATCH", body: expect.objectContaining({ conclusion: "skipped" }) },

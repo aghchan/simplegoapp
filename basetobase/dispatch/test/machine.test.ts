@@ -1408,8 +1408,41 @@ describe("bypassDesign", () => {
       { type: "check" },
     ]);
     const check = checkRunOf(state, PUBLIC);
-    expect(check).toMatchObject({ status: "completed", conclusion: "success" });
+    // The PR's checks list shows the title, so a bypassed pass never reads as a plain one.
+    expect(check).toMatchObject({
+      status: "completed",
+      conclusion: "success",
+      output: { title: "All clear · design bypassed" },
+    });
     expect(check.output.summary).toContain("Design bypassed by the owner");
+  });
+
+  it("keeps the bypassed title once the run is stopped or has landed", () => {
+    const bypassed = bypass(sweptOn(NO_DESIGN_TITLE)).state;
+    for (const s of [
+      stopRun(bypassed, "PR closed", 6000).state,
+      landRun(bypassed, MERGE_SHA, 6000).state,
+    ]) {
+      expect(checkRunOf(s, PUBLIC)).toMatchObject({
+        conclusion: "success",
+        output: { title: "All clear · design bypassed" },
+      });
+    }
+  });
+
+  it("waives only the first missing-design finding: a second one still holds the review", () => {
+    const { state } = bypass(sweptOn(NO_DESIGN_TITLE, NO_DESIGN_TITLE));
+    expect(reviewOutcome(state)).toBe("hazards");
+    const check = checkRunOf(state, PUBLIC);
+    expect(check).toMatchObject({ conclusion: "failure", output: { title: "1 hazard flagged" } });
+    expect(check.output.summary).toContain(`**GOAL-2** ${NO_DESIGN_TITLE} — Granite Chief`);
+    expect(check.output.summary).not.toContain("**GOAL-1**");
+    expect(stepOf(state, "sweep").notes.slice(0, 3)).toEqual([
+      "Hazards flagged",
+      "2 of 2 patrollers in · 1 hazard · 0 failed",
+      BYPASS_LINE,
+    ]);
+    expect(snapshotOf(state).outcome).toBe("hazards");
   });
 
   it("rewrites the sweep's Conditions report and tells the dashboard it cleared", () => {
@@ -1491,7 +1524,11 @@ describe("bypassDesign", () => {
     expect(reviewOutcome(state)).toBe("clear");
     expect(effects).toContainEqual({ type: "log", text: "all 2 sweeps in · 0 hazards" });
     expect(stepOf(state, "sweep").notes).toContain(BYPASS_LINE);
-    expect(checkRunOf(state, PUBLIC)).toMatchObject({ status: "completed", conclusion: "success" });
+    expect(checkRunOf(state, PUBLIC)).toMatchObject({
+      status: "completed",
+      conclusion: "success",
+      output: { title: "All clear · design bypassed" },
+    });
   });
 
   it("still holds a patroller that failed, until it is run again and reports", () => {

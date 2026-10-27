@@ -90,8 +90,9 @@ export async function listRuns(
 // The PRs whose design is owed, newest bypass first: those whose speaking run, the newest open
 // run else the newest landed (as the dashboard files a PR), was bypassed. A PR closed unmerged,
 // or whose speaking run passed the design gate, owes nothing. A design covers a PR once another
-// PR's run has landed in the same repo with its number on a `For:` line (`covers`); the commas
-// keep #5 from covering #58, and a PR never covers itself. A NULL `covers` matches nothing.
+// PR's run has landed in the same repo, its review clear, with its number on a `For:` line
+// (`covers`); a design merged past a failing or unfinished review covers nothing. The commas keep
+// #5 from covering #58, and a PR never covers itself. A NULL `covers` matches nothing.
 export async function listOwedDesigns(db: D1Database): Promise<OwedDesign[]> {
   const { results } = await db
     .prepare(
@@ -102,7 +103,8 @@ export async function listOwedDesigns(db: D1Database): Promise<OwedDesign[]> {
              FROM runs WHERE ${OPEN} OR status = 'landed') AS speaker
        WHERE speaking = 1 AND design_bypassed_at IS NOT NULL AND NOT EXISTS (
          SELECT 1 FROM runs AS design
-         WHERE design.status = 'landed' AND design.repo = speaker.repo
+         WHERE design.status = 'landed' AND design.outcome = 'clear'
+           AND design.repo = speaker.repo
            AND design.pr_number <> speaker.pr_number
            AND ',' || design.covers || ',' LIKE '%,' || speaker.pr_number || ',%')
        ORDER BY design_bypassed_at DESC, id`,

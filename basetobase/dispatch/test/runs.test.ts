@@ -244,7 +244,8 @@ describe("designs owed", () => {
       ...over,
     });
 
-  // A run of a design PR, whose description says which PRs it is for.
+  // A run of a design PR, whose description says which PRs it is for, its review clear unless
+  // `over` says otherwise.
   const design = (
     id: string,
     status: RunStatus,
@@ -254,6 +255,7 @@ describe("designs owed", () => {
     indexRun(id, status, 1, {
       prNumber: 900,
       goal: ["Design after the fact", ...covers.map((pr) => `For: #${pr}`)].join("\n"),
+      outcome: "clear",
       ...over,
     });
 
@@ -275,6 +277,18 @@ describe("designs owed", () => {
     await design("landed", "landed", [58], { prNumber: 902 });
     expect(await listOwedDesigns(env.DB)).toEqual([]);
   });
+
+  // A design PR merged past a failing or unfinished review never passed the design gate.
+  it.each<ReviewOutcome>(["hazards", "failed", "pending", "none"])(
+    "a landed design whose review is %s covers nothing",
+    async (outcome) => {
+      await bypassed("code", 58, 100);
+      await design("landed", "landed", [58], { outcome });
+      expect(await owed()).toEqual([58]);
+      await design("clear", "landed", [58], { prNumber: 901 });
+      expect(await owed()).toEqual([]);
+    },
+  );
 
   // Only the run that speaks for a PR can owe its design: the newest open run, else the newest
   // landed. A bypass on any other run is no longer the PR's.

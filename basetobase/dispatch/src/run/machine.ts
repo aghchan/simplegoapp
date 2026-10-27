@@ -509,8 +509,11 @@ export function checkRunOf(s: RunState, publicUrl: string): CheckRunBody {
         conclusion: "neutral",
         output: output(OUTCOME_LABELS.none),
       };
-    case "clear":
-      return { ...base, status: "completed", conclusion: "success", output: output("All clear") };
+    // The PR's checks list shows the title, so a pass the owner's bypass made says so there.
+    case "clear": {
+      const title = s.designBypassedAt === undefined ? "All clear" : "All clear · design bypassed";
+      return { ...base, status: "completed", conclusion: "success", output: output(title) };
+    }
     case "hazards":
     case "failed":
       return {
@@ -700,16 +703,18 @@ function sweepsOf(s: RunState): AgentSnapshot[] {
   return s.agents.filter((agent) => agent.step === "sweep");
 }
 
-// The one hazard the owner's bypass can waive: Granite Chief's missing-design finding.
+// A hazard the owner's bypass can waive: Granite Chief's missing-design finding.
 function waivable(agent: AgentSnapshot, hazard: Hazard): boolean {
   return agent.role === "granite-chief" && hazard.title === NO_DESIGN_TITLE;
 }
 
 // The agent's hazards that still count against the review: all of them, less the one the owner has
-// waived. Every pass or fail reads these, never `agent.hazards`.
+// waived, Granite Chief's first missing-design finding. A second of that title stays open. Every
+// pass or fail reads these, never `agent.hazards`.
 function openHazards(s: RunState, agent: AgentSnapshot): Hazard[] {
   if (s.designBypassedAt === undefined) return agent.hazards;
-  return agent.hazards.filter((hazard) => !waivable(agent, hazard));
+  const waived = agent.hazards.findIndex((hazard) => waivable(agent, hazard));
+  return agent.hazards.filter((_hazard, index) => index !== waived);
 }
 
 function openHazardCount(s: RunState, agents: AgentSnapshot[]): number {
