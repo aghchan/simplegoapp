@@ -4,11 +4,13 @@ import {
   type Panel,
   type RoleId,
 } from "../../../shared/src/config.ts";
+import { NO_DESIGN_TITLE } from "../../../shared/src/design.ts";
 import { OUTCOME_LABELS, RATING_LABELS, STEP_ORDER } from "../../../shared/src/labels.ts";
 import type { Triage } from "../../../shared/src/triage.ts";
 import type {
   AgentBrief,
   AgentSnapshot,
+  Hazard,
   ReviewOutcome,
   RunSnapshot,
   StepId,
@@ -364,6 +366,43 @@ export function retryAgents(
   };
 }
 
+// Whether the owner's bypass has something to waive: an open run whose Granite Chief has reported
+// the missing-design hazard, and no bypass yet. A stopped or landed run no longer speaks for its
+// PR.
+export function canBypassDesign(s: RunState): boolean {
+  if (s.status !== "on_the_hill" && s.status !== "swept") return false;
+  if (s.designBypassedAt !== undefined) return false;
+  return s.agents.some((agent) => agent.hazards.some((hazard) => waivable(agent, hazard)));
+}
+
+// The owner's emergency bypass of the missing-design finding, on this run only. It waives that one
+// hazard of Granite Chief's and nothing else, so every other hazard and every failed agent still
+// fails the review. A completed check run cannot be changed, so a new one is posted.
+export function bypassDesign(s: RunState, now: number): Transition {
+  if (!canBypassDesign(s)) return unchanged(s);
+  const bypassed: RunState = {
+    ...s,
+    designBypassedAt: now,
+    checkReposts: (s.checkReposts ?? 0) + 1,
+    updatedAt: now,
+  };
+  // A closed sweep wrote its Conditions report when it closed: that report must now say what the
+  // review found. An open one writes it when it closes.
+  const sweepClosed = s.steps.find((step) => step.id === "sweep")?.status === "done";
+  const state = sweepClosed
+    ? patchStep(bypassed, "sweep", { notes: conditionsReport(bypassed) })
+    : bypassed;
+  return {
+    state,
+    effects: [
+      { type: "log", text: "design bypassed by the owner" },
+      { type: "index" },
+      { type: "broadcast" },
+      { type: "check" },
+    ],
+  };
+}
+
 // GitHub merged the PR on the run's head. Until M4 deploys, that is the end of the line.
 export function landRun(s: RunState, mergeSha: string, now: number): Transition {
   if (s.status === "landed") return unchanged(s);
@@ -492,9 +531,10 @@ export function reviewOutcome(s: RunState): ReviewOutcome {
   if (sweeps.some((agent) => agent.status === "error" || agent.status === "stopped")) {
     return "failed";
   }
-  if (sweeps.some((agent) => agent.status === "hazards" || agent.hazards.length > 0)) {
-    return "hazards";
-  }
+  // What the owner waived no longer counts. A hazards verdict that lists none has nothing to waive.
+  const flagged = (agent: AgentSnapshot) =>
+    openHazards(s, agent).length > 0 || (agent.status === "hazards" && agent.hazards.length === 0);
+  if (sweeps.some(flagged)) return "hazards";
   return sweeps.length === 0 ? "none" : "clear";
 }
 
@@ -523,6 +563,7 @@ export function snapshotOf(s: RunState): RunSnapshot {
     status: s.status,
     outcome,
     ...(s.mergeSha === undefined ? {} : { mergeSha: s.mergeSha }),
+    ...(s.designBypassedAt === undefined ? {} : { designBypassedAt: s.designBypassedAt }),
     steps: s.steps.map((step) => (step.id === "sweep" ? { ...step, outcome } : step)),
     agents: s.agents,
     createdAt: s.createdAt,
@@ -659,22 +700,45 @@ function sweepsOf(s: RunState): AgentSnapshot[] {
   return s.agents.filter((agent) => agent.step === "sweep");
 }
 
-// The outcome once there is one, a tally of the sweep, then each patroller's summary, which for a
-// failed one is the reason.
+// The one hazard the owner's bypass can waive: Granite Chief's missing-design finding.
+function waivable(agent: AgentSnapshot, hazard: Hazard): boolean {
+  return agent.role === "granite-chief" && hazard.title === NO_DESIGN_TITLE;
+}
+
+// The agent's hazards that still count against the review: all of them, less the one the owner has
+// waived. Every pass or fail reads these, never `agent.hazards`.
+function openHazards(s: RunState, agent: AgentSnapshot): Hazard[] {
+  if (s.designBypassedAt === undefined) return agent.hazards;
+  return agent.hazards.filter((hazard) => !waivable(agent, hazard));
+}
+
+function openHazardCount(s: RunState, agents: AgentSnapshot[]): number {
+  return agents.reduce((total, agent) => total + openHazards(s, agent).length, 0);
+}
+
+// The outcome once there is one, a tally of the sweep, the owner's bypass if made, then each
+// patroller's summary, which for a failed one is the reason.
 function conditionsReport(s: RunState): string[] {
   const outcome = reviewOutcome(s);
   const sweeps = sweepsOf(s);
   // In with a verdict or a failure; a stopped agent never came in.
   const reported = sweeps.filter((agent) => isTerminal(agent) && agent.status !== "stopped").length;
-  const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  const hazards = openHazardCount(s, sweeps);
   const failed = sweeps.filter((agent) => agent.status === "error").length;
   const tally =
     `${reported} of ${counted(sweeps.length, "patroller")} in · ` +
     `${counted(hazards, "hazard")} · ${failed} failed`;
+  const bypass =
+    s.designBypassedAt === undefined ? [] : ["Design bypassed by the owner (emergency)."];
   const summaries = sweeps.flatMap((agent) =>
     agent.summary ? [`${nameOf(s, agent)}: ${agent.summary}`] : [],
   );
-  return [...(outcome === "pending" ? [] : [OUTCOME_LABELS[outcome]]), tally, ...summaries];
+  return [
+    ...(outcome === "pending" ? [] : [OUTCOME_LABELS[outcome]]),
+    tally,
+    ...bypass,
+    ...summaries,
+  ];
 }
 
 function nameOf(s: RunState, agent: AgentSnapshot): string {
@@ -685,7 +749,7 @@ function nameOf(s: RunState, agent: AgentSnapshot): string {
 // answer.
 function failureTitle(s: RunState): string {
   const sweeps = sweepsOf(s);
-  const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  const hazards = openHazardCount(s, sweeps);
   const flagged = hazards > 0 ? [`${counted(hazards, "hazard")} flagged`] : [];
   const failed = sweeps.find((agent) => agent.status === "error" || agent.status === "stopped");
   const why = failed
@@ -699,7 +763,9 @@ function failureTitle(s: RunState): string {
 // The Conditions report, each hazard, and the dashboard link, which a cut never drops.
 function checkSummary(s: RunState, details: string): string {
   const hazards = s.agents.flatMap((agent) =>
-    agent.hazards.map((hazard) => `**${hazard.id}** ${hazard.title} — ${nameOf(s, agent)}`),
+    openHazards(s, agent).map(
+      (hazard) => `**${hazard.id}** ${hazard.title} — ${nameOf(s, agent)}`,
+    ),
   );
   const link = `[Open ${s.runName} on the dashboard](${details})`;
   const body = [...conditionsReport(s), ...hazards].join("\n\n");
@@ -718,7 +784,7 @@ function closeSweepIfDone(s: RunState, now: number, earned: Effect[] = []): Tran
   const swept = sweptState(s, now);
   if (!swept) return { state: s, effects: [...earned, { type: "broadcast" }, { type: "check" }] };
   const sweeps = swept.agents.filter((agent) => agent.step === "sweep");
-  const hazards = sweeps.reduce((total, agent) => total + agent.hazards.length, 0);
+  const hazards = openHazardCount(swept, sweeps);
   // A sweep with errors must not read as clean: an agent that never reported found no hazards.
   const errors = sweeps.filter((agent) => agent.status === "error").length;
   const failures = errors > 0 ? ` · ${errors} failed` : "";

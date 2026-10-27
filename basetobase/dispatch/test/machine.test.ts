@@ -6,6 +6,7 @@ import {
   type B2BConfig,
   type RoleId,
 } from "../../shared/src/config.ts";
+import { NO_DESIGN_TITLE } from "../../shared/src/design.ts";
 import { RATING_LABELS, STEP_ORDER } from "../../shared/src/labels.ts";
 import type { Triage } from "../../shared/src/triage.ts";
 import type {
@@ -21,6 +22,8 @@ import {
   JOB_START_MS,
   STALL_MS,
   briefOf,
+  bypassDesign,
+  canBypassDesign,
   checkRunOf,
   createRun,
   landRun,
@@ -158,6 +161,31 @@ function report(s: RunState, role: RoleId, outcome: Outcome, now: number): Trans
 // The patrol run once Granite Chief and then KT-22 have reported.
 const sweptBy = (granite: Outcome, kt: Outcome): RunState =>
   report(report(patrolRun(), "granite-chief", granite, 2000).state, "kt-22", kt, 2500).state;
+
+// A patroller's verdict with one hazard for each title: clear when there are none.
+function verdictTitled(role: RoleId, ...titles: string[]): Verdict {
+  const { prefix } = rosterEntry(config, role);
+  return {
+    role,
+    headSha: "head58",
+    status: titles.length === 0 ? "clear" : "hazards",
+    hazards: titles.map((title, index) => ({
+      id: `${prefix}-${index + 1}`,
+      title,
+      detail: `Detail of ${title}`,
+    })),
+    summary: titles.length === 0 ? "Nothing found." : `${titles.length} found.`,
+  };
+}
+
+// The patrol run once Granite Chief has reported hazards with these titles and KT-22 clear.
+const sweptOn = (...granite: string[]): RunState =>
+  onVerdict(
+    onVerdict(patrolRun(), GRANITE, verdictTitled("granite-chief", ...granite), 2000).state,
+    KT,
+    verdictTitled("kt-22"),
+    2500,
+  ).state;
 
 // A sweep closed around a stopped agent, hand-built as in "an agent that is stopped".
 function closedAroundStopped(): RunState {
@@ -1355,6 +1383,205 @@ describe("retryAgents", () => {
   });
 });
 
+describe("bypassDesign", () => {
+  const PUBLIC = "https://b2b.example";
+  const BYPASSED_AT = 5000;
+  const BYPASS_LINE = "Design bypassed by the owner (emergency).";
+  const bypass = (s: RunState) => bypassDesign(s, BYPASSED_AT);
+  // Granite Chief has reported hazards with these titles and KT-22 is still out.
+  const graniteIn = (...titles: string[]): RunState =>
+    onVerdict(patrolRun(), GRANITE, verdictTitled("granite-chief", ...titles), 2000).state;
+
+  it("waives the missing-design finding, and the review clears", () => {
+    const before = sweptOn(NO_DESIGN_TITLE);
+    expect(reviewOutcome(before)).toBe("hazards");
+    const { state, effects } = bypass(before);
+    expect(reviewOutcome(state)).toBe("clear");
+    expect(state.designBypassedAt).toBe(BYPASSED_AT);
+    expect(state.updatedAt).toBe(BYPASSED_AT);
+    // A completed check run is replaced, not edited: the repost is owed.
+    expect(state.checkReposts).toBe(1);
+    expect(effects).toEqual([
+      { type: "log", text: "design bypassed by the owner" },
+      { type: "index" },
+      { type: "broadcast" },
+      { type: "check" },
+    ]);
+    const check = checkRunOf(state, PUBLIC);
+    expect(check).toMatchObject({ status: "completed", conclusion: "success" });
+    expect(check.output.summary).toContain("Design bypassed by the owner");
+  });
+
+  it("rewrites the sweep's Conditions report and tells the dashboard it cleared", () => {
+    const { state } = bypass(sweptOn(NO_DESIGN_TITLE));
+    expect(stepOf(state, "sweep").notes).toEqual([
+      "Patrol clear · review passed",
+      "2 of 2 patrollers in · 0 hazards · 0 failed",
+      BYPASS_LINE,
+      "Granite Chief: 1 found.",
+      "KT-22: Nothing found.",
+    ]);
+    const snapshot = snapshotOf(state);
+    expect(snapshot).toMatchObject({ outcome: "clear", designBypassedAt: BYPASSED_AT });
+    expect(snapshot.steps.find((step) => step.id === "sweep")?.outcome).toBe("clear");
+  });
+
+  it("no longer lists the waived hazard on the check", () => {
+    const { state } = bypass(sweptOn(NO_DESIGN_TITLE));
+    expect(checkRunOf(state, PUBLIC).output.summary).not.toContain(NO_DESIGN_TITLE);
+  });
+
+  it("leaves every other hazard standing", () => {
+    const { state } = bypass(sweptOn(NO_DESIGN_TITLE, "Something else"));
+    expect(reviewOutcome(state)).toBe("hazards");
+    const check = checkRunOf(state, PUBLIC);
+    expect(check).toMatchObject({ status: "completed", conclusion: "failure" });
+    expect(check.output.title).toBe("1 hazard flagged");
+    expect(check.output.summary).toContain("**GOAL-2** Something else — Granite Chief");
+    expect(check.output.summary).not.toContain(NO_DESIGN_TITLE);
+    expect(stepOf(state, "sweep").notes.slice(0, 3)).toEqual([
+      "Hazards flagged",
+      "2 of 2 patrollers in · 1 hazard · 0 failed",
+      BYPASS_LINE,
+    ]);
+  });
+
+  it("waives only Granite Chief's", () => {
+    const kt = onVerdict(
+      report(patrolRun(), "granite-chief", "clear", 2000).state,
+      KT,
+      verdictTitled("kt-22", NO_DESIGN_TITLE),
+      2500,
+    ).state;
+    expect(reviewOutcome(kt)).toBe("hazards");
+    expect(canBypassDesign(kt)).toBe(false);
+    expectUnchanged(kt, bypass(kt));
+    expect(reviewOutcome(bypass(kt).state)).toBe("hazards");
+  });
+
+  it("waives Granite Chief's and not another patroller's with the same title", () => {
+    const both = onVerdict(
+      graniteIn(NO_DESIGN_TITLE),
+      KT,
+      verdictTitled("kt-22", NO_DESIGN_TITLE),
+      2500,
+    ).state;
+    expect(canBypassDesign(both)).toBe(true);
+    const { state } = bypass(both);
+    expect(reviewOutcome(state)).toBe("hazards");
+    expect(checkRunOf(state, PUBLIC).output.title).toBe("1 hazard flagged");
+    expect(checkRunOf(state, PUBLIC).output.summary).toContain(
+      `**SEC-1** ${NO_DESIGN_TITLE} — KT-22`,
+    );
+  });
+
+  it("a bypass made while the sweep is out applies when it closes", () => {
+    const out = graniteIn(NO_DESIGN_TITLE);
+    expect(canBypassDesign(out)).toBe(true);
+    const bypassed = bypass(out);
+    expect(bypassed.state.status).toBe("on_the_hill");
+    expect(reviewOutcome(bypassed.state)).toBe("pending");
+    expect(effectTypes(bypassed.effects)).toEqual(["log", "index", "broadcast", "check"]);
+    const open = checkRunOf(bypassed.state, PUBLIC);
+    expect(open.status).toBe("in_progress");
+    expect(open.output.summary).toContain(BYPASS_LINE);
+
+    const { state, effects } = onVerdict(bypassed.state, KT, verdictTitled("kt-22"), 6000);
+    expect(state.status).toBe("swept");
+    expect(reviewOutcome(state)).toBe("clear");
+    expect(effects).toContainEqual({ type: "log", text: "all 2 sweeps in · 0 hazards" });
+    expect(stepOf(state, "sweep").notes).toContain(BYPASS_LINE);
+    expect(checkRunOf(state, PUBLIC)).toMatchObject({ status: "completed", conclusion: "success" });
+  });
+
+  it("still holds a patroller that failed, until it is run again and reports", () => {
+    const failed = onFailure(graniteIn(NO_DESIGN_TITLE), KT, "boom", 2500).state;
+    const bypassed = bypass(failed).state;
+    expect(reviewOutcome(bypassed)).toBe("failed");
+    let s = retryAgents(bypassed, { agentId: KT }, 6000, () => "fresh").state;
+    s = onVerdict(onDispatched(s, KT, 6100).state, KT, verdictTitled("kt-22"), 6200).state;
+    expect(s.designBypassedAt).toBe(BYPASSED_AT);
+    expect(reviewOutcome(s)).toBe("clear");
+  });
+
+  it("keeps waiving the finding if Granite Chief is run again and reports it again", () => {
+    // Hand-built: no transition fails a Granite Chief that has reported, but the bypass belongs to
+    // the run, not to the verdict it was made on.
+    const bypassed = bypass(sweptOn(NO_DESIGN_TITLE)).state;
+    const failed: RunState = {
+      ...bypassed,
+      agents: bypassed.agents.map((agent) =>
+        agent.id === GRANITE ? { ...agent, status: "error", summary: "boom" } : agent,
+      ),
+    };
+    expect(reviewOutcome(failed)).toBe("failed");
+    let s = retryAgents(failed, { agentId: GRANITE }, 6000, () => "fresh").state;
+    s = onDispatched(s, GRANITE, 6100).state;
+    s = onVerdict(s, GRANITE, verdictTitled("granite-chief", NO_DESIGN_TITLE), 6200).state;
+    expect(reviewOutcome(s)).toBe("clear");
+  });
+
+  describe("is refused", () => {
+    it.each<[string, () => RunState]>([
+      ["with no finding", () => sweptOn()],
+      ["with only other findings", () => sweptOn("Something else")],
+      ["once bypassed", () => bypass(sweptOn(NO_DESIGN_TITLE)).state],
+      ["once bypassed, while the sweep is out", () => bypass(graniteIn(NO_DESIGN_TITLE)).state],
+      ["on a stopped run", () => stopRun(sweptOn(NO_DESIGN_TITLE), "PR closed", 3000).state],
+      [
+        "on a run stopped mid-sweep",
+        () => stopRun(graniteIn(NO_DESIGN_TITLE), "PR closed", 3000).state,
+      ],
+      ["on a landed run", () => landRun(sweptOn(NO_DESIGN_TITLE), MERGE_SHA, 3000).state],
+      ["before Granite Chief has reported", () => patrolRun()],
+      [
+        "before Granite Chief has reported, whatever KT-22 found",
+        () => onVerdict(patrolRun(), KT, verdictTitled("kt-22", NO_DESIGN_TITLE), 2000).state,
+      ],
+      ["when Granite Chief failed", () => sweptBy("failed", "clear")],
+      [
+        "on a run with no Granite Chief",
+        () => onVerdict(runningRun(), ID, verdictTitled("mainline", NO_DESIGN_TITLE), 2000).state,
+      ],
+    ])("%s", (_name, run) => {
+      const s = run();
+      expect(canBypassDesign(s)).toBe(false);
+      expectUnchanged(s, bypass(s));
+    });
+  });
+
+  it("canBypassDesign is true for an open run with the finding, swept or not", () => {
+    expect(canBypassDesign(sweptOn(NO_DESIGN_TITLE))).toBe(true);
+    expect(canBypassDesign(sweptOn(NO_DESIGN_TITLE, "Something else"))).toBe(true);
+    expect(canBypassDesign(graniteIn(NO_DESIGN_TITLE))).toBe(true);
+  });
+
+  describe("a new push", () => {
+    it("gives a fresh run that is unbypassed", () => {
+      const s = createRun(pr, "r1", t, PATROL, CREATED_AT, counter()).state;
+      expect(s).not.toHaveProperty("designBypassedAt");
+      expect(snapshotOf(s)).not.toHaveProperty("designBypassedAt");
+    });
+
+    it("counts Granite Chief's finding again on the new run", () => {
+      const first = bypass(sweptOn(NO_DESIGN_TITLE)).state;
+      expect(reviewOutcome(first)).toBe("clear");
+      const push = { ...pr, headSha: "head59" };
+      const next = createRun(push, "r2", t, PATROL, 6000, counter()).state;
+      const reported = onVerdict(
+        onVerdict(next, GRANITE, verdictTitled("granite-chief", NO_DESIGN_TITLE), 6500).state,
+        KT,
+        verdictTitled("kt-22"),
+        6600,
+      ).state;
+      expect(reviewOutcome(reported)).toBe("hazards");
+      expect(canBypassDesign(reported)).toBe(true);
+      // The first run keeps its bypass.
+      expect(first.designBypassedAt).toBe(BYPASSED_AT);
+    });
+  });
+});
+
 describe("onRetitled", () => {
   it("takes the new title, keeping the goal the agents were briefed with", () => {
     const before = runningRun();
@@ -1677,6 +1904,12 @@ describe("snapshotOf", () => {
     const s = runningRun();
     expect(s.jobRuns).toEqual({ [ID]: "1" });
     expect(snapshotOf(s)).toEqual(publicOf(s, "pending"));
+  });
+
+  it("carries the owner's design bypass once made", () => {
+    const s = bypassDesign(sweptOn(NO_DESIGN_TITLE), 4000).state;
+    expect(snapshotOf(s)).toMatchObject({ designBypassedAt: 4000, outcome: "clear" });
+    expect(snapshotOf(s)).toEqual(publicOf(s, "clear"));
   });
 
   it("carries the merge commit once the run has landed", () => {
@@ -2069,6 +2302,13 @@ describe("purity", () => {
       4000,
       (s, now) => retryAgents(s, { step: "sweep" }, now, () => "fresh"),
     ],
+    ["bypassDesign", sweptOn(NO_DESIGN_TITLE), 4000, (s, now) => bypassDesign(s, now)],
+    [
+      "bypassDesign while the sweep is out",
+      onVerdict(patrolRun(), GRANITE, verdictTitled("granite-chief", NO_DESIGN_TITLE), 2000).state,
+      4000,
+      (s, now) => bypassDesign(s, now),
+    ],
   ];
 
   it.each(changing)("%s changes the state without touching its input", (_n, input, now, run) => {
@@ -2108,14 +2348,15 @@ describe("purity", () => {
       s = onTick(s, KT_BRIEFED_AT + STALL_MS).state;
       s = onTranscript(s, KT).state;
       s = onRetitled(s, "orders: cancel", 1900).state;
-      s = onVerdict(s, GRANITE, verdictFor("granite-chief", 1), 2000).state;
+      s = onVerdict(s, GRANITE, verdictTitled("granite-chief", NO_DESIGN_TITLE), 2000).state;
       nextAlarm(s);
       briefOf(s, KT, PATROL);
       checkRunOf(s, "https://b2b.example");
       const stopped = stopRun(s, "PR closed", 2200).state;
       const landed = landRun(s, MERGE_SHA, 2300).state;
+      const bypassed = bypassDesign(s, 2400).state;
       s = onFailure(s, KT, "boom", 2500).state;
-      return [snapshotOf(s), snapshotOf(stopped), snapshotOf(landed)];
+      return [snapshotOf(s), snapshotOf(stopped), snapshotOf(landed), snapshotOf(bypassed)];
     };
     const clock = vi.spyOn(Date, "now");
     const uuid = vi.spyOn(crypto, "randomUUID");

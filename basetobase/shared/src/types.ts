@@ -102,6 +102,8 @@ export interface RunSnapshot {
   outcome: ReviewOutcome;
   // The merge commit, once the run has landed.
   mergeSha?: string;
+  // When the owner waived the missing-design finding on this run, in an emergency.
+  designBypassedAt?: number;
   steps: StepSnapshot[];
   agents: AgentSnapshot[];
   createdAt: number;
