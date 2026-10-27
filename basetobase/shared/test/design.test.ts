@@ -12,7 +12,7 @@ describe("NO_DESIGN_TITLE", () => {
 });
 
 describe("Granite Chief's patrol template", () => {
-  it.each([NO_DESIGN_TITLE, "Design:", "Fixes:", "git show", "docs/superpowers/specs/"])(
+  it.each([NO_DESIGN_TITLE, "Design:", "Fixes:", "For:", "git show", "docs/superpowers/specs/"])(
     "mentions %s",
     (text) => expect(template).toContain(text),
   );

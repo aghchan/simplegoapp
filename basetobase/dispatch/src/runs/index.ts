@@ -87,22 +87,24 @@ export async function listRuns(
   return results;
 }
 
-// The PRs the owner let skip their design and whose design has not landed, newest bypass first.
-// Each PR is its newest bypassed run. A design covers a PR once its run has landed with the PR's
-// number on a `For:` line (`covers`), in the PR's own repo; the commas keep #5 from covering #58.
-// A run that covers nothing has a NULL `covers`, which matches nothing.
+// The PRs whose design is owed, newest bypass first: those whose speaking run, the newest open
+// run else the newest landed (as the dashboard files a PR), was bypassed. A PR closed unmerged,
+// or whose speaking run passed the design gate, owes nothing. A design covers a PR once another
+// PR's run has landed in the same repo with its number on a `For:` line (`covers`); the commas
+// keep #5 from covering #58, and a PR never covers itself. A NULL `covers` matches nothing.
 export async function listOwedDesigns(db: D1Database): Promise<OwedDesign[]> {
   const { results } = await db
     .prepare(
       `SELECT repo, pr_number AS prNumber, pr_title AS prTitle, id AS runId,
          design_bypassed_at AS bypassedAt
        FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY repo, pr_number
-               ORDER BY design_bypassed_at DESC, id) AS newest
-             FROM runs WHERE design_bypassed_at IS NOT NULL) AS bypassed
-       WHERE newest = 1 AND NOT EXISTS (
+               ORDER BY ${OPEN} DESC, created_at DESC, id DESC) AS speaking
+             FROM runs WHERE ${OPEN} OR status = 'landed') AS speaker
+       WHERE speaking = 1 AND design_bypassed_at IS NOT NULL AND NOT EXISTS (
          SELECT 1 FROM runs AS design
-         WHERE design.status = 'landed' AND design.repo = bypassed.repo
-           AND ',' || design.covers || ',' LIKE '%,' || bypassed.pr_number || ',%')
+         WHERE design.status = 'landed' AND design.repo = speaker.repo
+           AND design.pr_number <> speaker.pr_number
+           AND ',' || design.covers || ',' LIKE '%,' || speaker.pr_number || ',%')
        ORDER BY design_bypassed_at DESC, id`,
     )
     .all<OwedDesign>();

@@ -12,6 +12,7 @@ Code PR:
 - Design absent on the base, or its header lacks `Status: approved YYYY-MM-DD` → hazard.
 - A `§<n>` the design's Delivery section lacks → hazard.
 - Diff touches any file under `docs/superpowers/specs/` → hazard. A design changes only through its own design PR.
+- A `For:` line in <pr_description> → hazard.
 - Work outside the named parts, or something they include that the diff leaves out → hazard.
 - A contract, table, config key, dependency or service the design does not list → hazard.
 - Challenge scope: name the smallest change that meets the goal. A part beyond it that the PR does not justify → "Defend: <decision>" hazard.
