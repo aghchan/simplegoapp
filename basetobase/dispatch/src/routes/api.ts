@@ -4,15 +4,15 @@ import type { StepId } from "../../../shared/src/types.ts";
 import { isOwner, readSession } from "../auth/session.ts";
 import type { RetryTarget } from "../run/machine.ts";
 import { lobbyStub } from "../lobby/do.ts";
-import { listRuns, runStub } from "../runs/index.ts";
+import { listOwedDesigns, listRuns, runStub } from "../runs/index.ts";
 import { reject } from "./request.ts";
 
 type ApiEnv = { Bindings: Env; Variables: { login: string } };
 
 const NOT_FOUND = "not found";
 
-// What the dashboard reads, and the retries it asks for. Every route needs the owner's session
-// cookie, the websocket upgrade included: the browser sends it there too.
+// What the dashboard reads, and the retries and bypasses it asks for. Every route needs the
+// owner's session cookie, the websocket upgrade included: the browser sends it there too.
 export function apiRoutes(): Hono<ApiEnv> {
   const routes = new Hono<ApiEnv>();
 
@@ -72,6 +72,18 @@ export function apiRoutes(): Hono<ApiEnv> {
     const target = { agentId: c.req.param("agentId") };
     return c.json({ retried: await retry(c.env, c.req.param("id"), target) }, 202);
   });
+
+  // The owner's emergency bypass of the run's missing-design finding. The run's socket shows it.
+  routes.post("/runs/:id/bypass-design", async (c) => {
+    const bypassed = await runStub(c.env, c.req.param("id")).bypassDesign();
+    if (bypassed === null) reject(404, NOT_FOUND);
+    // No finding to waive yet, one already waived, or a run that is stopped or landed.
+    if (!bypassed) reject(409, "nothing to bypass");
+    return c.json({ bypassed: true }, 202);
+  });
+
+  // The bypassed PRs whose design has yet to land.
+  routes.get("/owed-designs", async (c) => c.json(await listOwedDesigns(c.env.DB)));
 
   routes.get("/runs/:id/agents/:agentId/transcript", async (c) => {
     // A stream, passed on as it is: a transcript can run to megabytes.

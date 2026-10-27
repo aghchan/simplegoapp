@@ -1,5 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import { expect } from "@playwright/test";
+import type { RoleId } from "../shared/src/config.ts";
 import type { AgentBrief } from "../shared/src/types.ts";
 import type { CheckCall, Job } from "./fake-github.ts";
 import {
@@ -38,12 +39,13 @@ export function sha(name: string): string {
   return createHash("sha1").update(name).digest("hex");
 }
 
-// The owner's ready PR from a branch of the repository into main: one Dispatch patrols.
-export function pullRequest(n: number, title: string): Pull {
+// The owner's ready PR from a branch of the repository into main: one Dispatch patrols. Its
+// description is `body`, if given: a run's goal, `For: #<n>` lines among it.
+export function pullRequest(n: number, title: string, body?: string): Pull {
   return {
     number: n,
     title,
-    body: null,
+    body: body ?? null,
     html_url: `https://github.com/${REPO}/pull/${n}`,
     state: "open",
     draft: false,
@@ -142,6 +144,14 @@ export async function newestCheckOn(headSha: string): Promise<CheckCall["body"] 
 // The run's agent jobs, as the fake's Actions queued them.
 export async function jobsOf(runId: string): Promise<Job[]> {
   return (await hook<Job[]>("jobs")).filter((job) => job.inputs.run_id === runId);
+}
+
+// The run's sweep job for this patroller, the newest if it ran again: a run starts one job for each
+// patroller enabled, so a test says whose it means.
+export async function jobOf(runId: string, role: RoleId): Promise<Job> {
+  const job = (await jobsOf(runId)).findLast((j) => j.inputs.agent_id === `${role}-sweep-0`);
+  expect(job, `a job of ${role} for run ${runId}`).toBeDefined();
+  return job!;
 }
 
 // The Actions runs Dispatch cancelled.

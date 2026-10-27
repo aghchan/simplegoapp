@@ -102,6 +102,8 @@ export interface RunSnapshot {
   outcome: ReviewOutcome;
   // The merge commit, once the run has landed.
   mergeSha?: string;
+  // When the owner waived the missing-design finding on this run, in an emergency.
+  designBypassedAt?: number;
   steps: StepSnapshot[];
   agents: AgentSnapshot[];
   createdAt: number;
@@ -119,6 +121,15 @@ export interface RunSummary {
   currentStep: StepId;
   createdAt: number;
   updatedAt: number;
+}
+
+// A PR whose design is owed, with the bypassed run that speaks for it.
+export interface OwedDesign {
+  repo: string;
+  prNumber: number;
+  prTitle: string;
+  runId: string;
+  bypassedAt: number;
 }
 
 export interface AgentBrief {

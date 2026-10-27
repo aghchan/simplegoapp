@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "../../shared/src/config.ts";
+import { NO_DESIGN_TITLE } from "../../shared/src/design.ts";
 import type { AgentSnapshot, LogLine, RunSnapshot } from "../../shared/src/types.ts";
 import * as api from "../src/api.ts";
 import { Transcript } from "../src/components/Transcript.tsx";
@@ -495,6 +496,136 @@ describe("RunView", () => {
       expect(screen.getByRole("button", { name: /Mainline/ })).toHaveTextContent(
         "Running · attempt 2",
       );
+    });
+  });
+
+  describe("design bypass", () => {
+    const PATH = "/api/runs/r1/bypass-design";
+    const BUTTON = "Bypass design (emergency)";
+    const noDesign = { id: "no-design", title: NO_DESIGN_TITLE, detail: "No design covers this." };
+    const flagged = agent("granite-chief", {
+      status: "hazards",
+      summary: "No approved design",
+      hazards: [noDesign],
+    });
+    // Another role raising the same title, and Granite Chief raising another.
+    const impostor = agent("kt-22", { status: "hazards", hazards: [noDesign] });
+    const otherFinding = agent("granite-chief", {
+      status: "hazards",
+      hazards: [{ id: "scope", title: "Beyond the goal", detail: "It does more than asked." }],
+    });
+    const open = (over: Partial<RunSnapshot> = {}) =>
+      makeRun({ agents: [agent("mainline"), flagged], ...over });
+
+    function stubPost(answer: () => Response) {
+      const fetchMock = vi.fn(async (_path: string, _init?: RequestInit) => answer());
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it("posts the bypass from the sweep step and waits for the run to say so", async () => {
+      const user = userEvent.setup();
+      const fetchMock = stubPost(() => Response.json({ bypassed: true }, { status: 202 }));
+      const { rerender } = render(<RunView live={live({ run: open() })} />);
+      await user.click(screen.getByRole("button", { name: BUTTON }));
+      expect(fetchMock).toHaveBeenCalledWith(PATH, { method: "POST" });
+      expect(screen.getByRole("button", { name: "Bypassing…" })).toBeDisabled();
+      // The run's socket brings the outcome, which takes the button away.
+      rerender(<RunView live={live({ run: open({ designBypassedAt: START + 1000 }) })} />);
+      expect(screen.queryByRole("button", { name: /ypass/ })).toBeNull();
+    });
+
+    it("is offered on a swept run too", () => {
+      render(<RunView live={live({ run: open({ status: "swept", outcome: "hazards" }) })} />);
+      expect(screen.getByRole("button", { name: BUTTON })).toBeVisible();
+    });
+
+    it("is on the sweep step only", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<RunView live={live({ run: open() })} />);
+      await user.click(screen.getByRole("button", { name: /Trail map/ }));
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+      await user.click(screen.getByRole("button", { name: /Patrol sweep/ }));
+      expect(screen.getByRole("button", { name: BUTTON })).toBeVisible();
+      rerender(<RunView live={live({ run: open({ steps: huddleBegun().steps }) })} />);
+      await user.click(screen.getByRole("button", { name: /Patrol huddle/ }));
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it.each(["stopped", "landed"] as const)("is hidden once the run is %s", (status) => {
+      render(<RunView live={live({ run: open({ status }) })} />);
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it("is hidden once the run is bypassed", () => {
+      render(<RunView live={live({ run: open({ designBypassedAt: START + 1000 }) })} />);
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it("is hidden when Granite Chief flagged nothing", () => {
+      render(<RunView live={live()} />);
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it("is hidden when another role raised the finding", () => {
+      const run = makeRun({ agents: [agent("granite-chief"), impostor] });
+      render(<RunView live={live({ run })} />);
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it("is hidden when Granite Chief's finding is another one", () => {
+      render(<RunView live={live({ run: makeRun({ agents: [otherFinding] }) })} />);
+      expect(screen.queryByRole("button", { name: BUTTON })).toBeNull();
+    });
+
+    it("sits beside the retry of a failed patroller", () => {
+      const failed = agent("mainline", { status: "error", summary: "job failed" });
+      render(<RunView live={live({ run: makeRun({ agents: [failed, flagged] }) })} />);
+      expect(screen.getByRole("button", { name: "Retry the failed patroller" })).toBeVisible();
+      expect(screen.getByRole("button", { name: BUTTON })).toBeVisible();
+    });
+
+    it("says why Dispatch refused, and lets the owner try again", async () => {
+      const user = userEvent.setup();
+      stubPost(() => Response.json({ error: "nothing to bypass" }, { status: 409 }));
+      render(<RunView live={live({ run: open() })} />);
+      await user.click(screen.getByRole("button", { name: BUTTON }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Could not bypass: nothing to bypass",
+      );
+      expect(screen.getByRole("button", { name: BUTTON })).toBeEnabled();
+    });
+
+    it("sends a signed-out owner to sign in", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(api, "navigateTo").mockImplementation(() => {});
+      stubPost(() => new Response(null, { status: 401 }));
+      render(<RunView live={live({ run: open() })} />);
+      await user.click(screen.getByRole("button", { name: BUTTON }));
+      await waitFor(() => expect(api.navigateTo).toHaveBeenCalledWith("/auth/login"));
+    });
+
+    it("says in the header that the design was bypassed", () => {
+      render(<RunView live={live({ run: open({ designBypassedAt: START + 1000 }) })} />);
+      const head = screen.getByRole("region", { name: "Pull request" });
+      expect(within(head).getByText("Design bypassed (emergency)")).toBeVisible();
+    });
+
+    it("keeps Granite Chief's own verdict on its card", () => {
+      render(<RunView live={live({ run: open({ designBypassedAt: START + 1000 }) })} />);
+      expect(screen.getByRole("button", { name: /Granite Chief/ })).toHaveTextContent(
+        "Hazards flagged",
+      );
+    });
+
+    it("shows no bypass chip for a run that has not been bypassed", () => {
+      render(<RunView live={live({ run: open() })} />);
+      expect(screen.queryByText("Design bypassed (emergency)")).toBeNull();
     });
   });
 

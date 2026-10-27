@@ -243,6 +243,19 @@ The lists below are the *scope* each template covers, not its wording.
 - **Granite Chief (goal fit):** the change does what the goal says, all of it,
   and nothing unasked for. If the PR description gives no judgeable goal, that
   itself is a hazard.
+  - **Design rules (built):** Granite Chief is enabled (`enabledRoles` is
+    `["granite-chief","mainline"]`) with `.basetobase/patrol/granite-chief.md`.
+    It holds a code PR to the design its
+    description names (`Design: <path>`, `Design: <path> §<n>`) or, for a simple
+    bug fix, to the promise its `Fixes: <path>` names, each read on the default
+    branch. It flags a PR that has neither, a design not approved, a code PR
+    that edits a design file or carries a `For:` line, and drift from the named
+    parts. A PR whose every file is a design under `docs/superpowers/specs/`
+    gets the design-PR rules instead: approved, a closing quorum line, no open
+    challenge, the right panel. Its hazard for a PR with neither a design nor a
+    `Fixes:` promise is titled `No approved design`, which the owner's bypass
+    waives (§9). Spec:
+    docs/superpowers/specs/2026-10-24-system-design-flow-design.md §8.
 - **Gold Coast (infra & cost):** new services, resources, config, or paid
   usage; impact against the free-tier limits of the deployed stack (declared
   in config, §15); cost per request.
@@ -447,6 +460,26 @@ agent of the step) and `POST /api/runs/{id}/agents/{agent}/retry`: 202
 `{retried}`, 409 with nothing to retry. Owner session plus an `Origin`
 matching `PUBLIC_URL`. The pipeline's own CI jobs (basetobase-ci) already
 re-run singly from GitHub's *Re-run failed jobs*.
+
+**Design bypass and designs owed (built):** for an emergency, the owner waives
+Granite Chief's `No approved design` hazard on one run. A run with that hazard
+(open, not yet bypassed) shows *Bypass design (emergency)* on its sweep step;
+the button posts to `POST /api/runs/{id}/bypass-design`: 202 `{bypassed: true}`, 409
+with nothing to waive, 404 for no such run. Owner session plus an `Origin`
+matching `PUBLIC_URL`; no reason is asked. Only that one hazard is waived, so
+every other hazard and failure still counts; the run records the time
+(`designBypassedAt`), posts a fresh *Base to Base* check run whose report says
+so, and its header shows the chip *Design bypassed (emergency)*. Granite
+Chief's card keeps its real verdict. A push starts a new run, which needs its
+own bypass.
+
+A bypassed PR owes a short design of the change as built. When its speaking run
+(newest open, else newest landed) was bypassed, the runs list shows the PR under
+*Designs owed* (`GET /api/owed-designs`). It clears when another PR in the same
+repo lands with `For: #<n>` in its description, `<n>` being the bypassed PR.
+The goal is frozen when a run starts, so that line goes in the description when
+the design PR is opened, or a push follows. Migration 0003 adds
+`design_bypassed_at` and `covers` to the index.
 
 **Look:** night-navy header with a ridgeline, snow-white panels, condensed
 uppercase headings like trail signage, monospace logs on dark. Trail-rating

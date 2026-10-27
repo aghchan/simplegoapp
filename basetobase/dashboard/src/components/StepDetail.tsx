@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { NO_DESIGN_TITLE } from "../../../shared/src/design.ts";
 import { formatDuration } from "../../../shared/src/format.ts";
 import { STEP_LABELS, STEP_ORDER } from "../../../shared/src/labels.ts";
 import type {
@@ -8,11 +9,11 @@ import type {
   StepId,
   StepSnapshot,
 } from "../../../shared/src/types.ts";
+import { ActionButton } from "./ActionButton.tsx";
 import { GithubLink } from "./GithubLink.tsx";
 import { PatrolCards, patroller } from "./PatrolCards.tsx";
 import { timeOnStep } from "./PipelineRow.tsx";
 import { RadioLog } from "./RadioLog.tsx";
-import { RetryButton } from "./RetryButton.tsx";
 import { Transcript } from "./Transcript.tsx";
 
 // A patroller's lines belong to its step. Dispatch's belong to the latest step that had begun by
@@ -55,6 +56,19 @@ function retryable(run: RunSnapshot, agent: AgentSnapshot): boolean {
   return agent.status === "error" && (run.status === "on_the_hill" || run.status === "swept");
 }
 
+// What Dispatch will waive (canBypassDesign, machine.ts): Granite Chief's missing-design finding,
+// while the run is open and not yet bypassed. Only Granite Chief's: no other role's finding of that
+// title counts.
+function bypassable(run: RunSnapshot): boolean {
+  if (run.status !== "on_the_hill" && run.status !== "swept") return false;
+  if (run.designBypassedAt !== undefined) return false;
+  return run.agents.some(
+    (agent) =>
+      agent.role === "granite-chief" &&
+      agent.hazards.some((hazard) => hazard.title === NO_DESIGN_TITLE),
+  );
+}
+
 // Keyed by the agent it is about, so picking another patroller starts it closed.
 function DebugPanel(p: {
   runId: string;
@@ -86,10 +100,12 @@ function DebugPanel(p: {
           GitHub Actions job
         </GithubLink>
         {p.canRetry && (
-          <RetryButton
+          <ActionButton
             key={agent.retries ?? 0}
             path={`/api/runs/${p.runId}/agents/${agent.id}/retry`}
             label={`Retry ${patroller(agent.role).name}`}
+            busyLabel="Retrying…"
+            failure="Could not retry:"
           />
         )}
       </div>
@@ -121,6 +137,7 @@ export function StepDetail(p: {
     [run.agents],
   );
   const failed = agents.filter((agent) => retryable(run, agent));
+  const canBypass = step.id === "sweep" && bypassable(run);
   const scope = picked
     ? `${patroller(picked.role).name} only`
     : agents.length > 0
@@ -135,18 +152,30 @@ export function StepDetail(p: {
           <span className="step-title-plain"> · {label.plain}</span>
         </h2>
         <TimeOnStep step={step} now={p.now} />
-        {failed.length > 0 && (
+        {(failed.length > 0 || canBypass) && (
           <div className="step-actions">
-            {/* Keyed by the attempts, so a retry that fails again gets a fresh button. */}
-            <RetryButton
-              key={failed.map((agent) => `${agent.id}:${agent.retries ?? 0}`).join(" ")}
-              path={`/api/runs/${run.id}/steps/${step.id}/retry`}
-              label={
-                failed.length === 1
-                  ? "Retry the failed patroller"
-                  : `Retry the ${failed.length} failed patrollers`
-              }
-            />
+            {failed.length > 0 && (
+              // Keyed by the attempts, so a retry that fails again gets a fresh button.
+              <ActionButton
+                key={failed.map((agent) => `${agent.id}:${agent.retries ?? 0}`).join(" ")}
+                path={`/api/runs/${run.id}/steps/${step.id}/retry`}
+                label={
+                  failed.length === 1
+                    ? "Retry the failed patroller"
+                    : `Retry the ${failed.length} failed patrollers`
+                }
+                busyLabel="Retrying…"
+                failure="Could not retry:"
+              />
+            )}
+            {canBypass && (
+              <ActionButton
+                path={`/api/runs/${run.id}/bypass-design`}
+                label="Bypass design (emergency)"
+                busyLabel="Bypassing…"
+                failure="Could not bypass:"
+              />
+            )}
           </div>
         )}
       </div>

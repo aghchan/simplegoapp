@@ -107,5 +107,5 @@
       "model": "opus"
     }
   ],
-  "enabledRoles": ["mainline"]
+  "enabledRoles": ["granite-chief", "mainline"]
 }

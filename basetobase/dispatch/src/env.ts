@@ -14,6 +14,8 @@ declare global {
       GITHUB_OAUTH_CLIENT_ID: string;
       GITHUB_OAUTH_CLIENT_SECRET: string;
       SESSION_SECRET: string;
+      // Tests only, never set in wrangler.jsonc: pins the roles of a run (see withEnabledRoles).
+      ENABLED_ROLES?: string;
       // Tests only: dispatch/vitest.config.ts reads the migrations and binds them for setup.
       TEST_MIGRATIONS: { name: string; queries: string[] }[];
     }

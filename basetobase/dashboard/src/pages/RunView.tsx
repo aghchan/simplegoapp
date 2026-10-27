@@ -62,6 +62,9 @@ export function RunView({ live }: { live: RunLive }) {
                 {run.mergeSha && ` as ${run.mergeSha.slice(0, 7)}`}
               </span>
             )}
+            {run.designBypassedAt !== undefined && (
+              <span className="chip chip-bypassed">Design bypassed (emergency)</span>
+            )}
             <span className="chip">{panels} run</span>
             <span className="chip chip-rating">
               <TrailRating rating={run.rating} size={11} />

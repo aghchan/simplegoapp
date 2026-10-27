@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# SessionStart hook for the standard plugin: injects rules.md as session context.
+
+set -euo pipefail
+
+# Locate the plugin root from $0 with parameter expansion, not dirname, and read
+# and print with builtins only, so the body needs no external command (same
+# approach as the superpowers hook). The env shebang still needs PATH to find bash.
+case "$0" in
+  */*) SCRIPT_DIR="$(cd "${0%/*}" && pwd)" ;;
+  *) SCRIPT_DIR="$(pwd)" ;;
+esac
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Read rules.md with the read builtin so no external command is needed and the
+# trailing newline is kept. read returns non-zero at EOF with -d '', hence || true.
+rules=""
+if [ -r "${PLUGIN_ROOT}/rules.md" ]; then
+  IFS= read -r -d '' rules <"${PLUGIN_ROOT}/rules.md" || true
+else
+  rules="standard plugin: rules.md missing"
+fi
+
+# Escape a string for JSON embedding using bash parameter substitution.
+escape_for_json() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+rules_escaped=$(escape_for_json "$rules")
+
+# Claude Code reads hookSpecificOutput.additionalContext. Emit only that shape.
+# printf instead of a heredoc to avoid the bash 5.3+ heredoc hang.
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$rules_escaped"
+
+exit 0

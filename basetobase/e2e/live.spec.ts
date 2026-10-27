@@ -18,7 +18,7 @@ import {
   screenshot,
   signIn,
 } from "./dashboard.ts";
-import { brief, cancelled, checksOn, close, jobsOf, open, pullRequest } from "./github.ts";
+import { brief, cancelled, checksOn, close, jobOf, open, pullRequest } from "./github.ts";
 import { OWNER, REPO } from "./stack.ts";
 
 // The 5 s poll, plus its fetch.
@@ -79,9 +79,9 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
   await openRunsList(page);
   const pull = pullRequest(pr, prTitle(pr));
   const runId = await open(pull);
-  // The agent's job has started on GitHub.
-  const [job] = await jobsOf(runId);
-  await brief(job!);
+  // Mainline's job has started on GitHub; Granite Chief's has not.
+  const job = await jobOf(runId, "mainline");
+  await brief(job);
   await runLink(page, pr).click();
   await expect(page.getByRole("heading", { level: 1, name: prTitle(pr) })).toBeVisible();
   await expect(
@@ -110,8 +110,8 @@ test("b: an open run goes to Stopped when its pull request closes, and the list 
     status: "completed",
     conclusion: "cancelled",
   });
-  // And its agent's job, which had started, is cancelled on GitHub.
-  expect(await cancelled()).toContain(String(job!.id));
+  // And Mainline's job, which had started, is cancelled on GitHub.
+  expect(await cancelled()).toContain(String(job.id));
   await expectNoReload(page);
   await screenshot(page, testInfo, "b-run-view");
 });

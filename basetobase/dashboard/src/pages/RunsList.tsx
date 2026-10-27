@@ -1,7 +1,8 @@
 import { useCallback, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { OUTCOME_LABELS, RUN_STATUS_LABELS, STEP_LABELS } from "../../../shared/src/labels.ts";
-import type { RunSummary } from "../../../shared/src/types.ts";
+import type { OwedDesign, RunSummary } from "../../../shared/src/types.ts";
 import { TrailRating } from "../components/TrailRating.tsx";
+import { useOwedDesigns } from "../useOwedDesigns.ts";
 
 type Group = "needs_you" | "on_the_hill" | "swept" | "landed" | "closed";
 
@@ -107,6 +108,17 @@ function RunLink(p: { run: RunSummary; tone: string; current: boolean; earlier?:
   );
 }
 
+// A PR whose design the owner bypassed and which has yet to land: the bypassed run is the way in.
+function OwedItem(p: { owed: OwedDesign }) {
+  return (
+    <li className="pr">
+      <a className="run run-urgent" href={`/runs/${p.owed.runId}`}>
+        <span className="run-title">{`#${p.owed.prNumber} ${p.owed.prTitle}`}</span>
+      </a>
+    </li>
+  );
+}
+
 function PrItem(p: {
   pr: Pr;
   group: Group;
@@ -171,6 +183,7 @@ function PrItem(p: {
 
 export function RunsList({ runs, activeRunId }: { runs: RunSummary[]; activeRunId?: string }) {
   const prs = prsOf(runs);
+  const owed = useOwedDesigns(runs);
   // Kept here by PR number, not in PrItem: a PR that changes group mounts afresh.
   const [open, setOpen] = useState<ReadonlyMap<number, boolean>>(new Map());
   // Opens by itself whenever the page moves to one of a PR's earlier runs; the viewer can close it.
@@ -190,6 +203,16 @@ export function RunsList({ runs, activeRunId }: { runs: RunSummary[]; activeRunI
     return <p className="hint">No runs yet. They appear when you open a pull request.</p>;
   return (
     <div className="runs">
+      {owed.length > 0 && (
+        <section className="run-group">
+          <h2 className="group-title group-title-urgent">Designs owed</h2>
+          <ul className="run-items">
+            {owed.map((design) => (
+              <OwedItem key={`${design.repo}#${design.prNumber}`} owed={design} />
+            ))}
+          </ul>
+        </section>
+      )}
       {GROUPS.map(({ id, title, urgent }) => {
         const inGroup = prs.filter((pr) => groupOf(pr.speaking) === id);
         if (inGroup.length === 0) return null;

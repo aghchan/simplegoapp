@@ -17,6 +17,8 @@ export default defineConfig(async () => {
             GITHUB_OAUTH_CLIENT_ID: "test-oauth-client",
             GITHUB_OAUTH_CLIENT_SECRET: "test-oauth-secret",
             SESSION_SECRET: "test-session-secret",
+            // Dispatch tests run one agent whatever the shipped config enables.
+            ENABLED_ROLES: "mainline",
           },
         },
       })),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import shipped from "../../config/basetobase.json" with { type: "json" };
 import trailNameFile from "../../config/trail-names.json" with { type: "json" };
-import { config, loadConfig, rosterEntry } from "../src/config.ts";
+import { config, loadConfig, rosterEntry, withEnabledRoles } from "../src/config.ts";
 
 const raw = { ...shipped, trailNames: trailNameFile.trailNames };
 
@@ -33,12 +33,40 @@ describe("loadConfig", () => {
       "basetobase/config/trail-names.json",
       "basetobase/scripts/overpass/*.json",
     ]));
+  it("enables Granite Chief and Mainline", () =>
+    expect(config.enabledRoles).toEqual(["granite-chief", "mainline"]));
   it("leaves Base to Base's own files unpatrolled", () =>
     expect(config.unpatrolledGlobs).toEqual([
       "basetobase/**",
       ".basetobase/**",
       ".github/workflows/basetobase-*.yml",
     ]));
+});
+
+describe("withEnabledRoles", () => {
+  it("pins the roles", () =>
+    expect(withEnabledRoles(config, "mainline").enabledRoles).toEqual(["mainline"]));
+  it("pins several, in the order given", () =>
+    expect(withEnabledRoles(config, "mainline,granite-chief").enabledRoles).toEqual([
+      "mainline",
+      "granite-chief",
+    ]));
+  it("leaves the config alone when unset", () =>
+    expect(withEnabledRoles(config, undefined)).toBe(config));
+  it("leaves the config alone when empty", () => expect(withEnabledRoles(config, "")).toBe(config));
+  it("changes only the enabled roles", () =>
+    expect(withEnabledRoles(config, "mainline")).toEqual({
+      ...config,
+      enabledRoles: ["mainline"],
+    }));
+  it("does not change the config it was given", () => {
+    withEnabledRoles(config, "mainline");
+    expect(config.enabledRoles).toEqual(["granite-chief", "mainline"]);
+  });
+  it("names the role it does not know", () =>
+    expect(() => withEnabledRoles(config, "nope")).toThrow(/ENABLED_ROLES\[0\]/));
+  it("names the position of the role it does not know", () =>
+    expect(() => withEnabledRoles(config, "mainline,nope")).toThrow(/ENABLED_ROLES\[1\]/));
 });
 
 describe("rosterEntry", () => {

@@ -8,6 +8,7 @@ import { runStub } from "../src/runs/index.ts";
 import type { Triage } from "../../shared/src/triage.ts";
 import type { LiveMessage, LobbyMessage } from "../../shared/src/types.ts";
 import { envWith, prRef, stubGitHub } from "./helpers.ts";
+import { addGraniteChief } from "./seed.ts";
 
 const app = createApp({ agentKey: createLocalJWKSet({ keys: [] }) });
 const AGENT = "mainline-sweep-0";
@@ -83,6 +84,7 @@ describe("/api authentication", () => {
     "/api/runs/r1/live",
     "/api/runs/r1/agents/mainline-sweep-0/transcript",
     "/api/live",
+    "/api/owed-designs",
     "/api/anything-else",
   ];
 
@@ -383,5 +385,118 @@ describe("POST retries", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "cross-origin request" });
     expect(dispatched).toEqual([]);
+  });
+});
+
+describe("POST bypass-design", () => {
+  const bypassPath = (runId: string) => `/api/runs/${runId}/bypass-design`;
+
+  // A run whose Granite Chief has reported the missing-design finding.
+  async function missingDesignRun(): Promise<string> {
+    const runId = await startRun();
+    await addGraniteChief(runStub(env, runId));
+    return runId;
+  }
+
+  const bypassedAt = async (runId: string) =>
+    (await runStub(env, runId).view())!.run.designBypassedAt;
+
+  it("waives the finding, and the run says so", async () => {
+    const runId = await missingDesignRun();
+    const res = await post(bypassPath(runId));
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ bypassed: true });
+    expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
+    expect(await bypassedAt(runId)).toBeTypeOf("number");
+  });
+
+  it("409 when there is nothing to bypass: already bypassed, no finding, not yet in", async () => {
+    const reported = await missingDesignRun();
+    expect((await post(bypassPath(reported))).status).toBe(202);
+    const quiet = await startRun();
+    const early = await startRun();
+    await addGraniteChief(runStub(env, early), { status: "running", hazards: [] });
+    for (const runId of [reported, quiet, early]) {
+      const res = await post(bypassPath(runId));
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "nothing to bypass" });
+    }
+    expect(await bypassedAt(quiet)).toBeUndefined();
+    expect(await bypassedAt(early)).toBeUndefined();
+  });
+
+  it("409 for a run that has stopped or landed, changing nothing", async () => {
+    const ends = [
+      (stub: ReturnType<typeof runStub>) => stub.stop("PR closed"),
+      (stub: ReturnType<typeof runStub>) => stub.land("abc1234def"),
+    ];
+    for (const end of ends) {
+      const runId = await missingDesignRun();
+      await end(runStub(env, runId));
+      const res = await post(bypassPath(runId));
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "nothing to bypass" });
+      expect(await bypassedAt(runId)).toBeUndefined();
+    }
+  });
+
+  it("404 for a run that never started", async () => {
+    const res = await post(bypassPath("no-such-run"));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not found" });
+  });
+
+  it("401 without a session, bypassing nothing", async () => {
+    const runId = await missingDesignRun();
+    const res = await post(bypassPath(runId), { cookie: null });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "signed out" });
+    expect(await bypassedAt(runId)).toBeUndefined();
+  });
+
+  it.each([
+    ["another site", "https://evil.example"],
+    ["another Worker on the same workers.dev subdomain", "https://other.soulygrail.workers.dev"],
+    ["no origin", null],
+  ])("403 for a POST from %s, bypassing nothing", async (_name, origin) => {
+    const runId = await missingDesignRun();
+    const res = await post(bypassPath(runId), { origin });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "cross-origin request" });
+    expect(await bypassedAt(runId)).toBeUndefined();
+  });
+
+  it("is not a GET", async () => {
+    const runId = await missingDesignRun();
+    expect((await get(bypassPath(runId))).status).toBe(404);
+    expect(await bypassedAt(runId)).toBeUndefined();
+  });
+});
+
+describe("GET /api/owed-designs", () => {
+  it("is empty before any bypass", async () => {
+    await startRun();
+    const res = await get("/api/owed-designs");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe(NO_STORE);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("lists a bypassed PR with its run and when it was bypassed", async () => {
+    const runId = await startRun();
+    await addGraniteChief(runStub(env, runId));
+    expect((await post(`/api/runs/${runId}/bypass-design`)).status).toBe(202);
+    const bypassedAt = (await runStub(env, runId).view())!.run.designBypassedAt;
+    const res = await get("/api/owed-designs");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([
+      {
+        repo: "aghchan/simplegoapp",
+        prNumber: 58,
+        prTitle: "orders: add cancel endpoint",
+        runId,
+        bypassedAt,
+      },
+    ]);
   });
 });

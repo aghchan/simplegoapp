@@ -3,9 +3,10 @@ import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Triage } from "../../shared/src/triage.ts";
 import type { AgentEvent, LiveMessage } from "../../shared/src/types.ts";
-import { runStub, listRuns } from "../src/runs/index.ts";
+import { runStub, listOwedDesigns, listRuns } from "../src/runs/index.ts";
 import { AGENT_TIMEOUT_MS, JOB_START_MS, STALL_MS, type RunState } from "../src/run/machine.ts";
 import { fakeFetch, prRef } from "./helpers.ts";
+import { addGraniteChief } from "./seed.ts";
 
 const AGENT = "mainline-sweep-0";
 const JOB_URL = "https://github.com/aghchan/simplegoapp/actions/runs/99";
@@ -773,6 +774,124 @@ describe("RunDO", () => {
 
     it("is null for a run that never started", async () => {
       expect(await runStub(env, "never-started").retry({ step: "sweep" })).toBeNull();
+    });
+  });
+
+  describe("bypassDesign", () => {
+    // A run whose sweep is out only on Mainline, with Granite Chief's missing-design finding in,
+    // which Mainline's clear verdict then closes into a failed review.
+    async function missingDesignRun() {
+      const run = await startRun();
+      await addGraniteChief(run.stub);
+      await run.stub.brief(AGENT, run.nonce, JOB);
+      await run.stub.verdict(AGENT, run.nonce, clearVerdict);
+      return run;
+    }
+
+    // The bypass time the run's D1 row holds.
+    async function indexedBypass(runId: string): Promise<number | null | undefined> {
+      const row = await env.DB.prepare("SELECT design_bypassed_at AS at FROM runs WHERE id = ?")
+        .bind(runId)
+        .first<{ at: number | null }>();
+      return row?.at;
+    }
+
+    it("waives the finding, reposts the check as a success and indexes the bypass", async () => {
+      let next = CHECK_ID;
+      checkReply = (method) =>
+        method === "POST" ? Response.json({ id: next++ }, { status: 201 }) : acceptCheck(method);
+      const { id, stub } = await missingDesignRun();
+      expect(checks.at(-1)).toMatchObject({ method: "PATCH", body: { conclusion: "failure" } });
+      expect((await stub.view())!.run).toMatchObject({ status: "swept", outcome: "hazards" });
+      const before = checks.length;
+
+      expect(await stub.bypassDesign()).toBe(true);
+
+      expect(checks.slice(before)).toEqual([
+        {
+          method: "POST",
+          body: expect.objectContaining({
+            head_sha: "head58",
+            status: "completed",
+            conclusion: "success",
+            output: expect.objectContaining({ title: "All clear · design bypassed" }),
+          }),
+        },
+        { method: "PATCH", body: expect.objectContaining({ conclusion: "skipped" }) },
+      ]);
+      expect(patched.at(-1)).toBe(CHECK_ID);
+      const { run, log } = (await stub.view())!;
+      expect(run).toMatchObject({ status: "swept", outcome: "clear" });
+      expect(run.designBypassedAt).toBeTypeOf("number");
+      expect(log.at(-1)).toMatchObject({ kind: "system", text: "design bypassed by the owner" });
+
+      expect(await indexedBypass(id)).toBe(run.designBypassedAt);
+      expect(await listOwedDesigns(env.DB)).toMatchObject([{ runId: id, prNumber: 58 }]);
+    });
+
+    it("waives it while the sweep is out, so the check closes clear with it", async () => {
+      const { stub, nonce } = await startRun();
+      await addGraniteChief(stub);
+      expect(await stub.bypassDesign()).toBe(true);
+      expect((await stub.view())!.run).toMatchObject({ status: "on_the_hill", outcome: "pending" });
+      await stub.verdict(AGENT, nonce, clearVerdict);
+      expect((await stub.view())!.run).toMatchObject({ status: "swept", outcome: "clear" });
+      expect(checks.at(-1)).toMatchObject({ method: "PATCH", body: { conclusion: "success" } });
+    });
+
+    it("is false the second time, changing nothing", async () => {
+      const { stub } = await missingDesignRun();
+      expect(await stub.bypassDesign()).toBe(true);
+      const view = await stub.view();
+      const posted = checks.length;
+      expect(await stub.bypassDesign()).toBe(false);
+      expect(await stub.view()).toEqual(view);
+      expect(checks).toHaveLength(posted);
+    });
+
+    // Nothing to waive: no finding, Granite Chief not yet reported, or a run that no longer
+    // speaks for its PR.
+    it.each<[string, (run: Awaited<ReturnType<typeof startRun>>) => Promise<void>]>([
+      ["Granite Chief has found nothing", async () => {}],
+      [
+        "Granite Chief has not reported",
+        async ({ stub }) =>
+          addGraniteChief(stub, { status: "running", hazards: [], finishedAt: undefined }),
+      ],
+      [
+        "Granite Chief found a different hazard",
+        async ({ stub }) =>
+          addGraniteChief(stub, { hazards: [{ id: "DES-2", title: "Wrong design", detail: "d" }] }),
+      ],
+      [
+        "the run has stopped",
+        async ({ stub }) => {
+          await addGraniteChief(stub);
+          await stub.stop("PR closed");
+        },
+      ],
+      [
+        "the run has landed",
+        async ({ stub }) => {
+          await addGraniteChief(stub);
+          await stub.land("abc1234def");
+        },
+      ],
+    ])("is false, changing nothing, when %s", async (_name, setUp) => {
+      const run = await startRun();
+      await setUp(run);
+      const view = await run.stub.view();
+      const stored = await storedState(run.stub);
+      const posted = checks.length;
+      expect(await run.stub.bypassDesign()).toBe(false);
+      expect(await run.stub.view()).toEqual(view);
+      expect((await storedState(run.stub)).run).toEqual(stored.run);
+      expect(checks).toHaveLength(posted);
+      expect(await indexedBypass(run.id)).toBeNull();
+    });
+
+    it("is null for a run that never started", async () => {
+      expect(await runStub(env, "never-started").bypassDesign()).toBeNull();
     });
   });
 

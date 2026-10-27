@@ -459,6 +459,15 @@ document or a slice.
 
 ## 9. Checklist: Adding a New Feature
 
+Anything more than a simple bug fix needs an approved design before code. Write
+it with the skill `standard:system-design` (plugin `standard@simplegoapp`, in
+`plugins/standard/`; its session rules are in `plugins/standard/rules.md`), saved
+as `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`. The code PR's
+description names it with `Design: <path>` (`Design: <path> §<n>` for one part
+of it); a simple bug fix's names the promise it restores with `Fixes: <path>`.
+Base to Base's Granite Chief holds the PR to those lines. Then follow the
+checklist for the kind of change:
+
 **A new domain service**
 
 1. Create `domain/<name>/service.go`.

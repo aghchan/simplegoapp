@@ -1,7 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import type { ReviewOutcome, RunStatus, RunSummary } from "../../shared/src/types.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  OwedDesign,
+  ReviewOutcome,
+  RunStatus,
+  RunSummary,
+} from "../../shared/src/types.ts";
 import { newestRun, newestSpeakingRun, RunsList } from "../src/pages/RunsList.tsx";
 
 // Each id is its own PR, unless a test gives two runs one prNumber.
@@ -36,6 +41,25 @@ function group(name: string): (string | null)[] {
     .filter((link) => link.closest(".run-earlier") === null)
     .map((link) => link.getAttribute("href"));
 }
+
+// The list asks Dispatch for the designs still owed; most tests are about the runs: it owes none.
+// Answers are taken in order, the last one again and again.
+function stubOwed(...answers: OwedDesign[][]) {
+  const fetchMock = vi.fn(async (_path: string) => {
+    const owed = answers.length > 1 ? answers.shift() : answers[0];
+    return Response.json(owed ?? []);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+beforeEach(() => {
+  stubOwed();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("newestRun", () => {
   it("is the run started last, wherever it is listed", () => {
@@ -450,5 +474,57 @@ describe("RunsList", () => {
     render(<RunsList runs={[]} />);
     expect(screen.getByText(/No runs yet/)).toBeVisible();
     expect(screen.queryByRole("heading")).toBeNull();
+  });
+});
+
+describe("designs owed", () => {
+  const owed: OwedDesign = {
+    repo: "aghchan/simplegoapp",
+    prNumber: 58,
+    prTitle: "orders: add cancel endpoint",
+    runId: "r9",
+    bypassedAt: 5,
+  };
+
+  it("lists each PR whose design is owed, linking to the run that was bypassed", async () => {
+    stubOwed([owed, { ...owed, prNumber: 61, prTitle: "billing: refunds", runId: "r12" }]);
+    render(<RunsList runs={[run("r1", "swept")]} />);
+    const section = (await screen.findByRole("heading", { name: "Designs owed" })).closest(
+      "section",
+    )!;
+    const links = within(section).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([
+      "#58 orders: add cancel endpoint",
+      "#61 billing: refunds",
+    ]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/runs/r9", "/runs/r12"]);
+  });
+
+  it("is above the runs, which are listed as before", async () => {
+    stubOwed([owed]);
+    render(<RunsList runs={[run("r1", "swept")]} />);
+    const heading = await screen.findByRole("heading", { name: "Designs owed" });
+    const swept = screen.getByRole("heading", { name: /^Swept/ });
+    expect(heading.compareDocumentPosition(swept) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(group("Swept · patrol done")).toEqual(["/runs/r1"]);
+  });
+
+  it("is not there when nothing is owed", async () => {
+    const fetchMock = stubOwed([]);
+    render(<RunsList runs={[run("r1", "swept")]} />);
+    expect(fetchMock).toHaveBeenCalledWith("/api/owed-designs");
+    await act(async () => {});
+    expect(screen.queryByRole("heading", { name: "Designs owed" })).toBeNull();
+  });
+
+  it("asks again when the runs change, dropping the section once the design landed", async () => {
+    const fetchMock = stubOwed([owed], []);
+    const { rerender } = render(<RunsList runs={[run("r1", "swept")]} />);
+    await screen.findByRole("heading", { name: "Designs owed" });
+    rerender(<RunsList runs={[run("r1", "swept"), run("r2", "landed")]} />);
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Designs owed" })).toBeNull(),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
