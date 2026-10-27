@@ -10,6 +10,7 @@ import type {
 import {
   findOpenRuns,
   findPrRuns,
+  listOwedDesigns,
   listRuns,
   openRunPrs,
   runNamesFor,
@@ -224,5 +225,143 @@ describe("run index", () => {
       await indexRun("stopped-on-a", "stopped", 1, { headSha: "sha-a" });
       expect(await runsOnHead(env.DB, REPO, 58, "sha-a")).toBe("open");
     });
+  });
+});
+
+describe("designs owed", () => {
+  const REPO = "aghchan/simplegoapp";
+  const OTHER_REPO = "eve/simplegoapp";
+
+  // A run of a code PR the owner bypassed at `at`.
+  const bypassed = (id: string, prNumber: number, at: number, over: Partial<RunSnapshot> = {}) =>
+    indexRun(id, "swept", at, {
+      prNumber,
+      prTitle: `PR ${prNumber}`,
+      designBypassedAt: at,
+      steps: steps("sweep", "done"),
+      ...over,
+    });
+
+  // A run of a design PR, whose description says which PRs it is for.
+  const design = (
+    id: string,
+    status: RunStatus,
+    covers: number[],
+    over: Partial<RunSnapshot> = {},
+  ) =>
+    indexRun(id, status, 1, {
+      prNumber: 900,
+      goal: ["Design after the fact", ...covers.map((pr) => `For: #${pr}`)].join("\n"),
+      ...over,
+    });
+
+  const owed = async () => (await listOwedDesigns(env.DB)).map((entry) => entry.prNumber);
+
+  it("lists a bypassed PR until a landed design covers it", async () => {
+    await bypassed("code", 58, 100);
+    await indexRun("not-bypassed", "swept", 5, { prNumber: 59 });
+    expect(await listOwedDesigns(env.DB)).toEqual([
+      { repo: REPO, prNumber: 58, prTitle: "PR 58", runId: "code", bypassedAt: 100 },
+    ]);
+
+    // A design that has not landed yet, or never will, covers nothing.
+    await design("open", "on_the_hill", [58]);
+    await design("swept", "swept", [58]);
+    await design("stopped", "stopped", [58], { prNumber: 901 });
+    expect(await owed()).toEqual([58]);
+
+    await design("landed", "landed", [58], { prNumber: 902 });
+    expect(await listOwedDesigns(env.DB)).toEqual([]);
+  });
+
+  it("keeps a bypass listed past a later run of the PR that was not bypassed", async () => {
+    await bypassed("code", 58, 100);
+    await indexRun("later-push", "on_the_hill", 200, { prNumber: 58 });
+    expect(await listOwedDesigns(env.DB)).toMatchObject([{ runId: "code", bypassedAt: 100 }]);
+  });
+
+  it("For: #5 does not cover PR 58 or 5x", async () => {
+    for (const pr of [5, 15, 50, 58, 105, 555]) await bypassed(`code-${pr}`, pr, pr);
+    await design("landed", "landed", [5]);
+    expect((await owed()).sort((a, b) => a - b)).toEqual([15, 50, 58, 105, 555]);
+  });
+
+  it("For: #58 does not cover PR 5, 8 or 158", async () => {
+    for (const pr of [5, 8, 58, 158, 580]) await bypassed(`code-${pr}`, pr, pr);
+    await design("landed", "landed", [58]);
+    expect((await owed()).sort((a, b) => a - b)).toEqual([5, 8, 158, 580]);
+  });
+
+  it("For: #12 covers PR 12, never PR 1 or PR 123", async () => {
+    for (const pr of [1, 12, 123, 2]) await bypassed(`code-${pr}`, pr, pr);
+    await design("landed", "landed", [12]);
+    expect((await owed()).sort((a, b) => a - b)).toEqual([1, 2, 123]);
+  });
+
+  it("covers the first, a middle and the last PR a design names", async () => {
+    for (const pr of [7, 12, 58, 8, 5]) await bypassed(`code-${pr}`, pr, pr);
+    await design("landed", "landed", [7, 12, 58]);
+    expect((await owed()).sort((a, b) => a - b)).toEqual([5, 8]);
+  });
+
+  it("covers a PR in the design's own repo only", async () => {
+    await bypassed("code", 58, 100);
+    await design("elsewhere", "landed", [58], { repo: OTHER_REPO });
+    expect(await owed()).toEqual([58]);
+    await design("here", "landed", [58], { prNumber: 901 });
+    expect(await owed()).toEqual([]);
+  });
+
+  it("owes a PR of another repo separately", async () => {
+    await bypassed("mine", 58, 100);
+    await bypassed("theirs", 58, 200, { repo: OTHER_REPO });
+    await design("landed", "landed", [58], { repo: OTHER_REPO });
+    expect(await listOwedDesigns(env.DB)).toMatchObject([{ repo: REPO, runId: "mine" }]);
+  });
+
+  it("one entry per PR, its newest bypass", async () => {
+    await bypassed("first", 58, 100);
+    await bypassed("second", 58, 300, { prTitle: "orders: retitled" });
+    await bypassed("middle", 58, 200);
+    await bypassed("other", 60, 250);
+    expect(await listOwedDesigns(env.DB)).toEqual([
+      { repo: REPO, prNumber: 58, prTitle: "orders: retitled", runId: "second", bypassedAt: 300 },
+      { repo: REPO, prNumber: 60, prTitle: "PR 60", runId: "other", bypassedAt: 250 },
+    ]);
+  });
+
+  it("lists the newest bypass first", async () => {
+    await bypassed("old", 58, 100);
+    await bypassed("new", 60, 300);
+    await bypassed("mid", 61, 200);
+    expect(await owed()).toEqual([60, 61, 58]);
+  });
+
+  it("indexes what a run's goal covers, and none for a goal that covers nothing", async () => {
+    const covers = async (id: string) => {
+      const row = await env.DB.prepare("SELECT covers FROM runs WHERE id = ?")
+        .bind(id)
+        .first<{ covers: string | null }>();
+      return row?.covers;
+    };
+    await design("two", "landed", [12, 7, 12]);
+    await design("none", "landed", []);
+    await indexRun("plain", "landed", 1, { goal: "Cancel orders." });
+    expect(await covers("two")).toBe("12,7");
+    expect(await covers("none")).toBeNull();
+    expect(await covers("plain")).toBeNull();
+  });
+
+  it("indexes the bypass time, and none for a run that was not bypassed", async () => {
+    await bypassed("code", 58, 100);
+    await indexRun("plain", "swept", 5);
+    const at = async (id: string) => {
+      const row = await env.DB.prepare("SELECT design_bypassed_at AS at FROM runs WHERE id = ?")
+        .bind(id)
+        .first<{ at: number | null }>();
+      return row?.at;
+    };
+    expect(await at("code")).toBe(100);
+    expect(await at("plain")).toBeNull();
   });
 });

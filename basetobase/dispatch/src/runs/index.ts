@@ -1,6 +1,8 @@
 import type { Rating } from "../../../shared/src/config.ts";
+import { coversOf } from "../../../shared/src/design.ts";
 import type { RunNames } from "../../../shared/src/triage.ts";
 import type {
+  OwedDesign,
   RunSnapshot,
   RunStatus,
   RunSummary,
@@ -27,11 +29,12 @@ export function runStub(env: Env, runId: string): DurableObjectStub<RunDO> {
 }
 
 export async function upsertRun(db: D1Database, s: RunSnapshot): Promise<void> {
+  const covers = coversOf(s.goal);
   await db
     .prepare(
       `INSERT OR REPLACE INTO runs (id, repo, pr_number, pr_title, head_sha, run_name, rating,
-         status, outcome, current_step, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         status, outcome, current_step, created_at, updated_at, design_bypassed_at, covers)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       s.id,
@@ -46,6 +49,8 @@ export async function upsertRun(db: D1Database, s: RunSnapshot): Promise<void> {
       currentStep(s.steps),
       s.createdAt,
       s.updatedAt,
+      s.designBypassedAt ?? null,
+      covers.length === 0 ? null : covers.join(","),
     )
     .run();
 }
@@ -79,6 +84,28 @@ export async function listRuns(
     )
     .bind(limit)
     .all<RunSummary>();
+  return results;
+}
+
+// The PRs the owner let skip their design and whose design has not landed, newest bypass first.
+// Each PR is its newest bypassed run. A design covers a PR once its run has landed with the PR's
+// number on a `For:` line (`covers`), in the PR's own repo; the commas keep #5 from covering #58.
+// A run that covers nothing has a NULL `covers`, which matches nothing.
+export async function listOwedDesigns(db: D1Database): Promise<OwedDesign[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT repo, pr_number AS prNumber, pr_title AS prTitle, id AS runId,
+         design_bypassed_at AS bypassedAt
+       FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY repo, pr_number
+               ORDER BY design_bypassed_at DESC, id) AS newest
+             FROM runs WHERE design_bypassed_at IS NOT NULL) AS bypassed
+       WHERE newest = 1 AND NOT EXISTS (
+         SELECT 1 FROM runs AS design
+         WHERE design.status = 'landed' AND design.repo = bypassed.repo
+           AND ',' || design.covers || ',' LIKE '%,' || bypassed.pr_number || ',%')
+       ORDER BY design_bypassed_at DESC, id`,
+    )
+    .all<OwedDesign>();
   return results;
 }
 

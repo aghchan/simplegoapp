@@ -123,6 +123,15 @@ export interface RunSummary {
   updatedAt: number;
 }
 
+// A PR the owner let skip its design, whose design is still owed, with its newest bypassed run.
+export interface OwedDesign {
+  repo: string;
+  prNumber: number;
+  prTitle: string;
+  runId: string;
+  bypassedAt: number;
+}
+
 export interface AgentBrief {
   role: RoleId;
   name: string;

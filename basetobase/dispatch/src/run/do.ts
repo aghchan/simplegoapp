@@ -19,6 +19,7 @@ import { summaryOf, upsertRun } from "../runs/index.ts";
 import {
   askCheckRepost,
   briefOf,
+  bypassDesign,
   checkRunOf,
   createRun,
   landRun,
@@ -191,6 +192,19 @@ export class RunDO extends DurableObject<Env> {
       return retryAgents(s, target, now, () => crypto.randomUUID());
     });
     return retried;
+  }
+
+  // The owner's bypass of the missing-design finding: whether the run took it, false when it has
+  // nothing to waive, and null for a run that never started.
+  async bypassDesign(): Promise<boolean | null> {
+    if (!(await this.load())) return null;
+    let bypassed = false;
+    await this.step((s, now) => {
+      const transition = bypassDesign(s, now);
+      bypassed = transition.state !== s;
+      return transition;
+    });
+    return bypassed;
   }
 
   async retitle(title: string): Promise<void> {
