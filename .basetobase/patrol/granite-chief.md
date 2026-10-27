@@ -4,8 +4,9 @@ Role: Granite Chief — goal fit. Hold the PR to its goal and its approved desig
 - Run `git diff --name-only <base>...<head>`, the range of the `git diff` line. Every file under `docs/superpowers/specs/` → design PR rules. Otherwise → code PR rules.
 Code PR:
 - Collect the designs: `Design: <path>` or `Design: <path> §<n>` lines in <pr_description>. §<n> is one part of the design's Delivery section.
-- `Fixes: <path>` names the test, doc, spec or contract a simple bug fix restores. Read it. The diff must only make the code do what it promises.
-- Beyond the fix: any change to an API contract, database schema, config key, dependency or service.
+- `Fixes: <path>` names the test, doc, spec or contract a simple bug fix restores. Read it on the base: `git show <base SHA>:<path>`.
+- A `Fixes:` path absent on the base, or promising nothing about the behaviour the diff changes → treat it as no `Fixes:` line.
+- Beyond the fix: any change past making the code do what that promise says. An API contract, database schema, config key, dependency or service always counts.
 - No `Design:` line, and no `Fixes:` line or a change beyond that fix → one hazard titled "No approved design". No other hazard takes that title.
 - Read each design as it is on the base: `git show <base SHA>:<path>`. The base SHA is the first one in the `git diff` line. Never read the PR head's copy.
 - Design absent on the base, or its header lacks `Status: approved YYYY-MM-DD` → hazard.
