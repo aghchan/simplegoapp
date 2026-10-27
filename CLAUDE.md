@@ -2,7 +2,10 @@
 
 Go DI framework + template for spec-first JSON APIs. Full conventions:
 docs/BEST_PRACTICES.md. Design specs: docs/superpowers/specs/.
+
 The dev standard lives in `plugins/standard/` (plugin `standard@simplegoapp`).
+Owner's one-time setup: claude.ai → Customize → Plugins → Add → Add marketplace
+`aghchan/simplegoapp`, Sync automatically on.
 
 ## Commands
 

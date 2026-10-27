@@ -77,3 +77,4 @@ description: Use after the what and why are agreed, before any code for a change
 ## After a bypass
 - A change the owner bypassed owes a short design of the change as built, through this loop.
 - Its design PR's description says `For: #<n>`, the bypassed PR's number.
+- Put that line in the description when the PR is opened, never after: Base to Base reads the description only at run start.
