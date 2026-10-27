@@ -498,6 +498,12 @@ button:focus-visible,
   color: var(--landed);
 }
 
+.chip-bypassed {
+  background: var(--surface);
+  border-color: var(--warn-border);
+  color: var(--warn-text);
+}
+
 .pr-head-landed {
   border-left: 6px solid var(--landed);
 }
@@ -1008,7 +1014,7 @@ button:focus-visible,
 }
 
 /* Under the buttons, not squeezed beside them. */
-.retry-refused {
+.action-refused {
   flex-basis: 100%;
   margin: 0;
   color: var(--bad);
