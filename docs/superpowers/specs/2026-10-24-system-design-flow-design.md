@@ -379,15 +379,24 @@ The flow ships as a Claude Code plugin published from this repo
   `system-design` skill, and the session-start hook carrying the rules
   (§3).
 - **This repo** hosts the marketplace that lists the plugin.
-- **A project** enables it in its `.claude/settings.json`, and every
-  session there gets the flow. A project holds no copies of any of it.
-- **This repo** enables its own plugin the same way.
+- **The owner's claude.ai account** carries the plugin (owner, after the
+  spike below). Add it once under claude.ai → Customize → Plugins → Add →
+  Add marketplace, entering `aghchan/simplegoapp`, with **Sync automatically**
+  on.
+- **Every session** signed in to that account then gets the plugin as a
+  synced plugin: terminal, desktop and cloud sessions, in any repository.
+  This cloud session already loads the owner's account-synced superpowers
+  plugin the same way.
+- **Projects** declare nothing and hold no copies. A project
+  `.claude/settings.json` entry would load a second copy beside the synced
+  one, so there is none.
 
 **Upgrades (owner).** Projects keep up by taking this repo's newest release.
 Releases are version tags with a short upgrade note **(designer's call)**.
-Part 3 adds the weekly bot that moves each project to the newest release
-through a PR, so each upgrade passes the project's own CI before it lands.
-Until then, updating the plugin is one command.
+The account's Sync automatically pulls each new plugin `version` from this
+repo's default branch. A release bumps `plugin.json`'s version. Part 3's
+weekly bot moves each project's other references (CI workflows, the Go
+module) to the newest release.
 
 **Spike first (designer's call):** confirm that a plugin enabled in a
 repo's settings installs itself in a Claude Code cloud session, without
@@ -402,6 +411,14 @@ and `claude plugin list` printed "No plugins installed". Project-declared
 marketplaces register only after the folder-trust dialog, and a headless
 cloud session never shows it. The fallback goes to the owner before any
 further work.
+
+**Fallback decided (owner, 2026-10-27): the account plugin.** A
+project-declared plugin never loads in a cloud session. Claude Code's
+docs confirm it: cloud sessions load account-synced and
+organization-managed plugins only. The check that the account plugin
+reaches a fresh session happens after merge, once the owner has added the
+marketplace. If it fails, the next fallback is the cloud environment's
+setup script installing the plugin at user scope.
 
 **Patrol prompts stay in this repo.** The design lenses ship in the plugin,
 and the PR patrol's prompts (`.basetobase/patrol/`, Granite Chief's

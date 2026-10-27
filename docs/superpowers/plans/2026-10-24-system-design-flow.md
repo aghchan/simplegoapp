@@ -572,7 +572,7 @@ Expected: failures only where a spec assumes one job.
 
 - [ ] **Step 1: Write the docs, and point the settings at the default branch**
 
-Re-run `claude plugin marketplace add aghchan/simplegoapp --scope project`, without the `#<branch>` ref Task 1 used, so that after merge this repo loads the plugin from main.
+`.claude/settings.json` no longer declares the plugin (removed in Task 2, owner chose the account plugin). Add the owner's one-time setup to the root CLAUDE.md line: claude.ai → Customize → Plugins → Add → Add marketplace `aghchan/simplegoapp`, Sync automatically on.
 
 - [ ] **Step 2: Run every gate**
 
