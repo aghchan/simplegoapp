@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 const (
 	hookPath      = "hooks/session-start"
+	skillPath     = "skills/system-design/SKILL.md"
 	templatePath  = "skills/system-design/template.md"
 	lensDir       = "skills/system-design/lenses"
 	challengeFile = "_challenge.md"
@@ -333,6 +335,116 @@ func TestGoBlock(t *testing.T) {
 	for _, want := range []string{"domain/", "api/", "pkg/http", "apierror", "app/", "main.go"} {
 		if !strings.Contains(block, want) {
 			t.Errorf("corduroy.md's Go block lacks %q", want)
+		}
+	}
+}
+
+var (
+	pluginPath = regexp.MustCompile("\\$\\{CLAUDE_PLUGIN_ROOT\\}/([^\\s`]+)")
+	codeSpan   = regexp.MustCompile("`([^`]+)`")
+	quoted     = regexp.MustCompile(`"([^"]+)"`)
+)
+
+func TestSkillReferences(t *testing.T) {
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	front, body, found := strings.Cut(strings.TrimPrefix(string(data), "---\n"), "\n---\n")
+	if !found || !strings.HasPrefix(string(data), "---\n") {
+		t.Fatalf("%s has no frontmatter", skillPath)
+	}
+
+	fields := strings.Split(front, "\n")
+	if !slices.Contains(fields, "name: system-design") {
+		t.Errorf("%s frontmatter %q lacks name: system-design", skillPath, front)
+	}
+	if !slices.ContainsFunc(fields, func(field string) bool {
+		return strings.HasPrefix(field, "description: Use after the what and why are agreed")
+	}) {
+		t.Errorf("%s description does not start %q", skillPath, "Use after the what and why are agreed")
+	}
+
+	lensIDs := []string{}
+	for _, l := range lenses(t) {
+		lensIDs = append(lensIDs, l.id)
+	}
+
+	// Lens subagents get these paths, so each must resolve inside the plugin; <id> stands for every lens
+	paths := pluginPath.FindAllStringSubmatch(body, -1)
+	if len(paths) == 0 {
+		t.Errorf("%s names no ${CLAUDE_PLUGIN_ROOT} path", skillPath)
+	}
+	for _, match := range paths {
+		resolved := []string{strings.TrimRight(match[1], ".,;:)")}
+		if strings.Contains(resolved[0], "<id>") {
+			pattern := resolved[0]
+			resolved = nil
+			for _, id := range lensIDs {
+				resolved = append(resolved, strings.ReplaceAll(pattern, "<id>", id))
+			}
+		}
+		for _, path := range resolved {
+			if _, err := os.Stat(path); err != nil {
+				t.Errorf("%s names %s: %v", skillPath, match[0], err)
+			}
+		}
+	}
+
+	for _, want := range []string{
+		"${CLAUDE_PLUGIN_ROOT}/" + templatePath,
+		"${CLAUDE_PLUGIN_ROOT}/" + lensDir + "/" + challengeFile,
+		// names the bypassed PR whose owed design this clears
+		"`For: #<n>`",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("%s lacks %q", skillPath, want)
+		}
+	}
+
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headings := []string{"None"}
+	for _, line := range strings.Split(string(template), "\n") {
+		if heading, ok := strings.CutPrefix(line, "## "); ok {
+			headings = append(headings, heading)
+		}
+	}
+
+	// The panel lines name lenses by role id and sections by heading, so a typo leaves a lens off the panel
+	lines := strings.Split(body, "\n")
+	for _, rule := range []struct {
+		label string
+		want  []string
+	}{
+		{"- Full panel:", []string{"every lens", "`magic-carpet`", "`bluebird`", "screen"}},
+		{"- Short panel:", []string{"`granite-chief`", `"None"`}},
+		{"- A lens's section:", []string{"`corduroy`", "`summit-six`", "`gold-coast`", "`kt-22`", "`mainline`"}},
+		{"- Every panel:", []string{"`builder`"}},
+	} {
+		i := slices.IndexFunc(lines, func(line string) bool {
+			return strings.HasPrefix(line, rule.label)
+		})
+		if i < 0 {
+			t.Errorf("%s lacks a line starting %q", skillPath, rule.label)
+			continue
+		}
+		for _, want := range rule.want {
+			if !strings.Contains(lines[i], want) {
+				t.Errorf("%s line %q lacks %q", skillPath, lines[i], want)
+			}
+		}
+		for _, span := range codeSpan.FindAllStringSubmatch(lines[i], -1) {
+			if !slices.Contains(lensIDs, span[1]) {
+				t.Errorf("%s line %q names %q, which is no lens", skillPath, lines[i], span[1])
+			}
+		}
+		for _, quote := range quoted.FindAllStringSubmatch(lines[i], -1) {
+			if !slices.Contains(headings, quote[1]) {
+				t.Errorf("%s line %q names %q, which is no template heading", skillPath, lines[i], quote[1])
+			}
 		}
 	}
 }

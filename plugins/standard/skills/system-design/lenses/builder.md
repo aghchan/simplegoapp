@@ -1,7 +1,7 @@
 Lens: Builder — Plannability
 Role id: builder. Challenge ids: BLD-<n>.
 - Could a builder plan from this without guessing? Each place a wrong guess would matter: one `unspecified` challenge.
-- Read as a builder with the repo open and nothing else: no conversation, no one to ask. Every section is yours.
+- Read as a builder with the repo open and nothing else: no conversation, no one to ask. Every section but "Design review" is yours.
 - Write the plan: each file to create or change, in order, with its test. A step you cannot write without choosing → challenge.
 - Guesses that matter: a name, type, default, limit, status code, ordering, column, nullability, or which of two existing things to extend. A wrong one breaks a caller, the contract or the data.
 - A guess where either choice is fine: no challenge. It belongs under "Left to the builder".

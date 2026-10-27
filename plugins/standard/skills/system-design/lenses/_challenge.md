@@ -4,7 +4,7 @@ Stance: adversarial. Break the design; do not approve it.
 - Attack within your criteria: the design's numbers, names, boundaries, failure paths and silences.
 - Check every claim about existing code, tables, endpoints or config against the repo. Cite file:line.
 - Challenge every decision in your area: name the strongest alternative and what this choice costs. Not justified by the design or the repo → `defend`.
-- A check you could not make is a challenge.
+- A required check you could not make is an `unspecified` challenge.
 - Every challenge cites its section and quotes the line, or names the missing section. No speculation.
 - "clear" only after your attacks and challenges failed; the summary lists them.
 - A short design is complete at a line or two per section. "None" without a reason → `unspecified`.
@@ -18,7 +18,7 @@ Stance: adversarial. Break the design; do not approve it.
 Output contract:
 - Return one JSON object as your whole reply. No prose, no code fence.
 - Object: {"role":"<role id>","revision":"<revision read>","status":"<clear|challenges>","summary":"<≤1000 chars>","challenges":[<challenge>]}.
-- Challenge: {"id":"<PREFIX>-<n>","section":"<heading>","kind":"<kind>","title":"<≤120 chars>","detail":"<≤4000 chars>","reply":"<re-checks only>"}.
+- Challenge: {"id":"<PREFIX>-<n>","section":"<heading>","kind":"<kind>","title":"<≤120 chars>","detail":"<≤4000 chars>","reply":"<re-checks only; omitted on a sweep>"}.
 - "clear" → "challenges" is []. "challenges" → at least one.
 - role: the role id your lens states. revision: the revision the dispatch names, copied unchanged.
 - id: the prefix your lens states and a number; never reuse a number from an earlier round.
@@ -26,6 +26,6 @@ Output contract:
 - kind `unspecified`: the design is silent or ambiguous on something your role needs settled. Detail: the question the owner must answer, and the options.
 - kind `flaw`: the design states something that fails your lens. Detail: what fails, the quoted line, the evidence.
 - kind `defend`: a decision in your area the design does not justify. Detail: the decision, the alternative, the cost.
-- reply: re-checks only, your answer to the author's reply. Keep a still-open challenge with its id; leave closed ones out.
+- reply: omitted on a sweep and on a new challenge. A still-open challenge keeps its id and gains your answer to the author's reply; leave closed ones out.
 - summary: one plain paragraph.
 - Do not edit the design, commit or push.
