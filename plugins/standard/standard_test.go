@@ -3,6 +3,7 @@ package standard
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,8 +13,12 @@ import (
 )
 
 const (
-	hookPath     = "hooks/session-start"
-	templatePath = "skills/system-design/template.md"
+	hookPath      = "hooks/session-start"
+	templatePath  = "skills/system-design/template.md"
+	lensDir       = "skills/system-design/lenses"
+	challengeFile = "_challenge.md"
+	rosterPath    = "../../basetobase/config/basetobase.json"
+	maxLensLines  = 40
 )
 
 type hookOutput struct {
@@ -191,6 +196,143 @@ func TestTemplateSections(t *testing.T) {
 			if !strings.Contains(header[i], value) {
 				t.Errorf("template header line %q lacks %q", header[i], value)
 			}
+		}
+	}
+}
+
+// lens is one design lens: the roster role it speaks for, the line it starts with and its challenge id prefix
+type lens struct {
+	id, head, prefix string
+}
+
+// lenses returns the builder plus every roster role but the implementer, which reviews no design
+func lenses(t *testing.T) []lens {
+	t.Helper()
+
+	data, err := os.ReadFile(rosterPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Roster []struct {
+			ID     string `json:"id"`
+			Name   string `json:"name"`
+			Role   string `json:"role"`
+			Prefix string `json:"prefix"`
+		} `json:"roster"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Roster) == 0 {
+		t.Fatalf("%s has no roster", rosterPath)
+	}
+
+	found := []lens{{id: "builder", head: "Lens: Builder — Plannability", prefix: "BLD"}}
+	for _, role := range config.Roster {
+		if role.ID == "groomer" {
+			continue
+		}
+		found = append(found, lens{id: role.ID, head: "Lens: " + role.Name + " — " + role.Role, prefix: role.Prefix})
+	}
+	return found
+}
+
+func readLens(t *testing.T, file string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(lensDir, file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func nonEmptyLines(text string) []string {
+	var lines []string
+	for _, line := range strings.Split(text, "\n") {
+		if strings.TrimSpace(line) != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+func TestLensPerRole(t *testing.T) {
+	for _, l := range lenses(t) {
+		if _, err := os.Stat(filepath.Join(lensDir, l.id+".md")); err != nil {
+			t.Errorf("no lens for %s: %v", l.id, err)
+		}
+	}
+}
+
+func TestLensStyle(t *testing.T) {
+	byFile := map[string]lens{}
+	for _, l := range lenses(t) {
+		byFile[l.id+".md"] = l
+	}
+
+	files, err := os.ReadDir(lensDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		name := file.Name()
+		text := readLens(t, name)
+		lines := nonEmptyLines(text)
+
+		if len(lines) > maxLensLines {
+			t.Errorf("%s has %d non-empty lines, the house style allows %d", name, len(lines), maxLensLines)
+		}
+		if name == challengeFile {
+			continue
+		}
+
+		l, ok := byFile[name]
+		if !ok {
+			t.Errorf("%s is neither the builder nor a roster role's lens", name)
+			continue
+		}
+		if head, _, _ := strings.Cut(text, "\n"); head != l.head {
+			t.Errorf("%s starts with %q, want %q", name, head, l.head)
+		}
+		// Task 5 parses role and challenge ids against the roster, so each lens states its own
+		if want := fmt.Sprintf("Role id: %s. Challenge ids: %s-<n>.", l.id, l.prefix); !slices.Contains(lines, want) {
+			t.Errorf("%s lacks the line %q", name, want)
+		}
+	}
+}
+
+func TestChallengeContract(t *testing.T) {
+	contract := readLens(t, challengeFile)
+
+	for _, want := range []string{
+		// the object and a challenge, with the length limits on the free-text fields
+		`"role":`, `"revision":`, `"status":`, `"challenges":`,
+		`"summary":"<≤1000`,
+		`"id":"<PREFIX>-<n>"`, `"section":`, `"kind":`,
+		`"title":"<≤120`,
+		`"detail":"<≤4000`,
+		`"reply":`,
+		`"clear"`,
+		"`unspecified`", "`flaw`", "`defend`",
+	} {
+		if !strings.Contains(contract, want) {
+			t.Errorf("%s lacks %q", challengeFile, want)
+		}
+	}
+}
+
+func TestGoBlock(t *testing.T) {
+	_, rest, found := strings.Cut(readLens(t, "corduroy.md"), "\n## Go\n")
+	if !found {
+		t.Fatal("corduroy.md has no ## Go block")
+	}
+	block, _, _ := strings.Cut(rest, "\n## ")
+
+	for _, want := range []string{"domain/", "api/", "pkg/http", "apierror", "app/", "main.go"} {
+		if !strings.Contains(block, want) {
+			t.Errorf("corduroy.md's Go block lacks %q", want)
 		}
 	}
 }
