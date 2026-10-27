@@ -218,7 +218,7 @@ Run: `go test ./plugins/standard/ -run TemplateSections -v` → FAIL (no file)
   - Short means one or two lines per section.
   - "None" needs a reason.
   - Delivery names its parts `§<n>` so PRs can point at them.
-- **The Design review section** shows the record's format: the panel and why; per round, each challenge id, title, and how it was settled (`revised §n`, `defended: …`, `owner: …`, `withdrawn`); and the final `Quorum: <prefixes> clear on revision N`.
+- **The Design review section** shows the record's format: the panel and why; per round, each challenge id, title, and how it was settled (`revised <heading>`, `defended: …`, `owner: …`, `withdrawn`); and the final `Quorum: <prefixes> clear on revision N`.
 
 - [ ] **Step 4: Run the test** → PASS
 

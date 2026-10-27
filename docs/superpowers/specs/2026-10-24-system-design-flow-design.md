@@ -277,7 +277,7 @@ to the owner, and it carries on until quorum. The owner is the tiebreaker,
 not a timeout.
 
 Claude writes the review record (§4.16) as it goes: the panel, each
-round's challenges, how each was settled (revised in §n, defended with a
+round's challenges, how each was settled (revised in a named section, defended with a
 reason, owner decision, withdrawn), and finally "Quorum: GOAL, QLT, SCL,
 INF, SEC, FUN, BLD clear on revision N".
 
