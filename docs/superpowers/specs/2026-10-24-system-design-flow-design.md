@@ -1,6 +1,6 @@
 # System design before code — Design
 
-**Status:** approved 2026-10-24 (owner).
+- Status: approved 2026-10-24
 
 **Part 1 of 3** of the development standard every project cloned from this
 repo follows (owner). Part 2 is the iOS standard and starter. Part 3 is

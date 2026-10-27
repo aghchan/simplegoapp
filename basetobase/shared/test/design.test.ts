@@ -16,6 +16,21 @@ describe("Granite Chief's patrol template", () => {
     "mentions %s",
     (text) => expect(template).toContain(text),
   );
+
+  it.each([
+    // a design renamed out of the specs folder shows as an edit of it
+    "git diff --name-only --no-renames",
+    // the beyond-the-fix list follows the simple-bug-fix rule (plugins/standard/rules.md)
+    "infrastructure",
+    "A `Design:` path outside `docs/superpowers/specs/` → hazard.",
+    // a design PR is held to its own block alone
+    "Apply none of the Code PR rules",
+    // an edit of an approved design must add a round and a newer quorum
+    "a `Round <n>:` the base lacks",
+    // the panel's prefixes end where the template's reason begins (template.md)
+    "`Panel: <prefixes>. Why: <reason>`",
+  ])("says %s", (text) => expect(template).toContain(text));
+
   it("stays within the house style's 40 lines", () => {
     const lines = template.split("\n").filter((line) => line.trim() !== "");
     expect(lines.length).toBeLessThanOrEqual(40);
