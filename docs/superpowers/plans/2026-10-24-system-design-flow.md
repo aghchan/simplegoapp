@@ -4,7 +4,7 @@
 
 **Goal:** Ship part 1 of the development standard. Every change bigger than a simple bug fix gets a templated system design that the patrol's specialists challenge until quorum. Granite Chief holds the code PR to it, and only the owner can bypass it.
 
-**Architecture:** The template, the specialists' design lenses, the `system-design` skill and the standard's session rules ship as a Claude Code plugin (`standard`) from a marketplace (`simplegoapp`) at this repo's root. This repo enables the plugin in `.claude/settings.json`. Base to Base gains Granite Chief on the PR patrol, an owner-only bypass of its missing-design finding, and a list of designs still owed after a bypass.
+**Architecture:** The template, the specialists' design lenses, the `system-design` skill and the standard's session rules ship as a Claude Code plugin (`standard`) from a marketplace (`simplegoapp`) at this repo's root. It reaches sessions as a claude.ai account plugin (spec §9); projects declare nothing. Base to Base gains Granite Chief on the PR patrol, an owner-only bypass of its missing-design finding, and a list of designs still owed after a bypass.
 
 **Tech Stack:** Claude Code plugins (marketplace.json, plugin.json, hooks, skills), bash, Go tests, TypeScript (Cloudflare Worker, D1, React), Vitest, Playwright.
 
@@ -37,7 +37,6 @@
 
 ```
 .claude-plugin/marketplace.json                 marketplace "simplegoapp", lists plugin "standard"
-.claude/settings.json                           this repo enables standard@simplegoapp
 plugins/CLAUDE.md                               conventions for plugins in this repo
 plugins/standard/.claude-plugin/plugin.json     manifest: name, version, description, author
 plugins/standard/rules.md                       the standard's session rules (agent-read)

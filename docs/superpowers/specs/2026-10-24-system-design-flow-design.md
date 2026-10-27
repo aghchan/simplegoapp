@@ -434,7 +434,8 @@ repos is part 3.
 - Granite Chief's patrol template
 
 **Edits:**
-- `.claude/settings.json`, which enables the plugin here
+- the root `CLAUDE.md`: where the standard lives, and the owner's one-time
+  account-plugin setup (§9)
 - `docs/BEST_PRACTICES.md` §9
 - `enabledRoles`
 - Dispatch and the dashboard: the bypass (an API route, a machine
