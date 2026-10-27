@@ -71,6 +71,20 @@ export function loadConfig(raw: unknown): B2BConfig {
   };
 }
 
+// The roles a run starts with, pinned by the ENABLED_ROLES variable (comma-separated role ids). It
+// exists for tests, which keep to one agent whatever the shipped config enables. Unset or empty
+// leaves the config as it is.
+export function withEnabledRoles(cfg: B2BConfig, csv: string | undefined): B2BConfig {
+  if (csv === undefined || csv === "") return cfg;
+  const rosterIds = cfg.roster.map((entry) => entry.id);
+  return {
+    ...cfg,
+    enabledRoles: csv
+      .split(",")
+      .map((role, index) => oneOf(role, rosterIds, `ENABLED_ROLES[${index}]`)),
+  };
+}
+
 export const config: B2BConfig = loadConfig({ ...shippedConfig, trailNames: trailNameFile.trailNames });
 
 export function rosterEntry(cfg: B2BConfig, id: RoleId): RosterEntry {

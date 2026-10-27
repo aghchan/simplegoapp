@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { config, rosterEntry, type B2BConfig, type RoleId } from "../../shared/src/config.ts";
+import {
+  config as shippedConfig,
+  rosterEntry,
+  withEnabledRoles,
+  type B2BConfig,
+  type RoleId,
+} from "../../shared/src/config.ts";
 import { RATING_LABELS, STEP_ORDER } from "../../shared/src/labels.ts";
 import type { Triage } from "../../shared/src/triage.ts";
 import type {
@@ -43,6 +49,9 @@ import {
 } from "../src/run/machine.ts";
 import { prRef } from "./helpers.ts";
 
+// One agent on a run whatever the shipped config enables, as the dispatch vitest binding pins for
+// the Durable Object.
+const config = withEnabledRoles(shippedConfig, "mainline");
 const pr = prRef();
 const t: Triage = {
   panels: ["backend"],

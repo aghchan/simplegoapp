@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { config } from "../../../shared/src/config.ts";
+import { config, withEnabledRoles } from "../../../shared/src/config.ts";
 import type { Triage } from "../../../shared/src/triage.ts";
 import type {
   AgentBrief,
@@ -88,7 +88,8 @@ export class RunDO extends DurableObject<Env> {
   }
 
   async start(pr: PullRequestRef, runId: string, t: Triage): Promise<RunSnapshot> {
-    await this.commit(createRun(pr, runId, t, config, Date.now(), () => crypto.randomUUID()));
+    const runConfig = withEnabledRoles(config, this.env.ENABLED_ROLES);
+    await this.commit(createRun(pr, runId, t, runConfig, Date.now(), () => crypto.randomUUID()));
     return snapshotOf(await this.loaded());
   }
 
