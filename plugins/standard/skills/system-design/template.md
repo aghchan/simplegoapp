@@ -19,7 +19,7 @@
 
 ## Goals, non-goals, anti-goals
 
-> What it must achieve, what it leaves out for now, and what it must never become or break.
+> What it must achieve, what it leaves out for now, and the failures to avoid even if everything works.
 
 ## Fit with existing features
 
