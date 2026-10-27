@@ -76,7 +76,7 @@
 Panel: <prefixes>, <why this panel>
 
 Round <n>:
-- <id> <title>: revised §n
+- <id> <title>: revised <heading>
 - <id> <title>: defended: <reason>
 - <id> <title>: owner: <ruling>
 - <id> <title>: withdrawn

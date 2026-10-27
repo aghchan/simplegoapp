@@ -5,7 +5,8 @@
 - Plugin layout: `.claude-plugin/plugin.json`, `hooks/hooks.json` and `hooks/session-start`, `rules.md`, `skills/<name>/SKILL.md`.
 - `rules.md` is the single source of the session rules. The hook injects it at session start; skills refer to it and never copy it.
 - The hook reads `rules.md` and escapes it with bash builtins only, no external command. It finds its plugin root from `$0`.
-- `rules.md` and the lenses: one imperative rule per line, ≤40 lines. No preamble, rationale, hedging or politeness.
+- House style binds every agent-read file (`rules.md`, `SKILL.md`, the lenses, `_challenge.md`): one imperative rule per line. No preamble, rationale, hedging or politeness.
+- The ≤40-line cap binds `rules.md`, the lenses and `_challenge.md`.
 - `skills/system-design/template.md` is a fill-in document, exempt from the 40-line cap.
 - No CLAUDE.md inside a plugin: the plugin ships to other repos. Context for editing it lives here.
 - Bump `plugin.json` `version` on each release. Account sync pulls only new versions.
