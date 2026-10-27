@@ -244,8 +244,8 @@ The lists below are the *scope* each template covers, not its wording.
   and nothing unasked for. If the PR description gives no judgeable goal, that
   itself is a hazard.
   - **Design rules (built):** Granite Chief is enabled (`enabledRoles` is
-    `["granite-chief","mainline"]`) with `.basetobase/patrol/granite-chief.md`,
-    the first patrol template. It holds a code PR to the design its
+    `["granite-chief","mainline"]`) with `.basetobase/patrol/granite-chief.md`.
+    It holds a code PR to the design its
     description names (`Design: <path>`, `Design: <path> §<n>`) or, for a simple
     bug fix, to the promise its `Fixes: <path>` names, each read on the default
     branch. It flags a PR that has neither, a design not approved, a code PR
