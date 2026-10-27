@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 	challengeFile = "_challenge.md"
 	rosterPath    = "../../basetobase/config/basetobase.json"
 	maxLensLines  = 40
+	// Granite Chief's patrol template reads the panel's prefixes up to ". Why:"
+	panelLine = "Panel: <prefixes>. Why: <reason>"
 )
 
 type hookOutput struct {
@@ -130,6 +133,11 @@ func TestRulesStateTheStandard(t *testing.T) {
 		"`Design: <path> §<n>`",
 		"`Fixes: <path>`",
 		"bypass",
+		"`For: #<n>`",
+		// superpowers is external, so the standard says it wins and where brainstorming hands over
+		"These rules take precedence over any superpowers skill where they differ.",
+		"In `superpowers:brainstorming`, once the what and why are agreed, write the design with `standard:system-design` instead of its design doc.",
+		"Invoke `superpowers:writing-plans` only after the design PR merges.",
 	} {
 		if !strings.Contains(rules, want) {
 			t.Errorf("rules.md lacks %q", want)
@@ -138,6 +146,20 @@ func TestRulesStateTheStandard(t *testing.T) {
 
 	if n := strings.Count(rules, "\n"); n > 40 {
 		t.Errorf("rules.md has %d lines, the house style allows 40", n)
+	}
+}
+
+// The hook escapes only \ " LF CR TAB, so any other control character would break its JSON
+func TestRulesHaveNoControlCharacters(t *testing.T) {
+	data, err := os.ReadFile("rules.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, r := range string(data) {
+		if unicode.IsControl(r) && r != '\n' {
+			t.Errorf("rules.md holds control character %U at byte %d; only LF is allowed", r, i)
+		}
 	}
 }
 
@@ -177,6 +199,9 @@ func TestTemplateSections(t *testing.T) {
 	}
 	if !slices.Equal(headings, want) {
 		t.Errorf("template headings = %q, want %q", headings, want)
+	}
+	if !slices.Contains(strings.Split(string(data), "\n"), panelLine) {
+		t.Errorf("template lacks the line %q", panelLine)
 	}
 
 	for _, field := range []struct {
@@ -320,6 +345,8 @@ func TestChallengeContract(t *testing.T) {
 		"`unspecified`", "`flaw`", "`defend`",
 		// the skill names each lens's next free id, since a lens cannot see its own closed numbers
 		"`Next id`",
+		// the key the re-check dispatch carries the author's reply in (SKILL.md)
+		"`authorReply`",
 	} {
 		if !strings.Contains(contract, want) {
 			t.Errorf("%s lacks %q", challengeFile, want)
@@ -399,6 +426,9 @@ func TestSkillReferences(t *testing.T) {
 		"${CLAUDE_PLUGIN_ROOT}/rules.md",
 		// names the bypassed PR whose owed design this clears
 		"`For: #<n>`",
+		"`" + panelLine + "`",
+		// the key the contract reads the author's reply from (_challenge.md)
+		"`\"authorReply\"`",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("%s lacks %q", skillPath, want)

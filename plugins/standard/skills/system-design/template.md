@@ -73,7 +73,7 @@
 
 > Written by the loop, not the author: the panel and why, each round's challenges and how each was settled, then the quorum line.
 
-Panel: <prefixes>, <why this panel>
+Panel: <prefixes>. Why: <reason>
 
 Round <n>:
 - <id> <title>: revised <heading>
