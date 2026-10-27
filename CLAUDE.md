@@ -2,6 +2,7 @@
 
 Go DI framework + template for spec-first JSON APIs. Full conventions:
 docs/BEST_PRACTICES.md. Design specs: docs/superpowers/specs/.
+The dev standard lives in `plugins/standard/` (plugin `standard@simplegoapp`).
 
 ## Commands
 

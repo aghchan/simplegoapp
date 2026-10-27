@@ -19,3 +19,12 @@ jobs:
       - run: go run honnef.co/go/tools/cmd/staticcheck@2026.1 ./...
       - run: make check-api
       - run: go test ./... -count=1 -race
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npx -y @anthropic-ai/claude-code@2.1.311 plugin validate . --strict
+      - run: npx -y @anthropic-ai/claude-code@2.1.311 plugin validate plugins/standard --strict

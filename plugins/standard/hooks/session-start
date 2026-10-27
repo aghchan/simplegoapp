@@ -18,7 +18,7 @@ rules=""
 if [ -r "${PLUGIN_ROOT}/rules.md" ]; then
   IFS= read -r -d '' rules <"${PLUGIN_ROOT}/rules.md" || true
 else
-  rules="Error reading standard rules.md"
+  rules="standard plugin: rules.md missing"
 fi
 
 # Escape a string for JSON embedding using bash parameter substitution.
