@@ -318,6 +318,8 @@ func TestChallengeContract(t *testing.T) {
 		`"reply":`,
 		`"clear"`,
 		"`unspecified`", "`flaw`", "`defend`",
+		// the skill names each lens's next free id, since a lens cannot see its own closed numbers
+		"`Next id`",
 	} {
 		if !strings.Contains(contract, want) {
 			t.Errorf("%s lacks %q", challengeFile, want)
@@ -394,6 +396,7 @@ func TestSkillReferences(t *testing.T) {
 	for _, want := range []string{
 		"${CLAUDE_PLUGIN_ROOT}/" + templatePath,
 		"${CLAUDE_PLUGIN_ROOT}/" + lensDir + "/" + challengeFile,
+		"${CLAUDE_PLUGIN_ROOT}/rules.md",
 		// names the bypassed PR whose owed design this clears
 		"`For: #<n>`",
 	} {
@@ -413,8 +416,23 @@ func TestSkillReferences(t *testing.T) {
 		}
 	}
 
-	// The panel lines name lenses by role id and sections by heading, so a typo leaves a lens off the panel
 	lines := strings.Split(body, "\n")
+
+	// Lens subagents are stateless, so the sweep and the re-check each name the next free challenge id
+	prompts := 0
+	for _, line := range lines {
+		if strings.HasPrefix(line, "- Prompt each:") {
+			prompts++
+			if !strings.Contains(line, "Next id: <PREFIX>-<n>.") {
+				t.Errorf("%s prompt %q lacks %q", skillPath, line, "Next id: <PREFIX>-<n>.")
+			}
+		}
+	}
+	if prompts != 2 {
+		t.Errorf("%s has %d dispatch prompts, want the sweep's and the re-check's", skillPath, prompts)
+	}
+
+	// The panel lines name lenses by role id and sections by heading, so a typo leaves a lens off the panel
 	for _, rule := range []struct {
 		label string
 		want  []string

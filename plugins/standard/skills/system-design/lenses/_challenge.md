@@ -21,7 +21,7 @@ Output contract:
 - Challenge: {"id":"<PREFIX>-<n>","section":"<heading>","kind":"<kind>","title":"<≤120 chars>","detail":"<≤4000 chars>","reply":"<re-checks only; omitted on a sweep>"}.
 - "clear" → "challenges" is []. "challenges" → at least one.
 - role: the role id your lens states. revision: the revision the dispatch names, copied unchanged.
-- id: the prefix your lens states and a number; never reuse a number from an earlier round.
+- id: number new challenges from the dispatch's `Next id`, counting up; never reuse a number.
 - section: a heading of the design, exact text without `## `. A missing section: the heading that would hold it.
 - kind `unspecified`: the design is silent or ambiguous on something your role needs settled. Detail: the question the owner must answer, and the options.
 - kind `flaw`: the design states something that fails your lens. Detail: what fails, the quoted line, the evidence.

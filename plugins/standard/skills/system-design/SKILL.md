@@ -4,6 +4,7 @@ description: Use after the what and why are agreed, before any code for a change
 ---
 
 ## Files
+- Rules: `${CLAUDE_PLUGIN_ROOT}/rules.md`, for when a design is required and what a simple bug fix is.
 - Template: `${CLAUDE_PLUGIN_ROOT}/skills/system-design/template.md`.
 - Contract: `${CLAUDE_PLUGIN_ROOT}/skills/system-design/lenses/_challenge.md`.
 - Lens of role id `<id>`: `${CLAUDE_PLUGIN_ROOT}/skills/system-design/lenses/<id>.md`.
@@ -26,7 +27,8 @@ description: Use after the what and why are agreed, before any code for a change
 
 ## Sweep
 - Dispatch one Agent tool subagent per panel lens, all in one message, in parallel.
-- Prompt each: `Sweep. Revision: <N>. Lens: <lens path>. Contract: <contract path>. Design: <design path>. Return only the JSON object.`
+- Prompt each: `Sweep. Revision: <N>. Lens: <lens path>. Contract: <contract path>. Design: <design path>. Next id: <PREFIX>-<n>. Return only the JSON object.`
+- `Next id`: the lens's prefix and one more than that prefix's highest number in the review record, or 1 when it has none.
 - Dispatch a lens again when its return is not one JSON object in the contract, or its `role` or `revision` differs from the dispatch.
 
 ## Answer
@@ -37,7 +39,7 @@ description: Use after the what and why are agreed, before any code for a change
 
 ## Owner questions
 - Ask all owner questions in one message, most important first.
-- Each gives the challenge id, the specialist, why the design does not settle it, and your proposed answer.
+- Each gives the challenge id, its `detail` (the lens's question and options), the specialist, why the design does not settle it, and your proposed answer.
 - Two lenses asking the same question: one owner question naming both challenge ids.
 - Wait for the rulings before the re-check.
 - Write each ruling into "Decisions" marked **(owner)**; it closes its challenge.
@@ -45,7 +47,7 @@ description: Use after the what and why are agreed, before any code for a change
 ## Re-check
 - Add 1 to the revision when your answers changed any section but "Design review".
 - Dispatch every panel lens again, open challenges or not, all in one message, in parallel.
-- Prompt each: `Re-check. Revision: <N>. Lens: <lens path>. Contract: <contract path>. Design: <design path>. Challenges: <JSON>. Return only the JSON object.`
+- Prompt each: `Re-check. Revision: <N>. Lens: <lens path>. Contract: <contract path>. Design: <design path>. Challenges: <JSON>. Next id: <PREFIX>-<n>. Return only the JSON object.`
 - `<JSON>`: an array of every challenge every lens returned in the round, each with an added `"answer"`: `revised <heading>`, your reply with its evidence, or `owner: <ruling>`.
 - Read each return: a round's challenge left out is closed, one kept open carries the lens's `reply`, and a new id is a new challenge.
 
