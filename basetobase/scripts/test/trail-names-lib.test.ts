@@ -7,6 +7,7 @@ import {
   overloaded,
   overpassQuery,
   ratingOf,
+  retryable,
   runsOf,
   slotWaitMs,
   slugOf,
@@ -292,3 +293,15 @@ describe("overloaded", () => {
   });
 });
 
+describe("retryable", () => {
+  it("tries again while Overpass is rate limiting, busy or briefly down", () => {
+    for (const status of [429, 502, 503, 504]) expect(retryable(status, "")).toBe(true);
+    const timedOut = 'runtime error: Query timed out in "query" at line 3 after 121 seconds.';
+    expect(retryable(200, answer([], { remark: timedOut }))).toBe(true);
+  });
+
+  it("takes a finished answer, and gives up on an error a later try won't fix", () => {
+    expect(retryable(200, alta)).toBe(false);
+    for (const status of [400, 403, 404, 500]) expect(retryable(status, "")).toBe(false);
+  });
+});

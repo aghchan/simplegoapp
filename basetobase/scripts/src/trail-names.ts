@@ -11,8 +11,8 @@ import {
   SOURCE,
   chooseAnswer,
   osmAsOf,
-  overloaded,
   overpassQuery,
+  retryable,
   runsOf,
   slotWaitMs,
   slugOf,
@@ -72,8 +72,7 @@ async function ask(query: string): Promise<Fetched> {
       return { error: `Overpass unreachable: ${reasonOf(error)}` };
     }
     const text = await res.text().catch(() => "");
-    // Rate limited (429), overloaded (504), or a query it gave up on: a later try may get through.
-    if (res.status === 429 || res.status === 504 || (res.ok && overloaded(text))) {
+    if (retryable(res.status, text)) {
       busy = res.ok ? "Overpass ran out of time or memory" : `Overpass answered ${res.status}`;
       if (attempt < ATTEMPTS - 1) console.log(`  ${busy}; trying again`);
       continue;

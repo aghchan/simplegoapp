@@ -194,6 +194,13 @@ export function slotWaitMs(status: string): number | undefined {
   return Math.max(0, soonest) * 1000;
 }
 
+// Whether a later try may get an answer: rate limited (429), Overpass or its gateway busy or briefly
+// down (502, 503, 504, which it answers at once), or a query it gave up on.
+export function retryable(status: number, text: string): boolean {
+  if ([429, 502, 503, 504].includes(status)) return true;
+  return status >= 200 && status < 300 && overloaded(text);
+}
+
 // Whether a 200 carries a query Overpass gave up on for lack of time or memory, which a later try
 // may finish.
 export function overloaded(text: string): boolean {
