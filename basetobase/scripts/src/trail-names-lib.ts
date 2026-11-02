@@ -183,6 +183,37 @@ export function chooseAnswer(fresh: Fetched, saved: string | undefined): Chosen 
   return { from: "saved", text: saved, body, warning };
 }
 
+export interface Asking<T> {
+  ask: (item: T) => Promise<Fetched>;
+  saved: (item: T) => string | undefined;
+  // Before each pass after the first, so Overpass gets time to recover.
+  beforePass: (pass: number) => Promise<void>;
+  settled: (item: T, chosen: Chosen, pass: number) => void;
+}
+
+// Each mountain's answer, asked in turn. One left with neither a fresh nor a saved answer is asked
+// again in a later pass, after the others: Overpass's bad patches pass in minutes, and a mountain's
+// own tries can fall inside one.
+export async function answerAll<T>(
+  items: readonly T[],
+  io: Asking<T>,
+  passes: number,
+): Promise<Chosen[]> {
+  const chosen: Chosen[] = [];
+  for (let pass = 1; pass <= passes; pass++) {
+    const pending = items.flatMap((_, i) => (pass === 1 || "error" in chosen[i]! ? [i] : []));
+    if (pending.length === 0) break;
+    if (pass > 1) await io.beforePass(pass);
+    for (const i of pending) {
+      const item = items[i]!;
+      const answer = chooseAnswer(await io.ask(item), io.saved(item));
+      chosen[i] = answer;
+      io.settled(item, answer, pass);
+    }
+  }
+  return chosen;
+}
+
 // How long until Overpass gives this caller a query slot, from its status page: 0 with one free
 // now, undefined for a page it cannot read. Each query holds a slot for its run time and a
 // cooldown after it, so a caller that asks again too soon gets 429.
@@ -194,8 +225,8 @@ export function slotWaitMs(status: string): number | undefined {
   return Math.max(0, soonest) * 1000;
 }
 
-// Whether a later try may get an answer: rate limited (429), Overpass or its gateway busy or briefly
-// down (502, 503, 504, which it answers at once), or a query it gave up on.
+// Whether a later try may get an answer: rate limited (429), Overpass or its gateway busy or
+// briefly down (502, 503, 504, which it answers at once), or a query it gave up on.
 export function retryable(status: number, text: string): boolean {
   if ([429, 502, 503, 504].includes(status)) return true;
   return status >= 200 && status < 300 && overloaded(text);

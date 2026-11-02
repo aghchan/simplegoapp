@@ -1,15 +1,16 @@
 // `npm run trail-names`: rewrites config/trail-names.json from OpenStreetMap. One Overpass query
 // per mountain, in turn and each in a free slot, as Overpass asks. Each good answer is saved in
 // scripts/overpass/, and a mountain whose query fails or comes back unusable falls back on its
-// saved answer, so the lists survive Overpass being down. A mountain with neither fails the run,
-// which then writes nothing.
+// saved answer, so the lists survive Overpass being down. A mountain with neither is asked again
+// in a later pass, and one with neither after the last pass fails the run, which then writes
+// nothing.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   IKON_RESORTS,
   OVERPASS_STATUS_URL,
   OVERPASS_URL,
   SOURCE,
-  chooseAnswer,
+  answerAll,
   osmAsOf,
   overpassQuery,
   retryable,
@@ -17,7 +18,9 @@ import {
   slotWaitMs,
   slugOf,
   trailNameLists,
+  type Chosen,
   type Fetched,
+  type Resort,
   type Run,
 } from "./trail-names-lib.ts";
 
@@ -31,6 +34,10 @@ const BACKOFF_MS = [15_000, 30_000, 60_000, 120_000];
 const SLOT_WAIT_MAX_MS = 300_000;
 // The query's own timeout is 120 s; past that, Overpass is not answering.
 const TIMEOUT_MS = 180_000;
+// Passes over the mountains still without an answer, and the wait before each one after the
+// first: Overpass's bad patches last minutes.
+const PASSES = 3;
+const PASS_GAP_MS = 120_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -94,21 +101,16 @@ function saved(file: URL): string | undefined {
   return existsSync(file) ? readFileSync(file, "utf8") : undefined;
 }
 
-mkdirSync(SAVED, { recursive: true });
-const byResort: { resort: string; runs: Run[] }[] = [];
-const resorts: { name: string; runs: number; osmAsOf: string | null }[] = [];
-const failures: string[] = [];
-const fellBack: string[] = [];
-for (const resort of IKON_RESORTS) {
-  const file = new URL(`${slugOf(resort.name)}.json`, SAVED);
-  const chosen = chooseAnswer(await ask(overpassQuery(resort)), saved(file));
+const fileOf = (resort: Resort) => new URL(`${slugOf(resort.name)}.json`, SAVED);
+
+// Saves a fresh answer and logs what each mountain got.
+function settle(resort: Resort, chosen: Chosen, pass: number): void {
   if ("error" in chosen) {
-    console.error(`${resort.name}: ${chosen.error}`);
-    failures.push(resort.name);
-    continue;
+    const later = pass < PASSES ? "; asking again in a later pass" : "";
+    console.error(`${resort.name}: ${chosen.error}${later}`);
+    return;
   }
-  if (chosen.from === "fresh") writeFileSync(file, chosen.text);
-  else fellBack.push(resort.name);
+  if (chosen.from === "fresh") writeFileSync(fileOf(resort), chosen.text);
   const runs = runsOf(chosen.body);
   const count = (rating: string) => runs.filter((run) => run.rating === rating).length;
   console.log(
@@ -116,9 +118,38 @@ for (const resort of IKON_RESORTS) {
       `${count("black")} black, ${count("double_black")} double black), ${chosen.from}`,
   );
   if (chosen.warning) console.warn(`  ${chosen.warning}`);
+}
+
+mkdirSync(SAVED, { recursive: true });
+const answers = await answerAll(
+  IKON_RESORTS,
+  {
+    ask: (resort) => ask(overpassQuery(resort)),
+    saved: (resort) => saved(fileOf(resort)),
+    beforePass: async (pass) => {
+      const wait = PASS_GAP_MS / 1000;
+      console.log(`Pass ${pass} of ${PASSES} in ${wait} s, for the mountains without an answer`);
+      await sleep(PASS_GAP_MS);
+    },
+    settled: settle,
+  },
+  PASSES,
+);
+const byResort: { resort: string; runs: Run[] }[] = [];
+const resorts: { name: string; runs: number; osmAsOf: string | null }[] = [];
+const failures: string[] = [];
+const fellBack: string[] = [];
+IKON_RESORTS.forEach((resort, i) => {
+  const chosen = answers[i]!;
+  if ("error" in chosen) {
+    failures.push(resort.name);
+    return;
+  }
+  if (chosen.from === "saved") fellBack.push(resort.name);
+  const runs = runsOf(chosen.body);
   byResort.push({ resort: resort.name, runs });
   resorts.push({ name: resort.name, runs: runs.length, osmAsOf: osmAsOf(chosen.body) ?? null });
-}
+});
 
 if (failures.length > 0) {
   console.error(`No names for ${failures.join(", ")}; config/trail-names.json is unchanged.`);
