@@ -1,0 +1,977 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:58:01Z",
+    "timestamp_areas_base": "2026-11-02T18:09:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 618345132,
+  "tags": {
+    "name": "Roller Coaster",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 618345944,
+  "tags": {
+    "name": "Timberline",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 618347713,
+  "tags": {
+    "name": "Zip-A-Dee",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 618349553,
+  "tags": {
+    "name": "North Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618350487,
+  "tags": {
+    "name": "Sensation",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618350971,
+  "tags": {
+    "name": "South Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618355795,
+  "tags": {
+    "name": "Dynamite",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618355989,
+  "tags": {
+    "name": "Liberty",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358881,
+  "tags": {
+    "name": "Cathedral Cirque",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358883,
+  "tags": {
+    "name": "Middle Slope",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358884,
+  "tags": {
+    "name": "Parachute",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358885,
+  "tags": {
+    "name": "Milk Run",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358886,
+  "tags": {
+    "name": "Diamond Lane",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618358887,
+  "tags": {
+    "name": "Powderhorn Cirque",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363708,
+  "tags": {
+    "name": "Summit Access West",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363709,
+  "tags": {
+    "name": "Concord",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363710,
+  "tags": {
+    "name": "Diamond Lane",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363712,
+  "tags": {
+    "name": "Paradise Lost",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363713,
+  "tags": {
+    "name": "Vertigo",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618363714,
+  "tags": {
+    "name": "Paradise",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618365029,
+  "tags": {
+    "name": "Corner Chute",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618365030,
+  "tags": {
+    "name": "Mine",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 618365031,
+  "tags": {
+    "name": "Shaft",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618365032,
+  "tags": {
+    "gladed": "yes",
+    "name": "Headwall Forrest",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618391941,
+  "tags": {
+    "name": "Broadway",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618391942,
+  "tags": {
+    "name": "Evening Star",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618391943,
+  "tags": {
+    "name": "Altabird",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 618391944,
+  "tags": {
+    "name": "TBD",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618391945,
+  "tags": {
+    "name": "Blue Spruce",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618391946,
+  "tags": {
+    "name": "Last Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395014,
+  "tags": {
+    "name": "Fleet Street",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395015,
+  "tags": {
+    "name": "Wall Street",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395017,
+  "tags": {
+    "name": "Fluid Drive",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395018,
+  "tags": {
+    "name": "Main Street",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395019,
+  "tags": {
+    "name": "Little Dollie",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395020,
+  "tags": {
+    "name": "Tude-Dudes",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395021,
+  "tags": {
+    "name": "Same Street",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395022,
+  "tags": {
+    "name": "Easy Street",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618395023,
+  "tags": {
+    "name": "Dean's Dash",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403576,
+  "tags": {
+    "name": "Tude-Dudes",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403577,
+  "tags": {
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403578,
+  "tags": {
+    "name": "Hal's Hollow",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403579,
+  "tags": {
+    "name": "Shady Lane",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403580,
+  "tags": {
+    "name": "Postcard",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403581,
+  "tags": {
+    "name": "Rhapsody",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403582,
+  "tags": {
+    "name": "Gary's Glade",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403583,
+  "tags": {
+    "name": "Olympia",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403584,
+  "tags": {
+    "name": "Sunshine Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618403585,
+  "tags": {
+    "name": "Sundancer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576405,
+  "tags": {
+    "name": "Challanger",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576407,
+  "tags": {
+    "name": "Serenity/F.I.S.",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576409,
+  "tags": {
+    "name": "Serenity/F.I.S.",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576410,
+  "tags": {
+    "name": "Inspiration",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576411,
+  "tags": {
+    "name": "Inspiration",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576412,
+  "tags": {
+    "name": "Stumble",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576413,
+  "tags": {
+    "name": "Stumble",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576414,
+  "tags": {
+    "name": "Grumble",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576416,
+  "tags": {
+    "name": "Wanderer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576419,
+  "tags": {
+    "name": "Grumble",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576423,
+  "tags": {
+    "name": "Rumble",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618576425,
+  "tags": {
+    "name": "Rumble",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618578232,
+  "tags": {
+    "name": "Solbright",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618578796,
+  "tags": {
+    "name": "Dead Tree",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584850,
+  "tags": {
+    "name": "Wood Lawn",
+    "piste:difficulty": "advanced",
+    "piste:name": "Wood Lawn",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584851,
+  "tags": {
+    "name": "Black Forest",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584852,
+  "tags": {
+    "name": "Buckeye Junior",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584855,
+  "tags": {
+    "name": "Black Bess",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584856,
+  "tags": {
+    "name": "Voltaire",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618584857,
+  "tags": {
+    "name": "Prince Of Wales",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618586009,
+  "tags": {
+    "name": "Here Be Dragons",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618586010,
+  "tags": {
+    "name": "Navarone",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 618586011,
+  "tags": {
+    "gladed": "yes",
+    "name": "Queen Bess",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 863627863,
+  "tags": {
+    "access": "yes",
+    "name": "Honeycomb Canyon Trail",
+    "oneway": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Honeycomb Return",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 992936358,
+  "tags": {
+    "name": "Honeycomb Return Trail",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Honeycomb Return",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ski": "designated",
+    "width": "3"
+  }
+},
+{
+  "type": "way",
+  "id": 992936360,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Eagle Ridge",
+    "oneway": "no",
+    "operator": "solitude",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Eagle Ridge",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ski": "designated",
+    "surface": "compacted",
+    "tracktype": "grade2",
+    "width": "2"
+  }
+},
+{
+  "type": "way",
+  "id": 1024649983,
+  "tags": {
+    "name": "Barrett's Glade",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1024649984,
+  "tags": {
+    "name": "Memorial chutes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1024651016,
+  "tags": {
+    "name": "Scree slope",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1125771402,
+  "tags": {
+    "area": "yes",
+    "name": "Black Bess Chutes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1125771403,
+  "tags": {
+    "area": "yes",
+    "name": "Honeycomb Chutes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1125771404,
+  "tags": {
+    "area": "yes",
+    "name": "Boundry Chutes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1125771405,
+  "tags": {
+    "area": "yes",
+    "name": "No Man's Land",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1125771406,
+  "tags": {
+    "area": "yes",
+    "name": "Crystal Point",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305992254,
+  "tags": {
+    "name": "Summit Access East",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1305992271,
+  "tags": {
+    "name": "Polaris",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1341936661,
+  "tags": {
+    "lit": "no",
+    "name": "Abba's Alley",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1465441869,
+  "tags": {
+    "name": "Honeycomb Chutes",
+    "piste:difficulty": "freeride",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1465441870,
+  "tags": {
+    "name": "Honeycomb Chutes",
+    "piste:difficulty": "freeride",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1465441871,
+  "tags": {
+    "name": "Honeycomb Chutes",
+    "piste:difficulty": "freeride",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1465441872,
+  "tags": {
+    "name": "Black Bess Chutes",
+    "piste:difficulty": "freeride",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1465441873,
+  "tags": {
+    "name": "Black Bess Chutes",
+    "piste:difficulty": "freeride",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

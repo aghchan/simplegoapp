@@ -2,8 +2,8 @@
   "version": 0.6,
   "generator": "Overpass API 0.7.62.11 87bfad18",
   "osm3s": {
-    "timestamp_osm_base": "2026-10-23T18:33:01Z",
-    "timestamp_areas_base": "2026-10-23T13:53:11Z",
+    "timestamp_osm_base": "2026-11-02T20:39:37Z",
+    "timestamp_areas_base": "2026-11-02T18:09:35Z",
     "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
   },
   "elements": [
@@ -157,7 +157,7 @@
   "type": "way",
   "id": 249112993,
   "tags": {
-    "name": "Emigrant",
+    "name": "Emigrant Gully",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill"
   }
@@ -1493,7 +1493,7 @@
   "type": "way",
   "id": 553033576,
   "tags": {
-    "name": "Granite Alley",
+    "name": "Crooks' Gulch",
     "piste:difficulty": "advanced",
     "piste:type": "downhill"
   }
@@ -1554,15 +1554,6 @@
 },
 {
   "type": "way",
-  "id": 553033596,
-  "tags": {
-    "name": "Juniper Spire",
-    "piste:difficulty": "intermediate",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
   "id": 553033599,
   "tags": {
     "name": "Racers",
@@ -1574,7 +1565,7 @@
   "type": "way",
   "id": 553033602,
   "tags": {
-    "name": "Mainline",
+    "name": "Killy's",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill"
   }
@@ -1742,7 +1733,7 @@
   "type": "way",
   "id": 553033657,
   "tags": {
-    "name": "Siberia Ridge Line",
+    "name": "Ridge Run",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill"
   }
@@ -1848,7 +1839,7 @@
   "type": "way",
   "id": 762727967,
   "tags": {
-    "name": "High Traverse",
+    "name": "Backside",
     "oneway": "yes",
     "piste:difficulty": "advanced",
     "piste:type": "downhill"
@@ -3109,6 +3100,159 @@
   "id": 1570950292,
   "tags": {
     "name": "Main Backside",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074647,
+  "tags": {
+    "name": "Burkharts",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074648,
+  "tags": {
+    "name": "Olympic High",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074649,
+  "tags": {
+    "name": "Summer Road",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074650,
+  "tags": {
+    "name": "Bill's Boardwalk",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074651,
+  "tags": {
+    "name": "Siberia Lift Line",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074652,
+  "tags": {
+    "name": "Tower 16",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074653,
+  "tags": {
+    "name": "Arnie's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074654,
+  "tags": {
+    "name": "2nd West Face",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074655,
+  "tags": {
+    "name": "Tom's Tumble",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074656,
+  "tags": {
+    "name": "East Face Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074657,
+  "tags": {
+    "name": "Water Fall Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074658,
+  "tags": {
+    "name": "Hourglass",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074659,
+  "tags": {
+    "name": "Classic",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074660,
+  "tags": {
+    "name": "Carnell's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074661,
+  "tags": {
+    "name": "Corkscrew",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074662,
+  "tags": {
+    "name": "American River Traverse",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1572074663,
+  "tags": {
+    "name": "Paradise Alley",
     "piste:difficulty": "advanced",
     "piste:type": "downhill"
   }

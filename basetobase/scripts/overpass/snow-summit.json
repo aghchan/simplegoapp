@@ -1,0 +1,373 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:48:50Z",
+    "timestamp_areas_base": "2026-11-02T17:07:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 330954801,
+  "tags": {
+    "lit": "yes",
+    "name": "Begginner's Bottom",
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954802,
+  "tags": {
+    "lit": "yes",
+    "name": "Begginner's Bottom",
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954803,
+  "tags": {
+    "lit": "yes",
+    "name": "Begginner's Bottom",
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954804,
+  "tags": {
+    "name": "7-Down",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954805,
+  "tags": {
+    "name": "Jo's",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954806,
+  "tags": {
+    "name": "Log Chute",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954807,
+  "tags": {
+    "name": "Log Chute",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954808,
+  "tags": {
+    "name": "Off Chute",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954809,
+  "tags": {
+    "name": "Olympic",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954810,
+  "tags": {
+    "name": "Perfect Pitches",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954811,
+  "tags": {
+    "name": "Side Chute",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954812,
+  "tags": {
+    "name": "Side Chute",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954813,
+  "tags": {
+    "name": "Side Show",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954814,
+  "tags": {
+    "name": "Sugarpine",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954815,
+  "tags": {
+    "name": "The Wall",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954816,
+  "tags": {
+    "name": "Timber Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330954817,
+  "tags": {
+    "name": "Tommi's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977771,
+  "tags": {
+    "lit": "yes",
+    "name": "ZZYZX Park",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977773,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977774,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977775,
+  "tags": {
+    "name": "Cruiser",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977776,
+  "tags": {
+    "name": "Dicky's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977777,
+  "tags": {
+    "name": "East Why",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977778,
+  "tags": {
+    "name": "Ego Trip",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977779,
+  "tags": {
+    "name": "Last Chance",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977780,
+  "tags": {
+    "name": "Mainstream",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977781,
+  "tags": {
+    "lit": "yes",
+    "name": "Miracle Mile",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977782,
+  "tags": {
+    "lit": "no",
+    "name": "Skyline Creek",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977784,
+  "tags": {
+    "lit": "yes",
+    "name": "Summit Run",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977785,
+  "tags": {
+    "name": "Sundown",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330977786,
+  "tags": {
+    "lit": "yes",
+    "name": "Westridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1545746011,
+  "tags": {
+    "lit": "yes",
+    "name": "Pipe Dream",
+    "oneway": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552336809,
+  "tags": {
+    "lit": "yes",
+    "name": "Hog Back",
+    "oneway": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552336810,
+  "tags": {
+    "lit": "yes",
+    "name": "Hog Back",
+    "oneway": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552342933,
+  "tags": {
+    "name": "6 Road Trail",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552345449,
+  "tags": {
+    "name": "Olympic",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552350912,
+  "tags": {
+    "name": "Log Road Trail",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1552350975,
+  "tags": {
+    "name": "Comeback Trail",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

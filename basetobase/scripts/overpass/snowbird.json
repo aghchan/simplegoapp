@@ -1,0 +1,2827 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:53:54Z",
+    "timestamp_areas_base": "2026-11-02T17:07:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 10126153,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Upper Big Emma",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 261410171,
+  "tags": {
+    "name": "Chickadee",
+    "piste:difficulty": "novice",
+    "piste:lit": "yes",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414374,
+  "tags": {
+    "name": "Alice Avenue",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414377,
+  "tags": {
+    "name": "Black Forest",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414380,
+  "tags": {
+    "name": "Cirque Traverse",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414381,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Bass Highway",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Dick Bass Highway",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 261414384,
+  "tags": {
+    "name": "Harper's Ferry",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414385,
+  "tags": {
+    "name": "Harper's Ferry",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414386,
+  "tags": {
+    "name": "Harper's Ferry East",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414387,
+  "tags": {
+    "name": "Junior's Powder Paradise",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414388,
+  "tags": {
+    "name": "Lazy Susan",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414391,
+  "tags": {
+    "name": "Organ Grinder",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414392,
+  "tags": {
+    "name": "Regulator Johnson",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414394,
+  "tags": {
+    "name": "Thunder Alley",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414395,
+  "tags": {
+    "name": "Tiny Tiger",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414396,
+  "tags": {
+    "name": "White Diamonds",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261414397,
+  "tags": {
+    "name": "West 2nd South On-Ramp",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 261416596,
+  "tags": {
+    "name": "Chamonix Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142715,
+  "tags": {
+    "name": "Bananas",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142716,
+  "tags": {
+    "name": "Bluebell",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142717,
+  "tags": {
+    "name": "Carbonate",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142718,
+  "tags": {
+    "name": "Cat Crew Cutoff",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142720,
+  "tags": {
+    "name": "Election",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142721,
+  "tags": {
+    "name": "Goblin Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142722,
+  "tags": {
+    "name": "Lower Bassackwards",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142723,
+  "tags": {
+    "name": "Lower Emma",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142724,
+  "tags": {
+    "name": "Lowest Bassackwards",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142725,
+  "tags": {
+    "name": "Madam Annie's",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142726,
+  "tags": {
+    "name": "Mark Malu Fork",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142727,
+  "tags": {
+    "name": "Middle Bassackwards",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142728,
+  "tags": {
+    "name": "Middle Emma",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142730,
+  "tags": {
+    "name": "S.T.H.",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142731,
+  "tags": {
+    "name": "Tricep",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142732,
+  "tags": {
+    "name": "Upper Bassackwards",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142735,
+  "tags": {
+    "name": "Wilbere Cutoff",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142736,
+  "tags": {
+    "name": "Wilbere Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 265142738,
+  "tags": {
+    "name": "Fields Cut-Off",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494881,
+  "tags": {
+    "name": "Exit Gully",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494882,
+  "tags": {
+    "name": "Upper Tiger Tail",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494883,
+  "tags": {
+    "name": "Upper Mach Schnell",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494884,
+  "tags": {
+    "name": "Gad 2 Return",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494885,
+  "tags": {
+    "name": "Pearly Gates",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494886,
+  "tags": {
+    "name": "Wilbere Bowl",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494887,
+  "tags": {
+    "name": "Red Lens Line",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 266494888,
+  "tags": {
+    "gladed": "no",
+    "name": "Wilma's",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 295816647,
+  "tags": {
+    "access": "yes",
+    "bicycle": "no",
+    "foot": "designated",
+    "highway": "path",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Peruvian Gulch Trail",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:name": "Phone 3 Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "ski": "designated",
+    "surface": "ground",
+    "trail_visibility": "excellent"
+  }
+},
+{
+  "type": "way",
+  "id": 304012027,
+  "tags": {
+    "name": "Chip's Run",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 328646250,
+  "tags": {
+    "name": "Sneaky Pete",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 328647083,
+  "tags": {
+    "name": "Big Emma",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 445128732,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Rothman Way",
+    "old_ref": "NF 80233-A",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Rothman Way",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 518596513,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "path",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Big Mountain Trail",
+    "note": "Snowbird's trail map now marks this as fully multi-use",
+    "oneway": "no",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "downhill",
+    "piste:name": "Regulator Johnson",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1025",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "source": "strava",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 557341956,
+  "tags": {
+    "name": "Blue Angel",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341959,
+  "tags": {
+    "name": "Figure 8 Bowl",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341960,
+  "tags": {
+    "name": "High Saddle",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341961,
+  "tags": {
+    "name": "The Fin",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341963,
+  "tags": {
+    "name": "Ted's Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341964,
+  "tags": {
+    "name": "Middle Tiger Tail",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341965,
+  "tags": {
+    "name": "Low Saddle",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341966,
+  "tags": {
+    "name": "Silver Dipper",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341967,
+  "tags": {
+    "name": "Nash Flora Lode",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341968,
+  "tags": {
+    "name": "Blue By You",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341969,
+  "tags": {
+    "name": "Lone Star",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341970,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341971,
+  "tags": {
+    "name": "49er Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341972,
+  "tags": {
+    "name": "Split Rock Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341973,
+  "tags": {
+    "name": "Ski Patrol Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341974,
+  "tags": {
+    "name": "Luckey Boy",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341975,
+  "tags": {
+    "name": "Condo & Bypass Rd. Parking Access",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341976,
+  "tags": {
+    "name": "Claim Jumper",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341977,
+  "tags": {
+    "name": "Bird's Nest",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341978,
+  "tags": {
+    "name": "Bookmark Gully",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341979,
+  "tags": {
+    "name": "White Diamonds",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 557341981,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341983,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557341986,
+  "tags": {
+    "name": "Bassanova",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341988,
+  "tags": {
+    "name": "Mid-Baldy Traverse",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341991,
+  "tags": {
+    "name": "High Ridge 3",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341994,
+  "tags": {
+    "name": "High Baldy Traverse",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557341999,
+  "tags": {
+    "name": "Lupine Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342004,
+  "tags": {
+    "name": "Hot Lips Gully",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342006,
+  "tags": {
+    "name": "Dalton's Draw",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342007,
+  "tags": {
+    "name": "Lower Willows",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342008,
+  "tags": {
+    "name": "Willows",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342011,
+  "tags": {
+    "name": "Oh My God",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342013,
+  "tags": {
+    "name": "Who Cares",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342014,
+  "tags": {
+    "name": "Blackjack Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342015,
+  "tags": {
+    "name": "Lightning Tree Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342017,
+  "tags": {
+    "name": "Blackjack Traverse",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 557342018,
+  "tags": {
+    "name": "Round the World Traverse",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342019,
+  "tags": {
+    "name": "Lower Silver Fox",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342020,
+  "tags": {
+    "name": "Lower Primrose Path",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342021,
+  "tags": {
+    "name": "Binx's Bumper",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342022,
+  "tags": {
+    "name": "Adager",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342024,
+  "tags": {
+    "name": "Route 4 Gully",
+    "oneway": "yes",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342025,
+  "tags": {
+    "name": "Hot Foot Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342026,
+  "tags": {
+    "name": "Hubba Bubba",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342027,
+  "tags": {
+    "name": "Jack Dog",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342028,
+  "tags": {
+    "name": "Lower Primrose Path",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342029,
+  "tags": {
+    "name": "Primrose Split",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342030,
+  "tags": {
+    "name": "Middle Men's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342032,
+  "tags": {
+    "name": "Bicarbonate Gully",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342037,
+  "tags": {
+    "name": "Shireen",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342039,
+  "tags": {
+    "name": "Old Ladies",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342044,
+  "tags": {
+    "name": "Rasta Chutes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342047,
+  "tags": {
+    "name": "Hoop's",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342049,
+  "tags": {
+    "name": "Bonar's Pass",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342052,
+  "tags": {
+    "name": "Knucklehead Traverse",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342056,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342058,
+  "tags": {
+    "name": "Regulator Gully",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342061,
+  "tags": {
+    "name": "Bryce's Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342064,
+  "tags": {
+    "name": "Lower Mach Schnell",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342072,
+  "tags": {
+    "name": "Gadzooks",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342075,
+  "tags": {
+    "name": "Elbow Proper",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342077,
+  "tags": {
+    "name": "Thunder Junction",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342078,
+  "tags": {
+    "name": "Lower Mini Miners' Camp",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342079,
+  "tags": {
+    "name": "Upper Mini Miners' Camp",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342080,
+  "tags": {
+    "name": "West 2nd Short",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342081,
+  "tags": {
+    "name": "West 2nd South On-Ramp",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342082,
+  "tags": {
+    "name": "Figure 8 Gully",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 557342084,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Peruvian Gulch Road",
+    "old_ref": "NF 80233-A",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Chip's Access",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 557342091,
+  "tags": {
+    "name": "Chip's Face",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342094,
+  "tags": {
+    "name": "Middle Chip's Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342097,
+  "tags": {
+    "name": "Chip's Bypass",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 557342100,
+  "tags": {
+    "name": "Lower Chip's",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 564160429,
+  "tags": {
+    "name": "Middle Cirque",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 564199014,
+  "tags": {
+    "name": "Shoulder Traverse",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 770892103,
+  "tags": {
+    "area": "yes",
+    "name": "Baldy Chutes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844932,
+  "tags": {
+    "name": "Center of Gravity",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844933,
+  "tags": {
+    "name": "Fields of Glory",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844934,
+  "tags": {
+    "name": "Venus Line",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844935,
+  "tags": {
+    "area": "yes",
+    "name": "West Baldy",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844936,
+  "tags": {
+    "name": "Thanks for the Memories",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844937,
+  "tags": {
+    "name": "The Keyhole",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844938,
+  "tags": {
+    "name": "Keyhole Chute",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844939,
+  "tags": {
+    "name": "Gun Towers",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844941,
+  "tags": {
+    "name": "Lower Cirque",
+    "oneway": "yes",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844942,
+  "tags": {
+    "name": "Upper Cirque",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844943,
+  "tags": {
+    "name": "Great Scott",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844944,
+  "tags": {
+    "name": "Upper Primrose Path",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844945,
+  "tags": {
+    "name": "Upper Silver Fox",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844946,
+  "tags": {
+    "name": "Pucker Brush",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844947,
+  "tags": {
+    "name": "Gad Chutes",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844948,
+  "tags": {
+    "name": "Restaurant Roll",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844949,
+  "tags": {
+    "name": "Barry Barry Steep",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844950,
+  "tags": {
+    "area": "yes",
+    "name": "Temptation Chutes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844951,
+  "tags": {
+    "area": "yes",
+    "name": "Boundary Bowl",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844953,
+  "tags": {
+    "name": "White Rabbit",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844954,
+  "tags": {
+    "name": "Mushroom Land",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844955,
+  "tags": {
+    "name": "Richie's Run",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844956,
+  "tags": {
+    "name": "The Endoras",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844957,
+  "tags": {
+    "name": "Altar Bowl",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844958,
+  "tags": {
+    "name": "Bookends Bowl Return Road",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844959,
+  "tags": {
+    "name": "Almony Chutes",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844960,
+  "tags": {
+    "name": "High Stakes",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844961,
+  "tags": {
+    "name": "Not Quite Corn",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844962,
+  "tags": {
+    "name": "Double Down",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844963,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844964,
+  "tags": {
+    "name": "Chamonix Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844965,
+  "tags": {
+    "name": "Split Rock Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844966,
+  "tags": {
+    "name": "Chamonix Chutes",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844967,
+  "tags": {
+    "area": "yes",
+    "name": "Livin' the Dream",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 776844968,
+  "tags": {
+    "area": "yes",
+    "name": "Mount Baldy",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 846892617,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Miner's Road",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Miner's Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 914396271,
+  "tags": {
+    "name": "Get Serious Chute #2",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 914396272,
+  "tags": {
+    "name": "Jones Avenue",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 976137517,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Peruvian Ridge Trail",
+    "bicycle": "no",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Cirque Trail",
+    "oneway": "no",
+    "piste:difficulty": "advanced",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1019",
+    "sac_scale": "mountain_hiking"
+  }
+},
+{
+  "type": "way",
+  "id": 976837160,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "motor_vehicle": "no",
+    "old_ref": "NF 80233-E",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:grooming": "downhill",
+    "piste:name": "Easy Street",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 977024758,
+  "tags": {
+    "name": "Who Dunnit",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 977024759,
+  "tags": {
+    "name": "Who Dunnit",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 978281028,
+  "tags": {
+    "name": "West 2nd South Long",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 978281029,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "West 2nd South",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 978281030,
+  "tags": {
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Sunday Saddle Road",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Path to Paradise",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 978281031,
+  "tags": {
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Sunday Saddle Road",
+    "oneway": "no",
+    "piste:difficulty": "advanced",
+    "piste:name": "Bookends Traverse",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 978281032,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Peruvian Ridge Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Cirque Trail",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1019",
+    "sac_scale": "mountain_hiking",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 978281033,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Peruvian Gulch Road",
+    "old_ref": "NF 80233-A",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 978281034,
+  "tags": {
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Sunday Saddle Road",
+    "oneway": "no",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "ski": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 990969459,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "West 2nd South",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 990969460,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "West 2nd South",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 994105784,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Miner's Road",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Miner's Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 994105785,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Mid-Way Trail;Big Mountain Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Miner's Road",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Miner's Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1025",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 994105786,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Lautrenoe",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "mountain_hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 994105787,
+  "tags": {
+    "name": "Upper Big Emma",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 994105788,
+  "tags": {
+    "name": "Upper Big Emma",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 994105789,
+  "tags": {
+    "name": "Upper Big Emma",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 994105790,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "advanced",
+    "piste:name": "Fluffy Bunny",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade4"
+  }
+},
+{
+  "type": "way",
+  "id": 994105791,
+  "tags": {
+    "name": "Lautrenoe",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 994105793,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Peruvian Gulch Road",
+    "old_ref": "NF 80233-A",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Upper Chip's Run",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 994105794,
+  "tags": {
+    "name": "Upper Chip's Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 994105796,
+  "tags": {
+    "access": "yes",
+    "bicycle": "no",
+    "foot": "designated",
+    "highway": "path",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Mount Baldy Trail",
+    "oneway": "no",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:name": "High Baldy Traverse",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "ski": "designated",
+    "surface": "ground",
+    "trail_visibility": "good"
+  }
+},
+{
+  "type": "way",
+  "id": 1037247311,
+  "tags": {
+    "name": "Get Serious Chute #3",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1037247312,
+  "tags": {
+    "name": "Get Serious Chute #1",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1037396994,
+  "tags": {
+    "name": "Chip's Bypass",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1037396996,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Peruvian Gulch Road",
+    "old_ref": "NF 80233-A",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:name": "Chip's Bypass",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "mountain_hiking",
+    "ski": "designated",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1037396997,
+  "tags": {
+    "name": "Glen's",
+    "oneway": "yes",
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Glen's",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1037396998,
+  "tags": {
+    "name": "Tower 3",
+    "oneway": "yes",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Tower",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1037426154,
+  "tags": {
+    "name": "Defiance Ledge",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1038897138,
+  "tags": {
+    "name": "West 2nd South",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1038897159,
+  "tags": {
+    "patrolled": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1039145188,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1039145190,
+  "tags": {
+    "access": "yes",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "path",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "3",
+    "name": "Big Mountain Trail",
+    "note": "Snowbird's trail map now marks this as fully multi-use",
+    "oneway": "no",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "downhill",
+    "piste:name": "Regulator Johnson",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1025",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "source": "strava",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 1039145191,
+  "tags": {
+    "access": "yes",
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "path",
+    "horse": "no",
+    "informal": "yes",
+    "motor_vehicle": "no",
+    "oneway": "no",
+    "oneway:foot": "no",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "downhill",
+    "piste:name": "Regulator Johnson",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "source": "strava",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 1039145194,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1086295672,
+  "tags": {
+    "name": "Bassanova",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1091698459,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Gad Valley Road",
+    "old_ref": "NF 80233",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Dick Bass Highway",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "hiking",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1091698460,
+  "tags": {
+    "name": "Middle Bassackwards",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1096815990,
+  "tags": {
+    "name": "Middle Chip's Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1303379803,
+  "tags": {
+    "name": "Cliff Access",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 1317044106,
+  "tags": {
+    "name": "Sugarloaf Connector",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1335849278,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1335849279,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1335849280,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1335849281,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1336352540,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1336352541,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1336352542,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1378431437,
+  "tags": {
+    "description": "Extreme, hike-to only narrow couloir that requires rock scrambling over a no-fall zone.  Sometimes described as Utah's hardest in-bounds ski run.",
+    "lit": "no",
+    "name": "Pipeline Couloir",
+    "piste:difficulty": "extreme",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1384709506,
+  "tags": {
+    "area": "yes",
+    "description": "Access only possible via a Steep Couloir and difficult hike.\nCheck-in with Ski Patrol is necessary.",
+    "lit": "no",
+    "name": "Pipeline Bowl",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1546418560,
+  "tags": {
+    "access": "yes",
+    "alt_name": "Gad Valley Trail",
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "mtb:scale:imba": "2",
+    "name": "Dick Bass Highway",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:name": "Dick Bass Highway",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1005",
+    "sac_scale": "strolling",
+    "ski": "designated",
+    "surface": "dirt",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1558377789,
+  "tags": {
+    "area": "yes",
+    "name": "Route 2 Cliffs",
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566310673,
+  "tags": {
+    "name": "Path To Paradise",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566310674,
+  "tags": {
+    "name": "Bookends Traverse",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566310675,
+  "tags": {
+    "name": "Bookends Bowl",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566311364,
+  "tags": {
+    "name": "Niagra",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566311365,
+  "tags": {
+    "name": "Gheen Gully",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566311366,
+  "tags": {
+    "name": "Limber Pines",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566311367,
+  "tags": {
+    "name": "Fossil Chutes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566311368,
+  "tags": {
+    "name": "Tail Feathers",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566312920,
+  "tags": {
+    "name": "The Back Door",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566312921,
+  "tags": {
+    "name": "Phone 3 Shot",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566312922,
+  "tags": {
+    "name": "Bass Benches",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1566312923,
+  "tags": {
+    "name": "Come From Behind Gully",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134209,
+  "tags": {
+    "name": "Creek Road Route",
+    "piste:difficulty": "easy",
+    "piste:name": "Creek Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134210,
+  "tags": {
+    "name": "Who Dunnit Ski Run",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Who Dunnit",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134211,
+  "tags": {
+    "name": "Condo & Bypas Road Parking Access Ski Run",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Condo & Bypas Road Parking Access",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134212,
+  "tags": {
+    "name": "Dick Bass",
+    "piste:difficulty": "easy",
+    "piste:name": "Bass Highway",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134213,
+  "tags": {
+    "name": "Rothman Way",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Rothman Way",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13134214,
+  "tags": {
+    "name": "Easy Street",
+    "piste:difficulty": "easy",
+    "piste:name": "Easy Street",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "type": "route"
+  }
+},
+{
+  "type": "relation",
+  "id": 13153166,
+  "tags": {
+    "name": "Road To Provo",
+    "piste:difficulty": "advanced",
+    "piste:name": "Road To Provo",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "route": "piste",
+    "ski": "yes",
+    "type": "route"
+  }
+}
+
+  ]
+}
