@@ -22,8 +22,9 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # Twelve mountains, each waiting on Overpass's slots for minutes at worst.
-    timeout-minutes: 120
+    # Twelve mountains, each waiting on Overpass's slots and tries for minutes at worst, and up to
+    # two more passes for those with no answer.
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: basetobase

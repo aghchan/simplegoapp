@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   IKON_RESORTS,
+  answerAll,
   answerProblem,
   chooseAnswer,
   osmAsOf,
@@ -12,6 +13,8 @@ import {
   slotWaitMs,
   slugOf,
   trailNameLists,
+  type Chosen,
+  type Fetched,
 } from "../src/trail-names-lib.ts";
 
 const way = (tags: Record<string, string>) => ({ type: "way", id: 1, tags });
@@ -303,5 +306,78 @@ describe("retryable", () => {
   it("takes a finished answer, and gives up on an error a later try won't fix", () => {
     expect(retryable(200, alta)).toBe(false);
     for (const status of [400, 403, 404, 500]) expect(retryable(status, "")).toBe(false);
+  });
+});
+
+describe("answerAll", () => {
+  const down: Fetched = { error: "Overpass answered 502 on all 5 tries" };
+
+  // Overpass as each mountain sees it: its answers, in the order it is asked.
+  function overpass(replies: Record<string, Fetched[]>, savedAnswers: Record<string, string> = {}) {
+    const asked: string[] = [];
+    const passes: number[] = [];
+    const settled: [string, number][] = [];
+    const io = {
+      ask: async (mountain: string) => {
+        asked.push(mountain);
+        const reply = replies[mountain]?.shift();
+        if (reply === undefined) throw new Error(`${mountain} asked once too often`);
+        return reply;
+      },
+      saved: (mountain: string) => savedAnswers[mountain],
+      beforePass: async (pass: number) => void passes.push(pass),
+      settled: (mountain: string, _chosen: Chosen, pass: number) =>
+        void settled.push([mountain, pass]),
+    };
+    return { io, asked, passes, settled };
+  }
+  const sources = (chosen: Chosen[]) => chosen.map((c) => ("from" in c ? c.from : "error"));
+
+  it("asks again, after the others, for a mountain Overpass would not answer", async () => {
+    // Nov 2: Deer Valley got 502 on all 5 tries from 20:21 to 20:25; Snowbasin answered at 20:27.
+    const { io, asked, passes, settled } = overpass({
+      Solitude: [{ text: alta }],
+      "Deer Valley": [down, { text: altaLater }],
+      Snowbasin: [{ text: alta }],
+    });
+    const chosen = await answerAll(["Solitude", "Deer Valley", "Snowbasin"], io, 3);
+    expect(asked).toEqual(["Solitude", "Deer Valley", "Snowbasin", "Deer Valley"]);
+    expect(passes).toEqual([2]);
+    expect(settled).toEqual([
+      ["Solitude", 1],
+      ["Deer Valley", 1],
+      ["Snowbasin", 1],
+      ["Deer Valley", 2],
+    ]);
+    expect(sources(chosen)).toEqual(["fresh", "fresh", "fresh"]);
+    expect(chosen[1]).toMatchObject({ text: altaLater });
+  });
+
+  it("never asks again for a mountain that fell back on its saved answer", async () => {
+    const { io, asked, passes } = overpass(
+      { Alta: [down], Snowbird: [{ text: alta }] },
+      { Alta: alta },
+    );
+    const chosen = await answerAll(["Alta", "Snowbird"], io, 3);
+    expect(asked).toEqual(["Alta", "Snowbird"]);
+    expect(passes).toEqual([]);
+    expect(sources(chosen)).toEqual(["saved", "fresh"]);
+  });
+
+  it("fails a mountain only when every pass came back with nothing", async () => {
+    const { io, asked, passes } = overpass({ "Deer Valley": [down, down, down] });
+    const chosen = await answerAll(["Deer Valley"], io, 3);
+    expect(asked).toEqual(["Deer Valley", "Deer Valley", "Deer Valley"]);
+    expect(passes).toEqual([2, 3]);
+    expect(chosen[0]).toEqual({
+      error:
+        "Overpass answered 502 on all 5 tries, and no saved answer to fall back on: none is saved",
+    });
+  });
+
+  it("keeps the mountains in their order, whichever pass answered", async () => {
+    const { io } = overpass({ June: [down, { text: altaLater }], Bear: [{ text: alta }] });
+    const chosen = await answerAll(["June", "Bear"], io, 2);
+    expect(chosen.map((c) => ("text" in c ? c.text : c.error))).toEqual([altaLater, alta]);
   });
 });
