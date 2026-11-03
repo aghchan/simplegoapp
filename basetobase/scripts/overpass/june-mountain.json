@@ -1,0 +1,332 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:45:49Z",
+    "timestamp_areas_base": "2026-11-02T17:07:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 330816180,
+  "tags": {
+    "name": "Carson",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816181,
+  "tags": {
+    "name": "Matternhorn Cutoff",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816182,
+  "tags": {
+    "name": "Lottie Johl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816183,
+  "tags": {
+    "name": "Baby Face",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816184,
+  "tags": {
+    "name": "Bodle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816185,
+  "tags": {
+    "name": "Carson Cutoff",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816186,
+  "tags": {
+    "name": "Chaparral",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816187,
+  "tags": {
+    "name": "Cutback",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816188,
+  "tags": {
+    "name": "Davos Drop",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816189,
+  "tags": {
+    "name": "Deer Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816190,
+  "tags": {
+    "name": "Gull Canyon",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816191,
+  "tags": {
+    "name": "Gunsmoke",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816192,
+  "tags": {
+    "name": "Matterhorn",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816193,
+  "tags": {
+    "name": "Rainbow Ridge",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816194,
+  "tags": {
+    "name": "River Run",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816195,
+  "tags": {
+    "name": "Rosa Mae",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816196,
+  "tags": {
+    "name": "Schatzi",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816197,
+  "tags": {
+    "name": "Schatzi",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816198,
+  "tags": {
+    "name": "Silverado",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816199,
+  "tags": {
+    "name": "Sunrise",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816200,
+  "tags": {
+    "name": "Sunset",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330816201,
+  "tags": {
+    "name": "The Face",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330857231,
+  "tags": {
+    "name": "Chalet",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330857232,
+  "tags": {
+    "name": "Desperado",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330857233,
+  "tags": {
+    "name": "Lower Carson",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330857235,
+  "tags": {
+    "name": "Powder Chute",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786367,
+  "tags": {
+    "highway": "service",
+    "motor_vehicle": "private",
+    "operator": "June Mountain",
+    "piste:difficulty": "intermediate",
+    "piste:name": "Canyon Trail",
+    "piste:type": "downhill",
+    "smoothness": "very_bad",
+    "surface": "ground"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786369,
+  "tags": {
+    "name": "Canyon Trail",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786421,
+  "tags": {
+    "name": "Carson",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786422,
+  "tags": {
+    "name": "Sunrise",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786437,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786438,
+  "tags": {
+    "name": "Lower Davos",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786439,
+  "tags": {
+    "name": "Chairline",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786440,
+  "tags": {
+    "name": "Pro Bowl",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1056786462,
+  "tags": {
+    "name": "Sunset",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

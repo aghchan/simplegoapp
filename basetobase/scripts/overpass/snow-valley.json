@@ -1,0 +1,443 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:49:51Z",
+    "timestamp_areas_base": "2026-11-02T18:09:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 104595981,
+  "tags": {
+    "name": "The Face",
+    "piste:difficulty": "expert",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 104595990,
+  "tags": {
+    "piste:difficulty": "freeride",
+    "piste:grooming": "classic",
+    "piste:name": "bunny slope",
+    "piste:type": "downhill",
+    "ref": "6",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 104595996,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Cat Track",
+    "piste:type": "downhill",
+    "ski": "designated",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 104595998,
+  "tags": {
+    "name": "East Slide",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 104596015,
+  "tags": {
+    "name": "Race Peak",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Race Peak",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 104596017,
+  "tags": {
+    "name": "Show Me",
+    "piste:difficulty": "expert",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 122553674,
+  "tags": {
+    "name": "West Slide",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 330951557,
+  "tags": {
+    "name": "Coyote Flats",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Coyote Flats",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330951558,
+  "tags": {
+    "lit": "yes",
+    "name": "Eagle Flats",
+    "oneway": "yes",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Eagle Flats",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330951559,
+  "tags": {
+    "name": "Graduation",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Graduation",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330951560,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Richard's",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330951561,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Snow Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 330951562,
+  "tags": {
+    "name": "Thunder Mountain",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:name": "Thunder Mountain",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 525502747,
+  "tags": {
+    "name": "Pipeline",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 525502749,
+  "tags": {
+    "name": "Bubble Gum",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Bubble Gum",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 525502753,
+  "tags": {
+    "name": "Nord Valley",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 661883694,
+  "tags": {
+    "name": "Mambo Alley",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Mambo Alley",
+    "piste:type": "downhill",
+    "ref": "12",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 661883697,
+  "tags": {
+    "name": "East Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "East Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883698,
+  "tags": {
+    "name": "Little Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Little Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883699,
+  "tags": {
+    "name": "Show Off",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Show Off",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883700,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "The Ladder",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 661883701,
+  "tags": {
+    "name": "Big Bowl",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Big Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883702,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883703,
+  "tags": {
+    "name": "The Chute",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "The Chute",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883704,
+  "tags": {
+    "name": "Quickie",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Quickie",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883705,
+  "tags": {
+    "highway": "track",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883706,
+  "tags": {
+    "name": "Suprise Run",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:name": "Surprise Run",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 661883707,
+  "tags": {
+    "name": "Lower Wine Rocks",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Lower Wine Rock",
+    "piste:type": "downhill",
+    "ref": "12",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 661883708,
+  "tags": {
+    "name": "Upper Wine Rocks",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:name": "Upper Wine Rock",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 661883710,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Mambo Alley",
+    "piste:type": "downhill",
+    "ref": "12",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 668577804,
+  "tags": {
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 669551244,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 669551253,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 669551255,
+  "tags": {
+    "name": "Lake Run",
+    "piste:difficulty": "advanced",
+    "piste:name": "Lake Run",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 669551256,
+  "tags": {
+    "highway": "track",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 903230608,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 903230609,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 903230610,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 903230611,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1264362861,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1433441678,
+  "tags": {
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

@@ -1,0 +1,938 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T20:57:00Z",
+    "timestamp_areas_base": "2026-11-02T18:09:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 212457557,
+  "tags": {
+    "lit": "yes",
+    "name": "Thunder Road",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522331,
+  "tags": {
+    "lit": "yes",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522332,
+  "tags": {
+    "lit": "yes",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522333,
+  "tags": {
+    "name": "Thor",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522334,
+  "tags": {
+    "name": "Sunshine",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522337,
+  "tags": {
+    "lit": "yes",
+    "name": "Pacific Highway",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522339,
+  "tags": {
+    "lit": "yes",
+    "name": "Thunder Road",
+    "piste:difficulty": "easy",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:name": "Thunder Road",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522340,
+  "tags": {
+    "lit": "yes",
+    "name": "Snake Creek Access",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522341,
+  "tags": {
+    "lit": "yes",
+    "name": "Pioneer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522342,
+  "tags": {
+    "name": "Deer Park",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522343,
+  "tags": {
+    "name": "Lone Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422522344,
+  "tags": {
+    "name": "Thunderhead",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422527636,
+  "tags": {
+    "name": "Golden Needle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422527637,
+  "tags": {
+    "name": "Elk Park",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663196,
+  "tags": {
+    "name": "Aspen Glo",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663198,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663199,
+  "tags": {
+    "name": "Wrangler",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663200,
+  "tags": {
+    "name": "Endless Winter",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663201,
+  "tags": {
+    "name": "Elk Park Ridge",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422663203,
+  "tags": {
+    "name": "Rockin' R",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422664874,
+  "tags": {
+    "name": "Doyle's Dive",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422664875,
+  "tags": {
+    "name": "Pine Martin",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672264,
+  "tags": {
+    "lit": "yes",
+    "name": "Ziggy",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672267,
+  "tags": {
+    "name": "Easy Out",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672271,
+  "tags": {
+    "lit": "yes",
+    "name": "Pioneer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672279,
+  "tags": {
+    "name": "Silver Spur",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672285,
+  "tags": {
+    "lit": "yes",
+    "name": "Scout",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672290,
+  "tags": {
+    "name": "Desperado",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422672291,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675138,
+  "tags": {
+    "lit": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:name": "Hawkeye",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675139,
+  "tags": {
+    "name": "Powder Alley",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675140,
+  "tags": {
+    "lit": "yes",
+    "name": "Mary Back",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675142,
+  "tags": {
+    "lit": "yes",
+    "name": "Lost Maid",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675144,
+  "tags": {
+    "lit": "yes",
+    "name": "Lower Mary",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675145,
+  "tags": {
+    "lit": "yes",
+    "name": "Lower Majestic",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675147,
+  "tags": {
+    "lit": "yes",
+    "name": "Cat Track",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675148,
+  "tags": {
+    "lit": "yes",
+    "name": "Snow Drift",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675149,
+  "tags": {
+    "lit": "yes",
+    "name": "Wintergreen",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675150,
+  "tags": {
+    "lit": "yes",
+    "name": "Tantamount",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675151,
+  "tags": {
+    "lit": "yes",
+    "piste:difficulty": "advanced",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675152,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675153,
+  "tags": {
+    "lit": "no",
+    "name": "Wren Hollow",
+    "oneway": "yes",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "classic",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675154,
+  "tags": {
+    "lit": "yes",
+    "name": "Milly Access",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675156,
+  "tags": {
+    "name": "Rein's Run",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422675158,
+  "tags": {
+    "name": "True Grit",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422678579,
+  "tags": {
+    "name": "Scree Slope",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422678580,
+  "tags": {
+    "name": "Lone Pine",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422678582,
+  "tags": {
+    "lit": "yes",
+    "name": "Majestic Access",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422678584,
+  "tags": {
+    "name": "Devil's Drop",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422679154,
+  "tags": {
+    "name": "Chute 2",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422679156,
+  "tags": {
+    "name": "Christy Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422679158,
+  "tags": {
+    "name": "Exhibition",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 422679160,
+  "tags": {
+    "name": "Easy Out",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 618578232,
+  "tags": {
+    "name": "Solbright",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "ski": "designated"
+  }
+},
+{
+  "type": "way",
+  "id": 911054093,
+  "tags": {
+    "lit": "yes",
+    "name": "Face",
+    "piste:difficulty": "advanced",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 911054094,
+  "tags": {
+    "lit": "yes",
+    "name": "Terrain Park",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 911054095,
+  "tags": {
+    "lit": "yes",
+    "name": "Pee Wee",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 911054096,
+  "tags": {
+    "name": "My oh My",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 911054097,
+  "tags": {
+    "lit": "yes",
+    "name": "Krista's",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 976859155,
+  "tags": {
+    "lit": "yes",
+    "name": "Hawkeye Access",
+    "piste:difficulty": "easy",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704516,
+  "tags": {
+    "access": "yes",
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "horse": "no",
+    "lit": "yes",
+    "motor_vehicle": "no",
+    "old_ref": "NF 80434",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:name": "Pacific Highway",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704530,
+  "tags": {
+    "lit": "yes",
+    "name": "Terrain Park",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "mogul",
+    "piste:lit": "yes",
+    "piste:name": "Majestic Access",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704531,
+  "tags": {
+    "lit": "yes",
+    "name": "Candyland",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "yes",
+    "piste:oneway": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704550,
+  "tags": {
+    "lit": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:lit": "yes",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704551,
+  "tags": {
+    "name": "Western Trail",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1047704553,
+  "tags": {
+    "access": "yes",
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "name": "Clayton Peak Trail",
+    "old_ref": "NF 80435",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "no",
+    "piste:name": "Western Trail",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "ref": "1166",
+    "sac_scale": "hiking"
+  }
+},
+{
+  "type": "way",
+  "id": 1072084911,
+  "tags": {
+    "access": "yes",
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "horse": "no",
+    "informal": "no",
+    "motor_vehicle": "no",
+    "old_ref": "NF 80435",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "downhill",
+    "piste:lit": "no",
+    "piste:name": "Western Trail",
+    "piste:oneway": "yes",
+    "piste:type": "downhill",
+    "sac_scale": "hiking"
+  }
+},
+{
+  "type": "way",
+  "id": 1134321864,
+  "tags": {
+    "name": "Hard Coin",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1304551702,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305299819,
+  "tags": {
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305299850,
+  "tags": {
+    "lit": "yes",
+    "name": "Perris Bowl",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308266,
+  "tags": {
+    "lit": "yes",
+    "name": "Canyon",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308268,
+  "tags": {
+    "name": "Canyon",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308275,
+  "tags": {
+    "lit": "yes",
+    "name": "Backdoor",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308276,
+  "tags": {
+    "lit": "yes",
+    "name": "Backdoor",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308277,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308278,
+  "tags": {
+    "name": "Canyon",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308310,
+  "tags": {
+    "lit": "yes",
+    "name": "Easy Out",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305308311,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318972,
+  "tags": {
+    "name": "Evergreen",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318973,
+  "tags": {
+    "name": "Evergreen",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318974,
+  "tags": {
+    "lit": "yes",
+    "name": "Main Street",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318976,
+  "tags": {
+    "lit": "yes",
+    "name": "Backbone",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318977,
+  "tags": {
+    "name": "Wee Willow",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318994,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318995,
+  "tags": {
+    "lit": "yes",
+    "name": "Backdoor",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305318996,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305323423,
+  "tags": {
+    "name": "Little Milly",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1305362514,
+  "tags": {
+    "name": "Scout",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1362476844,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}

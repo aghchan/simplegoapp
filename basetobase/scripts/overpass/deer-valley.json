@@ -1,0 +1,3442 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-02T21:01:02Z",
+    "timestamp_areas_base": "2026-11-02T17:07:35Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "way",
+  "id": 10160059,
+  "tags": {
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "private",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 261447174,
+  "tags": {
+    "name": "Solace",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261447175,
+  "tags": {
+    "name": "Supreme",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261447176,
+  "tags": {
+    "name": "Orion",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261447177,
+  "tags": {
+    "name": "Nugget",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448814,
+  "tags": {
+    "name": "Hillside",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448815,
+  "tags": {
+    "name": "Walker",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448816,
+  "tags": {
+    "name": "Dakota",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448817,
+  "tags": {
+    "name": "Solace",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448818,
+  "tags": {
+    "name": "Ore Cart",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448819,
+  "tags": {
+    "name": "Domingo",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448820,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448821,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448822,
+  "tags": {
+    "name": "Conviction",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448823,
+  "tags": {
+    "name": "Buckeye",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448824,
+  "tags": {
+    "name": "Empire Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448825,
+  "tags": {
+    "name": "Webster",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448826,
+  "tags": {
+    "name": "Argus",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448827,
+  "tags": {
+    "gladed": "yes",
+    "name": "Centennial",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448828,
+  "tags": {
+    "name": "Pearl",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261448830,
+  "tags": {
+    "name": "Magnet",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261449725,
+  "tags": {
+    "name": "Lucky Jack",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261449726,
+  "tags": {
+    "name": "Daly Runout",
+    "patrolled": "yes",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261449727,
+  "tags": {
+    "name": "Daly Chute 8",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261449728,
+  "tags": {
+    "name": "Bandana",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261449729,
+  "tags": {
+    "name": "Daly Chute 6",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450430,
+  "tags": {
+    "name": "Keetly",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450431,
+  "tags": {
+    "name": "Cresent",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450432,
+  "tags": {
+    "name": "Fairview",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450433,
+  "tags": {
+    "name": "Deer Hollow",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450434,
+  "tags": {
+    "name": "Jordanelle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450435,
+  "tags": {
+    "name": "Mountaineer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450436,
+  "tags": {
+    "name": "Silver Hill",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261450437,
+  "tags": {
+    "name": "Dynamic",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451464,
+  "tags": {
+    "name": "Sunrise",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451465,
+  "tags": {
+    "name": "Wide West",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451466,
+  "tags": {
+    "name": "Big Stick",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451467,
+  "tags": {
+    "name": "White Owl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451468,
+  "tags": {
+    "name": "Champion",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451469,
+  "tags": {
+    "name": "Rosebud",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451473,
+  "tags": {
+    "name": "Rising Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451477,
+  "tags": {
+    "name": "Navigator",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451481,
+  "tags": {
+    "name": "Last Chance",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451487,
+  "tags": {
+    "name": "Silver Link",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451490,
+  "tags": {
+    "name": "Little Kate",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451493,
+  "tags": {
+    "name": "Roamer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451496,
+  "tags": {
+    "name": "Silver Dollar",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451499,
+  "tags": {
+    "name": "Solid Muldoon",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451503,
+  "tags": {
+    "name": "Little Stick",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451506,
+  "tags": {
+    "name": "Lucky Bill",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451508,
+  "tags": {
+    "name": "Know You Don't",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451511,
+  "tags": {
+    "name": "Little Stick",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451517,
+  "tags": {
+    "name": "Kimberly",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451520,
+  "tags": {
+    "name": "Success",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451521,
+  "tags": {
+    "name": "Dew Drop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451776,
+  "tags": {
+    "name": "Sultan Connection",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261451777,
+  "tags": {
+    "name": "McHenry",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611764,
+  "tags": {
+    "name": "Trainer",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611765,
+  "tags": {
+    "name": "Birdseye",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611766,
+  "tags": {
+    "name": "Gilt Edge",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611767,
+  "tags": {
+    "name": "Ontario",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611770,
+  "tags": {
+    "name": "Sunset",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261611771,
+  "tags": {
+    "name": "Homeward Bound",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612415,
+  "tags": {
+    "name": "Little Reb",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612416,
+  "tags": {
+    "name": "Race Course",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612417,
+  "tags": {
+    "name": "Nabob",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612418,
+  "tags": {
+    "gladed": "yes",
+    "name": "Sunset Glade",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612419,
+  "tags": {
+    "name": "Emerald",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261612420,
+  "tags": {
+    "name": "North Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613507,
+  "tags": {
+    "name": "Rattler",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613508,
+  "tags": {
+    "name": "Wizard",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613510,
+  "tags": {
+    "name": "Legal Tender",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613511,
+  "tags": {
+    "name": "Keno",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613818,
+  "tags": {
+    "name": "Reward",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261613820,
+  "tags": {
+    "name": "Tycoon",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871743,
+  "tags": {
+    "name": "Hidden Treasure",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871744,
+  "tags": {
+    "name": "Hidden Treasure",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871745,
+  "tags": {
+    "name": "Gnat's Eye",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871747,
+  "tags": {
+    "name": "Lucky Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871748,
+  "tags": {
+    "name": "Hawkeye",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261871749,
+  "tags": {
+    "name": "Lost Boulder",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872551,
+  "tags": {
+    "name": "Sidewinder",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872554,
+  "tags": {
+    "name": "Blue Bell",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872556,
+  "tags": {
+    "name": "Mountain Daisy",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872558,
+  "tags": {
+    "name": "Silver Buck",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872560,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872562,
+  "tags": {
+    "name": "Blue Bell",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872565,
+  "tags": {
+    "name": "Silver Buck",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872568,
+  "tags": {
+    "name": "Lily",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261872569,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873484,
+  "tags": {
+    "name": "Peeler",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873485,
+  "tags": {
+    "name": "Gemini",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873486,
+  "tags": {
+    "name": "Lower Lily",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873487,
+  "tags": {
+    "name": "Star Gazer",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873488,
+  "tags": {
+    "name": "Square Deal",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873489,
+  "tags": {
+    "name": "Three Ply",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873490,
+  "tags": {
+    "name": "Woodside",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873491,
+  "tags": {
+    "name": "Banner",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261873492,
+  "tags": {
+    "name": "Custer",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874739,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874740,
+  "tags": {
+    "name": "Stein's Way",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874741,
+  "tags": {
+    "name": "Finis",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874742,
+  "tags": {
+    "name": "Perseverance",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874743,
+  "tags": {
+    "name": "Trump",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261874744,
+  "tags": {
+    "name": "Edgar's Alley",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875261,
+  "tags": {
+    "name": "Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875262,
+  "tags": {
+    "name": "Paradise",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875263,
+  "tags": {
+    "name": "Narrow Gauge",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875264,
+  "tags": {
+    "name": "Morning Star",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875265,
+  "tags": {
+    "name": "Fortune Teller",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875266,
+  "tags": {
+    "name": "Free Thinker",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875267,
+  "tags": {
+    "name": "Orient Express",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875950,
+  "tags": {
+    "name": "Perseverance Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875951,
+  "tags": {
+    "name": "Mayflower Chutes",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875952,
+  "tags": {
+    "name": "Mayflower Bowl",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875953,
+  "tags": {
+    "name": "Ruins Of Pompeii",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875954,
+  "tags": {
+    "gladed": "yes",
+    "name": "Triangle Trees",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875955,
+  "tags": {
+    "name": "Peerless",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875956,
+  "tags": {
+    "name": "Blue Ledge",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875957,
+  "tags": {
+    "name": "Evergreen",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875958,
+  "tags": {
+    "name": "Grizzly",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261875959,
+  "tags": {
+    "name": "Thunderer",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 261876127,
+  "tags": {
+    "name": "Lady Morgan Bowl",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 369100741,
+  "tags": {
+    "name": "Jordanelle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 369100745,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Jordanelle",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 777199441,
+  "tags": {
+    "name": "Ontario Bowl",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 777199442,
+  "tags": {
+    "area": "yes",
+    "name": "Ontario Bowl",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650357,
+  "tags": {
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650358,
+  "tags": {
+    "name": "Connector",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650359,
+  "tags": {
+    "name": "Summit",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650360,
+  "tags": {
+    "name": "Crest Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650361,
+  "tags": {
+    "name": "Ridge Cross",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650362,
+  "tags": {
+    "access": "private",
+    "name": "Nelles Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650363,
+  "tags": {
+    "name": "Pioche",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650364,
+  "tags": {
+    "name": "Pioche Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650365,
+  "tags": {
+    "name": "Town Hall Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650366,
+  "tags": {
+    "name": "Deer Hollow",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 875650367,
+  "tags": {
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 880826844,
+  "tags": {
+    "name": "Little Bdll",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1070413373,
+  "tags": {
+    "area": "yes",
+    "gladed": "yes",
+    "lit": "no",
+    "name": "Bahrke's Bumpin' BLVD",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1077733742,
+  "tags": {
+    "name": "Woodside",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1077733743,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Woodside",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079358014,
+  "tags": {
+    "name": "Ontario",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079358020,
+  "tags": {
+    "bicycle": "designated",
+    "bridge": "yes",
+    "foot": "designated",
+    "highway": "track",
+    "informal": "no",
+    "layer": "1",
+    "motor_vehicle": "private",
+    "name": "Trump",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561215,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561216,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561217,
+  "tags": {
+    "name": "Silver Buck",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561218,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Silver Buck",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561237,
+  "tags": {
+    "name": "Silver Dollar",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1079561238,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Silver Dollar",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1080106708,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103600507,
+  "tags": {
+    "name": "Webster",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103600512,
+  "tags": {
+    "highway": "track",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103600513,
+  "tags": {
+    "name": "Pearl",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1103600515,
+  "tags": {
+    "bicycle": "designated",
+    "foot": "designated",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "private",
+    "name": "T&G",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 1125360073,
+  "tags": {
+    "name": "Gnat's Eye",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1137714995,
+  "tags": {
+    "name": "Cascade",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1139600302,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Deer Hollow",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1139600303,
+  "tags": {
+    "name": "Deer Hollow",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236375,
+  "tags": {
+    "name": "Lucky Bud",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236376,
+  "tags": {
+    "gladed": "yes",
+    "name": "Yes You Do",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236377,
+  "tags": {
+    "gladed": "yes",
+    "name": "Kabob",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236378,
+  "tags": {
+    "gladed": "yes",
+    "name": "Black Forest",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236379,
+  "tags": {
+    "gladed": "yes",
+    "name": "Guardsman Glades",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236380,
+  "tags": {
+    "gladed": "yes",
+    "name": "Quincy Knoll",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236381,
+  "tags": {
+    "gladed": "yes",
+    "name": "X-Files",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236382,
+  "tags": {
+    "name": "Anchor Treess",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236383,
+  "tags": {
+    "gladed": "yes",
+    "name": "Zebra Trees",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1225236384,
+  "tags": {
+    "gladed": "yes",
+    "name": "Margus",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893100,
+  "tags": {
+    "name": "Prospect",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893101,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893102,
+  "tags": {
+    "name": "Mayflower Link",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893103,
+  "tags": {
+    "name": "Road to Sultan",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893104,
+  "tags": {
+    "name": "Lady of the Lake",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893107,
+  "tags": {
+    "name": "McHenry",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893109,
+  "tags": {
+    "name": "Overlooked",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893110,
+  "tags": {
+    "name": "Lone Tree",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893111,
+  "tags": {
+    "name": "Yaup",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893112,
+  "tags": {
+    "name": "Waterloo",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1313893114,
+  "tags": {
+    "name": "Corner Stone",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1314309584,
+  "tags": {
+    "name": "Miner's Delight",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1317321437,
+  "tags": {
+    "name": "Green Monster",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1321861963,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1321861964,
+  "tags": {
+    "layer": "-1",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1333611163,
+  "tags": {
+    "access": "private",
+    "bicycle": "yes",
+    "foot": "yes",
+    "informal": "no",
+    "motor_vehicle": "private",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 1333611164,
+  "tags": {
+    "name": "Age of Reason",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1333611165,
+  "tags": {
+    "name": "Carbenite",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1333611166,
+  "tags": {
+    "name": "Lakeshore",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473524,
+  "tags": {
+    "name": "Minnow",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473526,
+  "tags": {
+    "name": "Viola",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473527,
+  "tags": {
+    "name": "Uno",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473528,
+  "tags": {
+    "name": "Nettie",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473531,
+  "tags": {
+    "name": "Tug of War",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473532,
+  "tags": {
+    "name": "Magnolia",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473533,
+  "tags": {
+    "name": "Magnolia",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473534,
+  "tags": {
+    "name": "U Bet",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473538,
+  "tags": {
+    "name": "Northern Light",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473539,
+  "tags": {
+    "name": "Dream Meadow",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383473540,
+  "tags": {
+    "name": "Dream",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474482,
+  "tags": {
+    "name": "Pioche Access",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474483,
+  "tags": {
+    "name": "Niagra",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474484,
+  "tags": {
+    "name": "Divide",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474485,
+  "tags": {
+    "name": "Ampheon",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474489,
+  "tags": {
+    "name": "Good Luck",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474490,
+  "tags": {
+    "name": "Sure Thing",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474491,
+  "tags": {
+    "name": "Primrose",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474492,
+  "tags": {
+    "name": "To The Max",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474493,
+  "tags": {
+    "name": "Evening Star",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474494,
+  "tags": {
+    "name": "Torpedo",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474495,
+  "tags": {
+    "name": "Dart",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474496,
+  "tags": {
+    "name": "Matchless",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474497,
+  "tags": {
+    "name": "Caledonia",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474498,
+  "tags": {
+    "name": "Mountain Monarch",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474499,
+  "tags": {
+    "name": "Klondyke",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474500,
+  "tags": {
+    "name": "Pinafore",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474501,
+  "tags": {
+    "name": "Redemption",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474502,
+  "tags": {
+    "name": "Fallon",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474503,
+  "tags": {
+    "name": "Free Will",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474504,
+  "tags": {
+    "name": "Reliance",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474505,
+  "tags": {
+    "name": "Pinto",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474508,
+  "tags": {
+    "name": "Pay Rock",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474509,
+  "tags": {
+    "name": "Persistence",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474510,
+  "tags": {
+    "name": "Joker",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474511,
+  "tags": {
+    "name": "Exchange",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474512,
+  "tags": {
+    "name": "Ham Bug",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474793,
+  "tags": {
+    "name": "Rebellion",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474794,
+  "tags": {
+    "name": "Glencoe",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474795,
+  "tags": {
+    "name": "Welcome Stranger",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474796,
+  "tags": {
+    "name": "Seldom Seen",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474798,
+  "tags": {
+    "name": "Non-Descript",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474802,
+  "tags": {
+    "name": "Deep Enuf",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474803,
+  "tags": {
+    "name": "Cataract",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474804,
+  "tags": {
+    "name": "Hellcat",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474805,
+  "tags": {
+    "name": "Catch All",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474806,
+  "tags": {
+    "name": "Nemesis",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474807,
+  "tags": {
+    "name": "Ophelia",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474808,
+  "tags": {
+    "name": "Papa Joe",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1383474809,
+  "tags": {
+    "name": "Spitfire",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1385152838,
+  "tags": {
+    "name": "Daly Chute 4",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1385152839,
+  "tags": {
+    "name": "Daly Chute 7",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1385152840,
+  "tags": {
+    "name": "Daly Chute 5",
+    "piste:difficulty": "expert",
+    "piste:grooming": "mogul",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1396290639,
+  "tags": {
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1396290640,
+  "tags": {
+    "layer": "-1",
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1396293487,
+  "tags": {
+    "name": "Pioche",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1396293488,
+  "tags": {
+    "layer": "-1",
+    "name": "Pioche",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1396295713,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1396295714,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410402586,
+  "tags": {
+    "access": "private",
+    "name": "Nelles Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410402591,
+  "tags": {
+    "access": "private",
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Nelles Loop",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404856,
+  "tags": {
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404858,
+  "tags": {
+    "layer": "-1",
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404859,
+  "tags": {
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404860,
+  "tags": {
+    "layer": "-1",
+    "name": "Lost Fawn",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404874,
+  "tags": {
+    "name": "Connector",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404875,
+  "tags": {
+    "layer": "-1",
+    "name": "Connector",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404878,
+  "tags": {
+    "name": "Pioche",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404879,
+  "tags": {
+    "layer": "-1",
+    "name": "Pioche",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404887,
+  "tags": {
+    "name": "Ridge Cross",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404888,
+  "tags": {
+    "layer": "-1",
+    "name": "Ridge Cross",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404892,
+  "tags": {
+    "name": "Crest Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404893,
+  "tags": {
+    "layer": "-1",
+    "name": "Crest Ridge",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404903,
+  "tags": {
+    "name": "Summit",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410404904,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Summit",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410405378,
+  "tags": {
+    "name": "Connector",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410405379,
+  "tags": {
+    "layer": "-1",
+    "name": "Connector",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1410480430,
+  "tags": {
+    "name": "Custer",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1410480431,
+  "tags": {
+    "layer": "-1",
+    "name": "Custer",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1429373938,
+  "tags": {
+    "name": "Boulder Bumps",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1437049896,
+  "tags": {
+    "layer": "-1",
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1437049897,
+  "tags": {
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1437049898,
+  "tags": {
+    "layer": "-1",
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill",
+    "tunnel": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 1437049899,
+  "tags": {
+    "name": "Home Run",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441676916,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Daylight",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441676917,
+  "tags": {
+    "name": "Daylight",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441676919,
+  "tags": {
+    "name": "Lady of the Lake",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441676920,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "Lady of the Lake",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700619,
+  "tags": {
+    "name": "Mayflower Link",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700620,
+  "tags": {
+    "name": "Mayflower Link",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700622,
+  "tags": {
+    "name": "Daylight",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700625,
+  "tags": {
+    "name": "Lady of the Lake",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700639,
+  "tags": {
+    "name": "Silver Age",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700641,
+  "tags": {
+    "name": "All Right",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700642,
+  "tags": {
+    "bridge": "yes",
+    "layer": "1",
+    "name": "All Right",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1441700643,
+  "tags": {
+    "name": "All Right",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925568,
+  "tags": {
+    "name": "Olive Branch",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925569,
+  "tags": {
+    "name": "Dispute",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925570,
+  "tags": {
+    "name": "Lucky Find",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925571,
+  "tags": {
+    "name": "Straddle Bug",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925573,
+  "tags": {
+    "name": "Golden Age",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925575,
+  "tags": {
+    "name": "Crown Prince",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1442925576,
+  "tags": {
+    "name": "Trillby",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464167666,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464167667,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464167668,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169253,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169254,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169255,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169256,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169257,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464169585,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464170621,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464171392,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464171393,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464171394,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464171395,
+  "tags": {
+    "name": "Lost Boulder",
+    "oneway": "no",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464171575,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177742,
+  "tags": {
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "private",
+    "piste:oneway": "no",
+    "piste:type": "downhill",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177743,
+  "tags": {
+    "bicycle": "yes",
+    "foot": "yes",
+    "highway": "track",
+    "informal": "no",
+    "motor_vehicle": "private",
+    "piste:oneway": "no",
+    "piste:type": "downhill",
+    "source": "strava",
+    "surface": "unpaved"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177744,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177745,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177746,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464177747,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178858,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178859,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178860,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178861,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178862,
+  "tags": {
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464178863,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464179860,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464179861,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464179862,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464182220,
+  "tags": {
+    "name": "Trainer",
+    "oneway": "no",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464182221,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183059,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183060,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183061,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183861,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183862,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183863,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183864,
+  "tags": {
+    "oneway": "no",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464183865,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464187093,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464187094,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464191770,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464191771,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464193340,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464195327,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464195328,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464195491,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464195492,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464195493,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196035,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196036,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196372,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196373,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196649,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464196745,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464197725,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464197726,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464197727,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1464198219,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227988,
+  "tags": {
+    "name": "Bet Your Boots",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227989,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227990,
+  "tags": {
+    "name": "Clipper",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227991,
+  "tags": {
+    "name": "Clipper",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227992,
+  "tags": {
+    "name": "Road to Sultan",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227993,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227994,
+  "tags": {
+    "name": "Little Giant",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227996,
+  "tags": {
+    "name": "Sultan Connection",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466227997,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466228000,
+  "tags": {
+    "name": "June Bug",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466228004,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466228005,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466228006,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1466228007,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1467191048,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1467192187,
+  "tags": {
+    "name": "Clipper",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1467192188,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1467192367,
+  "tags": {
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1488981499,
+  "tags": {
+    "name": "American Flag",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1488981500,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1550169563,
+  "tags": {
+    "name": "Daly Chute 1",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1550169564,
+  "tags": {
+    "name": "Daly Chute 2",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1550169565,
+  "tags": {
+    "name": "Daly Chute 3",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1550169566,
+  "tags": {
+    "name": "Daly Bowl",
+    "patrolled": "yes",
+    "piste:difficulty": "expert",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216652,
+  "tags": {
+    "name": "Olympia",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216653,
+  "tags": {
+    "name": "Hill Yeah",
+    "piste:difficulty": "easy",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216654,
+  "tags": {
+    "name": "Eclipse",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216655,
+  "tags": {
+    "name": "Roaring Lion",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216656,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216657,
+  "tags": {
+    "name": "Conflict",
+    "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1570216658,
+  "tags": {
+    "name": "Conflict",
+    "piste:difficulty": "intermediate",
+    "piste:type": "downhill"
+  }
+}
+
+  ]
+}
