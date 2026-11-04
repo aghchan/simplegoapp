@@ -3,8 +3,11 @@ on:
   push:
     branches: [main]
     paths: ['basetobase/**', '.basetobase/**', '.github/workflows/basetobase-*.yml']
+  # A pull request of refresh files only (refreshGlobs, config/basetobase.json) is the weekly
+  # refresh's: that job ran these checks itself, and GitHub would hold the run its bot triggers for
+  # approval. main's push still runs and deploys it.
   pull_request:
-    paths: ['basetobase/**', '.basetobase/**', '.github/workflows/basetobase-*.yml']
+    paths: ['basetobase/**', '!basetobase/config/trail-names.json', '!basetobase/scripts/overpass/*.json', '.basetobase/**', '.github/workflows/basetobase-*.yml']
   # Deploys main by hand, e.g. right after `npm run setup:deploy`.
   workflow_dispatch:
 permissions:
