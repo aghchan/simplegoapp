@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import shipped from "../../config/basetobase.json" with { type: "json" };
 import trailNameFile from "../../config/trail-names.json" with { type: "json" };
@@ -33,6 +34,26 @@ describe("loadConfig", () => {
       "basetobase/config/trail-names.json",
       "basetobase/scripts/overpass/*.json",
     ]));
+  it("keeps basetobase-ci off a pull request of refresh files only, and on main's push", () => {
+    // GitHub holds a run its own bot's pull request triggers for approval; the refresh job runs
+    // basetobase-ci's checks itself, so its PRs start none.
+    const ci = readFileSync(
+      new URL("../../../.github/workflows/basetobase-ci.yml", import.meta.url),
+      "utf8",
+    );
+    const pathsOf = (event: string) => {
+      const block = ci.match(new RegExp(`^  ${event}:\\n(?:    .*\\n)*?    paths: \\[(.*)\\]$`, "m"));
+      return [...(block?.[1] ?? "").matchAll(/'([^']*)'/g)].map((match) => match[1]);
+    };
+    const pr = pathsOf("pull_request");
+    const push = pathsOf("push");
+    expect(pr.slice(0, 1)).toEqual(["basetobase/**"]);
+    for (const glob of config.refreshGlobs) {
+      expect(pr).toContain(`!${glob}`);
+      expect(push).not.toContain(`!${glob}`);
+    }
+    expect(push).toContain("basetobase/**");
+  });
   it("enables Granite Chief and Mainline", () =>
     expect(config.enabledRoles).toEqual(["granite-chief", "mainline"]));
   it("leaves Base to Base's own files unpatrolled", () =>

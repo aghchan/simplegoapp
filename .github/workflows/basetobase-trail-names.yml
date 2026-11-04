@@ -4,8 +4,9 @@
 # on its saved answer in basetobase/scripts/overpass/.
 #
 # Its PRs come from Actions' own bot. Dispatch gives them the neutral Base to Base check only while
-# they touch nothing but refreshGlobs (config/basetobase.json), so main can take them. A PR opened
-# with this token starts no workflow, so this job runs the checks basetobase-ci would.
+# they touch nothing but refreshGlobs (config/basetobase.json), so main can take them. GitHub holds
+# a run this token's PR triggers for approval, so basetobase-ci skips a PR of those files only (its
+# pull_request paths), and this job runs basetobase-ci's checks itself.
 # Needs Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
 name: basetobase-trail-names
 on:
