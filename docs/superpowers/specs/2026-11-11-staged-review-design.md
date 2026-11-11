@@ -62,7 +62,8 @@ code hygiene in both phases.
 - A later stage spending a job on code whose earlier stage failed.
 - A waiting agent timing out, or holding the check open forever, while an earlier stage runs.
 - A skipped agent counting toward a pass.
-- Pass or fail derived anywhere but `reviewOutcome`.
+- Pass or fail decided anywhere but one predicate, `passes`. `reviewOutcome` derives the outcome
+  from it on read, and `advanceStages` uses it only to decide which agents to dispatch or skip.
 - The design skill, Granite Chief's design-PR rules and the config disagreeing on who sits on a
   design panel.
 - A design panel without Granite Chief or KT-22.
@@ -84,8 +85,9 @@ code hygiene in both phases.
   `shared/test/config.test.ts`, `dispatch/test/machine.test.ts` (fixtures `PATROL` and others).
 
 **Run machine** (`basetobase/dispatch/src/run/machine.ts`)
-- `AgentSnapshot` gains `stage: number`, its index in `reviewStages` (0 for the first stage; the
-  dashboard shows index + 1), and `releasedAt?: number`, epoch ms like `retriedAt`, set when its
+- `AgentSnapshot` gains `stage: number`, its position among the run's own stages after the panel
+  filter drops any emptied stage (0 for the first; the dashboard shows position + 1, and `stage k of
+  n` counts the run's stages), and `releasedAt?: number`, epoch ms like `retriedAt`, set when its
   stage is released. Both reach the dashboard through `snapshotOf`. A stored agent without `stage`
   reads as stage 0, so runs open at deploy finish as one stage.
 - `AgentStatus` (`shared/src/types.ts:15`) gains `waiting` (a later stage's agent, not yet
@@ -106,7 +108,12 @@ code hygiene in both phases.
     `error`, `stopped`, `stalled`, `skipped`, and a `hazards` verdict that lists none, never pass.
   - The first stage with an agent not in, or not passing, is the current one.
   - All its agents in and passing: the next stage's `waiting` or `skipped` agents become `queued`,
-    get `releasedAt` and one dispatch effect each; the sweep and the run stay open.
+    get `releasedAt` and one dispatch effect each; the sweep and the run stay open. A release from
+    a swept run (a bypass after stage 2 was skipped) reopens it as `retryAgents` does (:338-:349):
+    the sweep step back to `active`, the run back to `on_the_hill`, and `checkReposts` + 1 for a new
+    check run, since a completed one cannot reopen.
+  - A release takes only `waiting` or `skipped` agents, so a repeated verdict or event never
+    dispatches an agent twice.
   - All its agents in and any not passing: every later-stage agent not in becomes `skipped`, its
     summary naming the stage that did not pass and its agents, and the sweep closes as today.
 - `reviewOutcome` (:529) reads `passes` for every agent. A `skipped` agent never passes: its earlier
@@ -137,12 +144,15 @@ code hygiene in both phases.
   column at phone width, as today). Each heading uses the existing `.section-title` style: `Stage 1`,
   and `Stage n · after stage n−1 passes` for every later stage, n being the stored index + 1. Tab
   order is stage, then config order. A run with one stage looks as today.
-- Waiting and skipped cards read "Waiting" and "Skipped" and stay selectable. Their detail pane
+- Waiting and skipped cards read "Waiting" and "Skipped" and stay selectable. They reuse the
+  not-yet-run look the pipeline row already has: the `#f5f8fb` ground of `.step-pending` and
+  `.step-skipped` (`theme.css:680`), and a skipped card's mark gets the dashed ring (`.mark-dashed`). Their detail pane
   hides the job link and the transcript control and shows one line instead:
   - waiting: `Starts when stage n−1 passes.`
-  - skipped: `Skipped: stage k did not pass (<agent names>). A retry there runs it.`, or, when
-    Granite Chief's missing-design hazard is all that holds stage k, `… The design bypass there runs
-    it.`
+  - skipped: `Skipped: stage k did not pass (<agent names>).`, then the next action for what holds
+    stage k: a failed agent, `A retry there runs it.`; Granite Chief's missing-design hazard alone,
+    `The design bypass there runs it.`; any other hazard, `Fix it and push; a new run starts the
+    stages again.`
 - The retry button (`retryable`) and the bypass button (`bypassable`) are unchanged.
 
 **Patrol templates** (`.basetobase/patrol/`)
@@ -161,7 +171,7 @@ code hygiene in both phases.
   roster. With no such file on the base, `designRoles` is every lens. The panel must hold BLD,
   GOAL and SEC; for `Size: full`, also the prefix of every other `designRoles` role but `magic-carpet`
   and `bluebird`; for `Size: short`, each other `designRoles` lens whose section is not "None";
-  UX and DSN when the design adds or changes a screen, as today.
+  UX and DSN, when in `designRoles`, when the design adds or changes a screen.
 
 **Design skill and lens** (`plugins/standard/`)
 - `skills/system-design/SKILL.md`, "Size and panel": the lenses are `designRoles` from the default
@@ -169,9 +179,10 @@ code hygiene in both phases.
   `builder`, `granite-chief` and `kt-22`. Full: every other `designRoles` lens but `magic-carpet`
   and `bluebird`. Short: each other `designRoles` lens whose section is not "None". `magic-carpet`
   and `bluebird`, when in `designRoles`, join when the design adds or changes a screen.
-- `lenses/corduroy.md` extends its rule at :6 in place, under 40 lines: a new abstraction, service,
-  table, layer, wrapper, option or config key that no existing caller or stated need in the repo
-  requires → `defend`. Scope beyond the goals stays Granite Chief's (`lenses/granite-chief.md:10`).
+- `lenses/corduroy.md` extends its rule at :6 in place, under 40 lines, to code-level additions
+  only: a new layer, wrapper, interface, option or abstraction that no existing caller in the repo
+  needs → `defend`. Services, tables, keys and scope stay Granite Chief's
+  (`lenses/granite-chief.md:9`).
 - `standard_test.go` `TestSkillReferences` pins the new panel lines; `plugins/standard` stays
   version 0.1.0 until its first release.
 
@@ -180,7 +191,8 @@ code hygiene in both phases.
   `live.spec.ts` and `sync.spec.ts` patrol Corduroy once stage 1 passes, or expect it skipped.
 
 **Duplication:** none. Stages extend the sweep step; no second review path. Corduroy's lens rule
-extends its own rule rather than restating Granite Chief's scope rule.
+covers code-level additions only; Granite Chief's scope walk (`lenses/granite-chief.md:9`) keeps
+services, tables, keys and scope, so the two never raise the same challenge.
 
 **Docs:** `basetobase/CLAUDE.md` (Patrol, `REVIEW_ROLES`), `.basetobase/CLAUDE.md`,
 `basetobase/e2e/CLAUDE.md`, `plugins/CLAUDE.md`. This design supersedes `enabledRoles` in the
@@ -212,8 +224,10 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
   (`AGENT_TIMEOUT_MS`, `machine.ts:24`), after up to 30 minutes in GitHub's queue (`JOB_START_MS`).
   Typical two-stage review: about 15 to 20 minutes. Worst case: about 50 minutes of jobs plus
   queueing.
-- The stage count is not capped: worst-case review time grows by one job cap per stage. Accepted,
-  since the owner sets the stages.
+- The stage count is capped at eight by validation: a role at most once, and eight specialists.
+  Worst case at that cap, one role a stage: 8 × 25 = 200 minutes of jobs, plus up to 8 × 30 minutes
+  of queueing. Accepted, since the owner sets the stages. Nothing caps a run's total time beyond
+  each agent's deadlines; a waiting agent has none, and is bounded by the earlier stages'.
 - Corduroy reads the diff and the files it touches: a large PR costs more tokens, bounded by the
   25-minute job cap. A job that times out fails the review, and the owner retries it.
 
@@ -251,9 +265,11 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
 
 ## How we'll know it works
 
-- **Config tests:** shipped `reviewStages` and `designRoles`. Refused: an unknown role, `groomer`,
-  a duplicate role across stages, an empty stage, zero stages, and a `designRoles` without
-  `granite-chief` or `kt-22`. `withReviewRoles` pins one stage.
+- **Config tests:** shipped `reviewStages` and `designRoles`. Refused in each list: an unknown role
+  and `groomer`. Refused in `reviewStages`: a duplicate role across stages, an empty stage, zero
+  stages, and a value that is not a list of lists (a flat list left from `enabledRoles`). Refused in
+  `designRoles`: a duplicate, and a list without `granite-chief` or `kt-22`. A config still holding
+  `enabledRoles` is refused, so a stale one fails loudly. `withReviewRoles` pins one stage.
 - **Machine tests:**
   - Stage 2 starts `waiting`: no dispatch and no deadline.
   - Stage 1 all passing: stage 2 queued and dispatched, check still in progress, titled
@@ -271,7 +287,13 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
   - Three stages: stage 3 is skipped when stage 2 fails, and released only once stages 1 and 2
     pass.
   - A release sets `queued`, `releasedAt` and one dispatch effect per agent; "never dispatched"
-    fires from `releasedAt`.
+    fires from `releasedAt`; a repeated verdict dispatches nothing twice.
+  - A bypass on a swept run whose stage 2 was skipped reopens the sweep, sets `on_the_hill`,
+    dispatches stage 2 and reposts the check.
+  - The tally and the failure title with skipped agents; the title `· stage 1 of 2` and `· stage 2
+    of 2`, and a one-stage run's title unchanged.
+  - A stalled stage-1 agent holds stage 2 `waiting` until it reports or times out.
+  - Not tested: the rollback case, which needs the old code; accepted.
 - **Route tests:** an agent call for a waiting agent and a late one for a skipped agent get 410.
 - **Dashboard tests:** stage sections and headings; Waiting and Skipped cards; the detail pane's
   one-line reasons, with no job link or transcript control; a one-stage run unchanged.
@@ -286,9 +308,11 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
   - The other specs adapted.
 - **Evidence after deploy:** the first patrolled code PR shows Corduroy dispatched only after
   Mainline cleared.
-- **Hand check after §2 deploys,** since a model's judgment has no fixed output to assert: four
-  throwaway PRs, one each with duplicated logic, a broken repo pattern, a needless wrapper, and dead
-  code, each fail on a Corduroy hazard citing file:line. The results go in §2's PR.
+- **Hand check right after §2 deploys,** since a model's judgment has no fixed output to assert:
+  - Four throwaway PRs, one each with duplicated logic, a broken repo pattern, a needless wrapper and
+    dead code, each fail on a Corduroy hazard citing file:line and the rule or duplicate.
+  - A clean code PR reads `clear`; a docs-only PR reads `clear` with "No code to review."
+  - The results go in §2's PR. Any miss: the off switch removes Corduroy's stage until a fix lands.
 - **Hand check after §3 deploys:** the next design PR's panel holds BLD, GOAL and SEC, and Granite
   Chief's design-PR rules pass it.
 
@@ -303,8 +327,8 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
 
 ## Delivery
 
-Order: §1 first; §2 and §3 after it, in either order. §2's shipped `reviewStages` and §3's
-`designRoles` reader need §1's config keys on main.
+Three PRs. Order: §1 first; §2 and §3 after it, in either order. §2's shipped `reviewStages` and
+§3's `designRoles` reader need §1's config keys on main, and §2's hand check needs its own deploy.
 
 - §1 Review phases by config: `reviewStages` and `designRoles`, the staged sweep, the `waiting` and
   `skipped` statuses, the dashboard's stage sections, and tests. Shipped `reviewStages` stays one
@@ -350,7 +374,6 @@ Order: §1 first; §2 and §3 after it, in either order. §2's shipped `reviewSt
 
 ## Left to the builder
 
-- Whether §1 to §3 land as one PR or three.
 - Config validation messages.
 
 ## Design review
@@ -358,15 +381,15 @@ Order: §1 first; §2 and §3 after it, in either order. §2's shipped `reviewSt
 Panel: GOAL, INF, SCL, SEC, FUN, QLT, UX, DSN, BLD. Why: full design that changes the dashboard's patrol cards, a screen.
 
 Round 1:
-- GOAL-1 Goal ships Corduroy as a PR reviewer; a non-goal says not to turn on more
+- GOAL-1 Goal ships Corduroy as a PR reviewer; a non-goal says not to turn on more: revised Goals, non-goals, anti-goals
 - GOAL-2 No test separates a Corduroy hazard from taste: owner: every hygiene problem Corduroy finds blocks, with file:line evidence
 - GOAL-3 Granite Chief design-PR rule undefined when config file is absent, so panels can disagree: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - GOAL-4 Arbitrary N ordered stages where one gated Corduroy step meets the success line: owner: any number of stages (approach 1)
-- INF-1 Job timeout cited as 30 minutes; the workflow sets 25
+- INF-1 Job timeout cited as 30 minutes; the workflow sets 25: revised Scaling
 - INF-2 Cost has no unit price and no monthly total: owner: no cost cap; the job cap bounds each run, a config PR is the off switch, a timed-out job is retried
 - INF-3 Pay-per-use Corduroy job has no volume or spend cap: owner: no cost cap; the job cap bounds each run, a config PR is the off switch, a timed-out job is retried
 - INF-4 No way to switch the paid Corduroy stage off without a deploy: owner: no cost cap; the job cap bounds each run, a config PR is the off switch, a timed-out job is retried
-- SCL-1 Stated 30-minute job timeout contradicts the workflow's 25 minutes
+- SCL-1 Stated 30-minute job timeout contradicts the workflow's 25 minutes: revised Scaling
 - SCL-2 Stage count is unbounded, so review latency grows linearly and is not worked at 10x
 - SCL-3 Corduroy's input size is bounded by time, not by diff size: owner: no cost cap; the job cap bounds each run, a config PR is the off switch, a timed-out job is retried
 - SCL-4 Cost is stated per PR, but the unit of dispatch may be a run per push: owner: nonce with the run and not live until released, releasedAt, docs-only PRs clear, §1 first, a run per push plus retries
@@ -375,18 +398,18 @@ Round 1:
 - SEC-2 Security floor of the design panel moves from a fixed list to editable config: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - SEC-3 Config validation leaves fail-open values open: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - SEC-4 Corduroy job's tools, credentials and checkout are not stated: owner: Corduroy is read-only by its template, not enforced by the runner
-- FUN-1 Retry drops `stage`, so a retried stage-2 agent reads as stage 0
-- FUN-2 Stage gate's 'clear' disagrees with reviewOutcome's 'flagged'
+- FUN-1 Retry drops `stage`, so a retried stage-2 agent reads as stage 0: revised Fit with existing features
+- FUN-2 Stage gate's 'clear' disagrees with reviewOutcome's 'flagged': revised Fit with existing features
 - FUN-3 No test shows Corduroy flagging the code defects named as success
 - FUN-4 Failure and edge cases of the staged sweep with no test
 - FUN-5 designRoles: required members and empty list undefined; patrol rule untested: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
-- QLT-1 advanceStages derives 'clear' separately from reviewOutcome, so the two can disagree
-- QLT-2 retryAgents rebuilds the agent without stage; the design never says retry keeps it
+- QLT-1 advanceStages derives 'clear' separately from reviewOutcome, so the two can disagree: revised Fit with existing features
+- QLT-2 retryAgents rebuilds the agent without stage; the design never says retry keeps it: revised Fit with existing features
 - QLT-3 Design-panel rules are moved to designRoles in one line and left hardcoded in four others: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - QLT-4 designRoles and reviewStages validation admits groomer, which has no lens or panel: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
-- QLT-5 Exhaustive AgentStatus maps in shared/ are not named; the 'Waits for stage 1' label has no home
+- QLT-5 Exhaustive AgentStatus maps in shared/ are not named; the 'Waits for stage 1' label has no home: revised Fit with existing features
 - QLT-6 New Corduroy lens rule duplicates the Granite Chief lens, and 'Duplication: none' does not say so
-- QLT-7 withEnabledRoles and ENABLED_ROLES keep names that no longer describe what they pin
+- QLT-7 withEnabledRoles and ENABLED_ROLES keep names that no longer describe what they pin: revised Fit with existing features
 - UX-1 Stage groups: heading semantics, keyboard order and 320 px layout not stated: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
 - UX-2 'Waits for stage 1' label is wrong for stage 3 or later and its source is unnamed: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
 - UX-3 Detail view for a selected waiting or skipped card is not stated: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
@@ -396,12 +419,36 @@ Round 1:
 - DSN-1 Stage group headings have no stated look, layout or contrast: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
 - DSN-2 The `waiting` label depends on the stage, but status labels are static: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
 - DSN-3 What a selected waiting or skipped card shows in the detail pane is not drawn: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
-- BLD-1 retryAgents rebuilds the agent without `stage`, so a retried agent drops to stage 0
+- BLD-1 retryAgents rebuilds the agent without `stage`, so a retried agent drops to stage 0: revised Fit with existing features
 - BLD-2 `releasedAt` is used but never declared on AgentSnapshot: owner: nonce with the run and not live until released, releasedAt, docs-only PRs clear, §1 first, a run per push plus retries
 - BLD-3 advanceStages needs a nonce source that bypassDesign and closeSweepIfDone do not have: owner: nonce with the run and not live until released, releasedAt, docs-only PRs clear, §1 first, a run per push plus retries
 - BLD-4 designRoles validation and how the design skill combines it with its size, screen and builder rules: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - BLD-5 Granite Chief's rewritten panel rule is silent on short designs, a missing config, and id-to-prefix mapping: owner: designRoles must hold Granite Chief and KT-22, is read from main by the skill and Granite Chief alike, every lens without the file; groomer refused; the owner merges config
 - BLD-6 corduroy.md has no rule for design PRs, which stage 2 will dispatch it on: owner: nonce with the run and not live until released, releasedAt, docs-only PRs clear, §1 first, a run per push plus retries
-- BLD-7 Skipped summary is both fixed and left to the builder
+- BLD-7 Skipped summary is both fixed and left to the builder: revised Left to the builder
 - BLD-8 Stage numbering mixes 0-based storage and 1-based prose, and the heading for stage 3 and later is open: owner: a section per stage, Waiting and Skipped labels, a one-line reason in the detail pane, stage k of n in the check title
 - BLD-9 Order between §1, §2 and §3 is left open, and §3 depends on §1: owner: nonce with the run and not live until released, releasedAt, docs-only PRs clear, §1 first, a run per push plus retries
+
+Round 2:
+- GOAL-5 Anti-goal 'pass or fail derived only in reviewOutcome' is broken by the new passes/advanceStages path
+- GOAL-6 Panel agreement between the skill and Granite Chief holds only if both read the same config at the same time
+- GOAL-7 designRoles is read per patrolled repository while a non-goal excludes per-repository config
+- INF-5 Actions minutes and KV transcript writes have no stated free-tier limit against the Scaling numbers
+- SCL-6 Load is stated as 'a few PRs a day' with no number, so 10x cannot be worked
+- SEC-5 designRoles reader rules cover an absent file, not a file without the key or a stale default branch
+- SEC-6 "Design or docs files only" is undefined, and agent-instruction markdown is patrolled
+- FUN-6 Config refusal tests do not say which list each refusal covers
+- FUN-7 e2e adaptations of four specs have no concrete steps or expected states
+- FUN-8 Panel rules do not say what happens when the base config exists but has no designRoles key
+- QLT-8 Patrol rule and skill disagree on whether UX and DSN need to be in designRoles
+- QLT-9 A bypass on a swept run releases stage 2 into a run that is not live and emits no dispatch
+- UX-7 Skipped line says a retry runs it, but retry exists only for error agents; hazards leave no next action
+- UX-8 Detail pane for waiting and skipped cards is not stated against the Debug panel's current markup
+- UX-9 Stage heading level and live release of a stage are not stated
+- UX-10 Pipeline row's failure text is not updated for the new statuses
+- DSN-4 Stage headings: heading level and title/sub-label split against the established pattern are not stated
+- DSN-5 Waiting and Skipped patrol cards have no stated look beside the established not-yet-run style
+- BLD-10 AgentSnapshot.stage is both the reviewStages index and a renumbered index
+- BLD-11 One PR for §1 to §3 contradicts Delivery's order and §2's hand check
+- BLD-12 'In' is undefined for a stalled agent, so the stage gate's timing is open
+- BLD-13 The skill's 'default branch' read has no ref or command
