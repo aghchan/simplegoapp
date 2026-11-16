@@ -39,7 +39,10 @@ code hygiene in both phases.
   - A PR with duplicated logic, a broken codebase pattern, a needless abstraction, dead code or
     any other hygiene problem fails the *Base to Base* check on a Corduroy hazard citing file:line.
   - A PR whose end-to-end test fails never dispatches Corduroy; its card reads Skipped.
-  - Moving a specialist between phases or stages is a one-line config edit.
+  - Moving a specialist to another stage is an edit of one list, `reviewStages`. Adding one to the
+    design phase, or dropping one from it, is an edit of one list, `designRoles`.
+  - A design's panel follows `designRoles`: with a role dropped from it, the skill's panel and
+    Granite Chief's design-PR rules both leave that lens out, and Granite Chief and KT-22 stay on.
 
 ## Goals, non-goals, anti-goals
 
@@ -47,6 +50,9 @@ code hygiene in both phases.
 - `designRoles` and `reviewStages` in the config, read by the design skill and by the patrol.
 - Ordered review stages, each gated on every earlier stage passing.
 - Corduroy's hygiene rules in both phases; Corduroy in stage 2 of the shipped config.
+- The dashboard shows a run's stages: a section per stage, Waiting and Skipped cards, and on a
+  skipped card why its stage was skipped and what to do next. Done when the dashboard tests under
+  "How we'll know it works" pass.
 
 **Non-goals**
 - A new roster role (owner: extend Corduroy's scope instead).
@@ -110,26 +116,41 @@ code hygiene in both phases.
   filter is dropped and the later ones renumbered. Stage 0 starts `queued` and is dispatched as now;
   later stages start `waiting`. A PR whose panels leave no agent at all reads `none`, as today.
 - A new step, `advanceStages`, runs first in `closeSweepIfDone` (:788), before `sweptState`, after
-  every verdict, failure, retry and bypass. It makes the later stages' state follow the current
-  stage's:
+  every verdict, failure, retry and bypass. It makes the later stages follow the first stage that
+  has not passed:
   - Passing is one predicate, `passes(s, agent)`, which `reviewOutcome` uses too: status `clear`,
     or `hazards` with a non-empty list whose every hazard the owner waived (`openHazards` empty).
     `error`, `stopped`, `stalled`, `skipped`, and a `hazards` verdict that lists none, never pass.
   - "In" is `isTerminal`. A stalled agent is not in: its stage holds the later ones `waiting` until
     it reports or times out into `error`.
-  - The current stage is the first with an agent not in, or not passing.
-  - **An agent of it not in:** every later-stage `skipped` agent goes back to `waiting`, its summary
-    cleared. This is what a retry of a failed agent does to the stage it had held.
-  - **All in, any not passing:** every later-stage `waiting` agent becomes `skipped`, its summary
-    `Skipped: stage k did not pass (<agent names>).`, naming the agents of stage k that did not
-    pass. Every agent is then terminal, so `sweptState` closes the sweep in the same transition.
-  - **All in and passing:** the next stage's `waiting` or `skipped` agents become `queued`, get
-    `releasedAt` and one dispatch effect each; the sweep and the run stay open. A release from a
-    swept run (a bypass after stage 2 was skipped) reopens it as `retryAgents` does (:338-:349):
-    the sweep step back to `active`, the run back to `on_the_hill`, and `checkReposts` + 1 for a
-    new check run, since a completed one cannot reopen.
-  - A release takes only `waiting` or `skipped` agents, so a repeated verdict or event never
-    dispatches an agent twice.
+  - A stage's agents are released, skipped and put back together, so a stage is in one of four
+    states. **Unreleased:** its agents are all `waiting` or all `skipped`. **Running:** released,
+    and an agent is not in. **Held:** released, every agent in, and one does not pass.
+    **Passed:** released, every agent in and passing. A passed stage stays passed: a verdict is
+    final, and a retry takes only `error` agents.
+  - The **current stage** is the first that has not passed. It is the `k` of the check title, and
+    `advanceStages` acts on its state alone; with every stage passed it does nothing.
+    - **Unreleased** (every earlier stage has passed): it is released. Its agents become `queued`,
+      get `releasedAt` and one dispatch effect each, and the sweep and the run stay open. Every
+      later stage's `skipped` agents go back to `waiting`.
+    - **Running:** every later stage's `skipped` agents go back to `waiting`. This is what a retry
+      of a failed agent does to the stages it had held.
+    - **Held:** every later stage's agents, `waiting` or `skipped`, are `skipped` with the summary
+      `Skipped: stage k did not pass (<agent names>).`, naming the agents of stage k that do not
+      pass now. Every agent is then terminal, so `sweptState` closes the sweep in the same
+      transition.
+  - A waiting or skipped agent has never run. The one field a skip adds is `summary`; it sets no
+    `finishedAt`, which no reader of an agent uses. Both ways out of `skipped`, back to `waiting`
+    and released to `queued`, drop the summary, so a released agent never carries a `Skipped:` line
+    into `conditionsReport` or onto its card.
+  - A release finds the run `swept` only when a bypass turns the stage that held it passing. The
+    run then reopens through one helper, which `retryAgents` now calls in place of its own block
+    (:338-:349): the released agents' steps back to `{ status: "active", startedAt, notes: [] }`,
+    so the closed sweep's `finishedAt` and Conditions report go; the run back to `on_the_hill`; and
+    `checkReposts` + 1 for a new check run, since a completed one cannot reopen. A release from an
+    open run changes none of these.
+  - Only an unreleased stage is released, and a released one is running, so a repeated verdict or
+    event never dispatches an agent twice.
 - `reviewOutcome` (:529) reads `passes` for every agent and keeps today's outcomes: a failed or
   stopped agent reads `failed`, a flagged one `hazards`. A `skipped` agent never passes. Skipped
   agents exist only behind a stage that is in and did not pass, which already gives `hazards` or
@@ -140,6 +161,15 @@ code hygiene in both phases.
 - `retryAgents` (:304) and `bypassDesign` (:381) end in `advanceStages`. A skipped or waiting agent
   is not retryable itself: `retryableAgents` (:294) takes only `error` agents, and the retry route
   answers 409 `nothing to retry` for one (`routes/api.ts:106`).
+- `bypassDesign` sets `designBypassedAt`, then runs `advanceStages`, and one bypass raises
+  `checkReposts` by exactly 1:
+  - When that releases a stage, the reopen above makes the bump and clears the sweep's notes.
+    `bypassDesign` adds neither its own bump nor its rewrite of the closed sweep's Conditions
+    report (:389-:394); the report is written when the sweep closes again.
+  - When it releases nothing (one stage, a failed agent or another hazard still holding the stage,
+    or a sweep still open), `bypassDesign` does what it does today: its one bump, and for a closed
+    sweep the report rewritten, now after `advanceStages` so it carries the skipped agents' fresh
+    summaries.
 - `deadlinesOf`: a released agent's "never dispatched" clock runs from `releasedAt`
   (`retriedAt ?? releasedAt ?? createdAt`).
 - `conditionsReport` (:726): "in" excludes skipped agents as it excludes stopped ones, and the
@@ -167,10 +197,13 @@ code hygiene in both phases.
   `<h4 class="section-title section-title-sub">`: `Stage 1`, and `Stage n` with ` · after stage n−1
   passes` in a `.section-plain` span for every later stage, n being the stored position + 1. The
   new `.section-title-sub` rule steps the h4 down from the h3's 15px to 13px, the size
-  `.patrol-role` uses (`theme.css:848`), same face, tracking and `--muted` color. Each stage section
+  `.patrol-role` uses (`theme.css:848`), same face, tracking and `--muted` color. Its sub-label
+  steps down with it: `.section-title-sub .section-plain` is 12px, the size `.step-meta` uses
+  (`theme.css:703`), so the pair keeps the h3's one step between title and sub-label (15px and
+  14px, `theme.css:385` and `:391`) and the sub-label is never the larger. Each stage section
   is a column with the 8px gap of `.detail-block` (`theme.css:780`) between heading and grid, and
-  12px between sections. The heading is text and wraps at phone width. Tab order is stage, then config order. A run with
-  one stage keeps today's markup, with no stage heading.
+  12px between sections. The heading is text and wraps at phone width. Tab order is stage, then
+  config order. A run with one stage keeps today's markup, with no stage heading.
 - A release re-renders the cards in place (a card goes from Waiting to Queued); the selected card
   and focus are kept, since cards are keyed by agent id.
 - Waiting and skipped cards read "Waiting" and "Skipped" and stay selectable. They take the `idle`
@@ -183,14 +216,27 @@ code hygiene in both phases.
   of plain text under the name line:
   - waiting: `Starts when stage n−1 passes.`
   - skipped: the agent's summary, `Skipped: stage k did not pass (<agent names>).`, then one
-    next-action sentence, chosen in this order:
+    next-action sentence. It names stage k as that stage's heading does, and names each button by
+    the label the button carries in the step's actions row, at the top of the step
+    (`StepDetail.tsx:156`). The retry label comes from one function the button and the
+    sentence share, so `Retry the failed patroller` and `Retry the N failed patrollers` never
+    differ between them; the bypass label is one constant. Chosen in this order:
     1. The run is stopped or landed: none.
-    2. Stage k has an open hazard other than Granite Chief's missing-design one: `Fix it and push;
-       a new run starts the stages again.` A push replaces the run, so nothing else is named.
-    3. Stage k has a failed agent and the missing-design hazard: `A retry and the design bypass
-       there run it.`
-    4. Only failed agents: `A retry there runs it.`
-    5. Only the missing-design hazard: `The design bypass there runs it.`
+    2. Stage k has a `hazards` verdict the bypass cannot clear, either an open hazard other than
+       the one missing-design hazard it waives or a verdict that lists none: `Stage k cannot pass
+       on this run. Push a fix, and a new run starts at stage 1.` A push replaces the run, so
+       nothing else is named.
+    3. Stage k has a failed agent and the missing-design hazard: `Stage k can still pass: use
+       "Retry the failed patroller" and "Bypass design (emergency)" at the top of this step.`
+    4. Only failed agents: `Stage k can still pass: use "Retry the failed patroller" at the top of
+       this step.`
+    5. Only the missing-design hazard: `Stage k can still pass: use "Bypass design (emergency)" at
+       the top of this step.`
+  - A held stage's agents that do not pass are failed ones, or `hazards` verdicts with an open
+    hazard or with none listed; a `stopped` agent exists only on a stopped or landed run. So the
+    five cases cover every held stage.
+  - The dashboard is the owner's alone (owner session), so both buttons are on the viewer's screen
+    whenever a sentence names them: the same `retryable` and `bypassable` checks choose both.
   - Once a retry starts, the held cards are Waiting again (`advanceStages`), so a Skipped line never
     describes a stage that is running.
 - The radio log scoped to a waiting or skipped card reads `Quiet on the radio.`, as for any agent
@@ -218,9 +264,9 @@ code hygiene in both phases.
   roster. With no such file on the base, or one without the key, that does not parse, or whose
   `designRoles` lacks `granite-chief` or `kt-22`, `designRoles` is every lens. The base of a
   patrolled PR is the default branch, since only PRs into it are patrolled. The panel must hold BLD,
-  GOAL and SEC; for `Size: full`, also the prefix of every other `designRoles` role but `magic-carpet`
-  and `bluebird`; for `Size: short`, each other `designRoles` lens whose section is not "None";
-  UX and DSN, when in `designRoles`, when the design adds or changes a screen.
+  GOAL and SEC; for `Size: full`, also the prefix of every other `designRoles` role but
+  `magic-carpet` and `bluebird`; for `Size: short`, each other `designRoles` lens whose section is
+  not "None"; UX and DSN, when in `designRoles`, when the design adds or changes a screen.
 
 **Design skill and lens** (`plugins/standard/`)
 - `skills/system-design/SKILL.md`, "Size and panel": the lenses are `designRoles` from the default
@@ -252,7 +298,8 @@ code hygiene in both phases.
   - `retry.spec.ts`: Granite Chief clear and Mainline's job failed leave Corduroy Skipped. The retry
     runs Mainline again; it clears, Corduroy is dispatched and clears: `success`, four jobs in all.
   - `live.spec.ts` and `sync.spec.ts`: where a run must end swept, a helper clears each stage in
-    order (stage 1's jobs, then Corduroy's once dispatched); where it only has to be open, unchanged.
+    order (stage 1's jobs, then Corduroy's once dispatched); where it only has to be open,
+    unchanged.
   - `e2e/CLAUDE.md`: three patrollers in two stages, and `REVIEW_ROLES`.
 
 **Duplication:** none new. Stages extend the sweep step; no second review path. Corduroy's new lens
@@ -292,11 +339,32 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
   only that transcript is lost: the forwarder warns and the verdict still reaches Dispatch
   (`forwarder/src/run.ts:382-387`). The remedy is a shorter TTL or the paid plan. §2's hand check
   records Corduroy's transcript sizes.
-- At 10x (150 runs a day): about 450 KV writes a day, still under 1,000. What binds first is KV
-  storage, unless transcripts average under about 75 KB; then the Claude subscription behind
-  `CLAUDE_CODE_OAUTH_TOKEN`, whose usage limits fail a job the owner then retries; then GitHub's cap
-  of 20 concurrent jobs on a free account, which queues jobs inside `JOB_START_MS`. Accepted
-  (owner: no cap).
+- Every patroller job, Corduroy's included, also spends the Worker's own daily allowances. The
+  repo does not record the Cloudflare plan, so the figures are set against Workers Free, the
+  stricter case: 100,000 Worker requests a day, and for `RunDO`, a SQLite-backed Durable Object
+  (`wrangler.jsonc`, `new_sqlite_classes`), 100,000 requests, 100,000 rows written and 13,000 GB-s
+  of duration a day, about 28 hours awake at 128 MB. These are Cloudflare's published figures as
+  the designer knows them; the design session could not reach Cloudflare's pages to read them again.
+- What a job spends, from the code: it posts its events at most once every 2 s
+  (`forwarder/src/batcher.ts`, `intervalMs`) for at most 20 minutes (`forwarder/CLAUDE.md:12`), so
+  at most 600 posts, and about 150 to 300 in a 5 to 10 minute job. Each post is one Worker request,
+  one `RunDO` call, one stored state (`do.ts:300`) and one `log` row per event with its unique-index
+  entry (`do.ts:84`, `:506`). How many events a job logs has not been measured.
+- At the assumed load, 45 jobs a day, 15 of them Corduroy's: about 13,500 requests a day at 300
+  posts a job, and 27,000 if every job ran its full 20 minutes, plus the cron's 288; about 5 hours
+  of `RunDO` awake. All under their allowances. The rows-written allowance is about 2,200 rows a
+  job, roughly 1,000 logged events each.
+- At 10x (150 runs and 450 jobs a day): about 450 KV writes a day, still under 1,000. On Workers
+  Free the Worker's own allowances bind first: about 135,000 requests a day at 300 posts a job,
+  about 50 hours of `RunDO` awake, and 220 rows written a job. Then KV storage, unless transcripts
+  average under about 75 KB; then the Claude subscription behind `CLAUDE_CODE_OAUTH_TOKEN`, whose
+  usage limits fail a job the owner then retries; then GitHub's cap of 20 concurrent jobs on a free
+  account, which queues jobs inside `JOB_START_MS`. Accepted (owner: no cap).
+- Past a daily allowance Cloudflare refuses the calls until 00:00 UTC: jobs fail, and the owner
+  retries them after it. The remedy is the Workers Paid plan, which lifts all of them; a longer
+  batch interval cuts requests and stored states, not log rows. No change now. §2's hand check
+  records the day's Worker requests, Durable Object requests, rows written and duration, and KV
+  stored bytes, from the Cloudflare dashboard.
 - A run per pushed head (a newer push supersedes it), plus one job per retry. Each run whose
   stage 1 passes adds one Actions job (Corduroy, sonnet, about 5 to 10 minutes).
 - A release costs one workflow dispatch call per released agent, one check-run write and one
@@ -317,6 +385,10 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
 
 - No new service or library.
 - Config keys: `enabledRoles` is replaced by `reviewStages`; `designRoles` is new.
+- One binding, test-only: `REVIEW_ROLES`, renamed from `ENABLED_ROLES`. It is set in the dispatch
+  vitest config alone and never in `wrangler.jsonc`, so production runs the shipped
+  `reviewStages`. No new binding, secret or variable.
+- Cloudflare allowances the added job spends, and what binds first: under Scaling.
 - Cost: one more Claude (sonnet) job and its Actions minutes per run whose stage 1 passes. No cap
   (owner): the job cap bounds each run.
 - Off switch: a one-line config PR removing Corduroy's stage; main deploys itself on merge.
@@ -339,6 +411,8 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
 - Corduroy's job fails or times out: the review fails on a failed agent, and the owner retries it.
 - A dispatch of a released agent lost: "never dispatched" fires from `releasedAt`.
 - The owner bypasses after stage 2 was skipped: stage 1 turns passing and stage 2 is released.
+- A daily Cloudflare allowance is spent: calls are refused until 00:00 UTC, jobs fail, and the
+  owner retries them after it.
 - Corduroy's cost or noise spikes: a one-line config PR removes its stage.
 - KV storage full: a transcript upload fails with a warning and the review's verdict stands.
 - A runs-in-flight deploy: their agents have no `stage`, read as one stage, and finish as before.
@@ -359,7 +433,10 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
     `· stage 2 of 2`.
   - Stage 1 hazards or a failed agent: stage 2 skipped, its summary naming stage 1's agents, outcome
     `hazards` or `failed`.
-  - The bypass and a retry each release a skipped stage once stage 1 turns passing.
+  - A bypass that turns stage 1 passing releases stage 2 straight from `skipped`: its agents are
+    `queued` with `releasedAt` and no summary, and neither the Conditions report nor the check
+    summary holds a `Skipped:` line. A retry puts stage 2 back to `waiting`, and the retried
+    agent's clear verdict then releases it.
   - A panel filter that empties a stage drops it.
   - A skipped agent never passes.
   - Stop and land halt waiting agents, and leave skipped ones as they are.
@@ -368,11 +445,17 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
     and stage 1 is not re-run.
   - A stage-1 `hazards` verdict that lists none holds stage 2, as `reviewOutcome` fails it.
   - Three stages: stage 3 is skipped when stage 2 fails, and released only once stages 1 and 2
-    pass.
+    pass. With stage 1 held and stages 2 and 3 skipped, a bypass releases stage 2 and puts stage 3
+    back to `waiting`.
   - A release sets `queued`, `releasedAt` and one dispatch effect per agent; "never dispatched"
     fires from `releasedAt`; a repeated verdict dispatches nothing twice.
-  - A bypass on a swept run whose stage 2 was skipped reopens the sweep, sets `on_the_hill`,
-    dispatches stage 2 and reposts the check.
+  - A bypass on a swept run whose stage 2 was skipped reopens the sweep (step `active`, notes
+    empty, no `finishedAt`), sets `on_the_hill`, dispatches stage 2 and raises `checkReposts` by
+    exactly 1.
+  - A bypass on a swept run that releases nothing, a failed agent still holding stage 1, raises
+    `checkReposts` by exactly 1 too, leaves the run swept, and rewrites the Conditions report with
+    stage 2's summary naming only the agent that still does not pass.
+  - A retry's reopen through the shared helper is what today's retry tests assert, unchanged.
   - The tally and the failure title with skipped agents; the title `· stage 1 of 2` and `· stage 2
     of 2`, and a one-stage run's title unchanged.
   - A stalled stage-1 agent holds stage 2 `waiting` until it reports or times out.
@@ -380,19 +463,23 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
     summaries cleared, and dispatches only the retried agent; a second failure skips them again.
   - A retry aimed at a skipped or a waiting agent, by id or by step, changes nothing and dispatches
     nothing.
-  - `liveAgent` and `deadlinesOf` for a waiting agent: a verdict, events or a failure for it change
-    nothing, and no alarm is set for it.
+  - `liveAgent` and `deadlinesOf` for a waiting agent and for a skipped one: a dispatch result, a
+    brief, events, a verdict or a failure for it change nothing, a brief starts no clock, and no
+    alarm is set for it.
   - The tally `2 of 3 patrollers in · … · 1 skipped`; the failure title's `Run failed` fallback for
     a hand-built run whose only non-passing agents are skipped, whose outcome is `failed`.
   - Not tested: the rollback case, which needs the old code; accepted.
-- **Route tests:** an agent call for a waiting agent and a late one for a skipped agent get 410;
-  a retry of a skipped agent by id gets 409 `nothing to retry`.
+- **Route tests:** `GET /agent/brief` and `POST /agent/events`, `/agent/verdict` and
+  `/agent/failure` each answer 410 for a waiting agent and for a skipped one; a retry of a skipped
+  agent by id gets 409 `nothing to retry`.
 - **Dashboard tests:** stage sections with `h4.section-title-sub` headings under the one `Patrol on
-  this step` h3; Waiting and Skipped cards and their classes; the Debug pane's `p.hint` for a
-  waiting agent and for each of the five skipped cases in their order, with no transcript button,
-  job link, retry button or transcript hint; the pipeline row's `N failed · N skipped`,
-  `hazards flagged · N skipped` and bare `failed`; a card that goes from Waiting to Queued keeps
-  its selection; a one-stage run unchanged.
+  this step` h3, the sub-label in its `.section-plain` span; Waiting and Skipped cards and their
+  classes; the Debug pane's `p.hint` for a waiting agent and for each of the five skipped cases in
+  their order, case 2 both for an open hazard and for a verdict that lists none, each sentence
+  naming stage k and carrying the buttons' own labels, with one failed patroller and with two; no
+  transcript button, job link, retry button or transcript hint; the pipeline row's
+  `N failed · N skipped`, `hazards flagged · N skipped` and bare `failed`; a card that goes from
+  Waiting to Queued keeps its selection; a one-stage run unchanged.
 - **Plugin tests:** the panel lines read `designRoles` with `git show origin/<default branch>:…`
   and always name `builder`, `granite-chief` and `kt-22`; Corduroy's new lens line, word for word,
   with :6 unchanged; at most 40 lines.
@@ -410,13 +497,17 @@ None in D1: the `runs` index stores no agents. A RunDO's stored state gains an o
 - **Evidence after deploy:** the first patrolled code PR shows Corduroy dispatched only after
   Mainline cleared.
 - **Hand check right after §2 deploys,** since a model's judgment has no fixed output to assert:
-  - Four throwaway PRs, one each with duplicated logic, a broken repo pattern, a needless wrapper and
-    dead code, each fail on a Corduroy hazard citing file:line and the rule or duplicate.
+  - Four throwaway PRs, one each with duplicated logic, a broken repo pattern, a needless wrapper
+    and dead code, each fail on a Corduroy hazard citing file:line and the rule or duplicate.
   - A clean code PR reads `clear`; a docs-only PR reads `clear` with "No code to review."
-  - The results go in §2's PR, with the size of each Corduroy transcript. Any miss: the off switch
-    removes Corduroy's stage until a fix lands.
-- **Hand check after §3 deploys:** the next design PR's panel holds BLD, GOAL and SEC, and Granite
-  Chief's design-PR rules pass it.
+  - The results go in §2's PR, with the size of each Corduroy transcript and the day's Cloudflare
+    usage named under Scaling. Any miss: the off switch removes Corduroy's stage until a fix lands.
+- **Hand check after §3 deploys:**
+  - The next design PR's panel holds BLD, GOAL and SEC, and Granite Chief's design-PR rules pass it.
+  - In a scratch clone whose `origin` default branch holds a config with `summit-six` dropped from
+    `designRoles`, the skill's panel step names no SCL and still names GOAL and SEC.
+  - Granite Chief's side of a `designRoles` edit shows on the first design PR after the owner makes
+    one; until then the template test pins its rule text.
 
 ## Approaches
 
@@ -470,7 +561,7 @@ check at sign-off:
   design. **(owner, delegated)**
 - "Docs-only" for Corduroy is every changed file under `docs/`; all other markdown is reviewed.
   **(owner, delegated)**
-- Assumed load is 5 PRs a day at 3 pushes each; at 10x the Claude subscription's limits bind first.
+- Assumed load is 5 PRs a day at 3 pushes each, with the 10x case worked under Scaling.
   **(owner, delegated)**
 - Dashboard details: h4 stage headings under the one patrol h3, the muted ground for Waiting and
   Skipped cards, the Debug pane's contents, the skipped line per cause, and `N skipped` in the
@@ -481,16 +572,24 @@ check at sign-off:
 - The rollback case is accepted untested. **(owner, delegated)**
 - A later stage's agents follow the stage that holds them: Waiting while it runs, Skipped once it
   is in and did not pass, so a retry puts them back to Waiting. **(owner, delegated)**
-- The skipped line's next action follows a fixed order: none on a closed run, fix-and-push when any
-  other hazard holds the stage, otherwise the retry, the bypass or both. **(owner, delegated)**
+- The skipped line's next action follows a fixed order: none on a closed run, push a fix when a
+  hazard the bypass cannot clear holds the stage, a `hazards` verdict that lists none included,
+  otherwise the retry, the bypass or both. Each sentence names stage k and the buttons by their own
+  labels. **(owner, delegated)**
 - "In" in the tally excludes skipped agents; the total stays every agent. **(owner, delegated)**
 - Corduroy's lens line :6 stays as it is; the new line covers code-level additions only, and its
   overlap with Granite Chief's scope walk on services and tables is left as today.
   **(owner, delegated)**
-- Stage headings step down to 13px (`.section-title-sub`); the Debug pane's reason is a `p.hint`.
-  **(owner, delegated)**
-- KV storage is named as the limit that may bind first; no change to the TTL or the plan now, and
-  §2's hand check measures transcript sizes. **(owner, delegated)**
+- Stage headings step down to 13px (`.section-title-sub`) and their sub-label to 12px; the Debug
+  pane's reason is a `p.hint`. **(owner, delegated)**
+- Scaling is set against Workers Free, the stricter plan, since the repo does not record the plan.
+  At 10x its request, row-write and duration allowances bind first, then KV storage. No change to
+  the plan, the batch interval or the TTL now; §2's hand check records transcript sizes and the
+  day's Cloudflare usage. **(owner, delegated)**
+- The design phase's success: a design's panel follows a `designRoles` edit, with Granite Chief and
+  KT-22 kept. Moving a specialist is an edit of one list. **(owner, delegated)**
+- A bypass that releases a stage gives the sweep step the retry's reset, its notes and `finishedAt`
+  cleared, and any bypass raises `checkReposts` by exactly 1. **(owner, delegated)**
 - "The tests pass" means every agent of every earlier stage passes, not Mainline alone, and the
   owner's bypass counts. **(designer's call)**
 - `designRoles` lives in the same config file and is read from the default branch; with no file,
@@ -504,6 +603,12 @@ check at sign-off:
   **(designer's call)**
 - A PR whose panels leave no agent at all reads `none`, as today. **(designer's call)**
 - Shipped `designRoles`: all eight specialists. **(designer's call)**
+- One current stage, the first that has not passed, drives both the gate and the check title; a
+  waiting or skipped stage is unreleased, never in. **(designer's call)**
+- A skip adds only a summary, dropped on the way out of `skipped`, and no `finishedAt`.
+  **(designer's call)**
+- `retryAgents` and a release reopen a run through one helper. **(designer's call)**
+- The dashboard's stage view is a goal of its own. **(designer's call)**
 
 ## Left to the builder
 
@@ -588,14 +693,29 @@ Round 2:
 
 Round 3:
 - SCL-7 Transcript storage in KV has no byte figure against the free plan's 1 GB: owner: delegated; KV storage is named as the limit that may bind first, a refused write loses only the transcript, and the hand check measures sizes
-- FUN-9 'A skipped agent is not retryable' has no test, nor do waiting or skipped agents in the retry route
-- QLT-10 A waiting agent is live and has a deadline in the current code; the design cites those functions as if they already refuse it
+- FUN-9 'A skipped agent is not retryable' has no test, nor do waiting or skipped agents in the retry route: revised How we'll know it works
+- QLT-10 A waiting agent is live and has a deadline in the current code; the design cites those functions as if they already refuse it: revised Fit with existing features
 - QLT-11 The conditionsReport tally and sweep-close predicates still count a skipped agent as in: owner: delegated; in excludes skipped agents, the total stays every agent, and the failure title falls back to Run failed
 - UX-11 Skipped line's next action is undefined when stage k holds mixed causes or a stopped agent: owner: delegated; a fixed order: none on a closed run, fix and push for any other hazard, otherwise the retry, the bypass or both
 - UX-12 State and text of skipped cards while a retry or bypass is already running the stage that held them: owner: delegated; skipped agents go back to waiting while the stage that held them runs
-- UX-13 Pipeline row can read '0 failed · N skipped'
-- DSN-6 Stage h4 headings take the h3's look, so the hierarchy is flat
+- UX-13 Pipeline row can read '0 failed · N skipped': revised Fit with existing features
+- DSN-6 Stage h4 headings take the h3's look, so the hierarchy is flat: revised Fit with existing features
 - DSN-7 Debug pane's one-line reason has no stated element, class or style: owner: delegated; one p.hint of plain text under the name line, in place of the actions row
 - BLD-14 Tally's 'N of M patrollers in' would count skipped agents as in: owner: delegated; in excludes skipped agents and the total stays every agent
 - BLD-15 Status and summary of stage-2 agents while a stage-1 retry is running is open: owner: delegated; they go back to waiting with the summary cleared, and advanceStages runs before sweptState
 - BLD-16 Skipped line's next action is undefined when a stage has mixed causes: owner: delegated; a fixed order of five cases under Fit with existing features
+
+Round 4:
+- GOAL-8 Delivery §1 ships a dashboard no goal asks for
+- GOAL-9 Success line has no check for the design phase: owner: delegated; a design's panel follows a designRoles edit with Granite Chief and KT-22 kept, and a move is an edit of one list
+- INF-6 Worker and Durable Object free-tier request limits are not stated against the added Corduroy job traffic: owner: delegated; set against Workers Free, whose request, row-write and duration allowances bind first at 10x, with no change now and the day's usage recorded at the hand check
+- INF-7 The renamed REVIEW_ROLES binding is not listed beside the config keys
+- FUN-10 A release straight from `skipped` (the bypass path) keeps the stale skip summary, and no test catches it
+- FUN-11 Waiting-agent tests cover 3 of the 5 callers the design says must refuse a waiting agent
+- QLT-12 Sweep reopen on release copies retryAgents' block, and bypassDesign already bumps checkReposts
+- UX-14 Skipped line has no next action when stage k is held by a hazards verdict that lists no hazard: owner: delegated; it takes case 2, push a fix, and each sentence names the buttons by their labels at the top of the step
+- DSN-8 Stage h4 sub-label (14px .section-plain) is larger than its 13px heading
+- DSN-9 Skipped hint's next-action wording differs from the existing button labels and is ambiguous
+- BLD-17 advanceStages' 'current stage' makes its release branch unreachable
+- BLD-18 Skipped line has no sentence for a stage held by a hazards verdict that lists none: owner: delegated; case 2 covers it, and the dashboard tests cover both causes
+- BLD-19 Bypass-driven reopen of a swept run leaves sweep notes, finishedAt and the repost count open: owner: delegated; the sweep step gets the retry's reset, notes and finishedAt cleared, and one bypass raises checkReposts by exactly 1
