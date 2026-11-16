@@ -432,9 +432,15 @@ deploy have no `stage` and read as one stage, so no migration.
   that socket is down and the tab is visible (`dashboard/src/useRunsLive.ts`, `POLL_MS`;
   `useOwedDesigns` follows the list). `runs` holds about 5,500 rows after a year at 15 runs a day
   and 55,000 at 150.
-  - Socket up: 50 loads and 15 runs a day read about 630,000 rows at 5,500 rows. At 10x, 150 runs
-    and 50 loads make about 250 full reads a day, which pass 5 million at about 20,000 rows, in
-    about 4.5 months.
+  - Socket up, one tab open: a day reads at most rows × (2 × loads + frames + runs). A load makes
+    both list calls. A lobby frame, one per index write and so 2 to 4 a run, refetches
+    `/api/owed-designs`, since `mergeRuns` returns a new list on every frame
+    (`useRunsLive.ts:96`) and `useOwedDesigns(runs)` follows it (`pages/RunsList.tsx:186`). A run
+    started scans once. It is an upper bound: the owed-designs read skips stopped rows, a share of
+    the table not measured. At the assumed load, 50 loads, 60 frames and 15 runs read at most
+    about 960,000 rows at 5,500 rows. At 10x, 50 loads, 600 frames and 150 runs make up to 850
+    reads of the table a day, which pass 5 million at about 5,900 rows, in about 6 weeks. Each
+    further open tab adds its own frames and loads.
   - Socket down: one visible tab reads about twice the table every 5 s. At 5,500 rows that is
     5 million rows in about 38 minutes.
   - Past the allowance D1 refuses reads until 00:00 UTC, and the runs list and run starts fail
@@ -567,6 +573,11 @@ deploy have no `stage` and read as one stage, so no migration.
   - A bypass on a swept run that releases nothing, a failed agent still holding stage 1, raises
     `checkReposts` by exactly 1 too, leaves the run swept, and rewrites the Conditions report with
     stage 2's summary naming only the agent that still does not pass.
+  - A bypass on an open sweep, Granite Chief's missing-design hazard in and Mainline still
+    running: `checkReposts` rises by exactly 1, no report is rewritten, Corduroy stays `waiting`
+    and the run `on_the_hill`. Mainline's clear verdict then dispatches Corduroy once, with the
+    title `· stage 2 of 2`. With Mainline reporting hazards instead, stage 1 is held and Corduroy
+    is `skipped`, never dispatched.
   - A retry's reopen through the shared helper is what today's retry tests assert, unchanged.
   - The tally and the failure title with skipped agents; the title `· stage 1 of 2` and `· stage 2
     of 2`, and a one-stage run's title unchanged.
@@ -590,8 +601,10 @@ deploy have no `stage` and read as one stage, so no migration.
   - A retry of a skipped agent by id gets 409 `nothing to retry`.
   - Mainline's clear verdict on a run with a waiting Corduroy dispatches Corduroy's workflow once
     and stores its `releasedAt`.
-- **Forwarder test:** the rows of `exits by Dispatch's status on a 410`
-  (`forwarder/test/run.test.ts`) gain `waiting` and `skipped`, each exit 1.
+- **Forwarder tests** (`forwarder/test/run.test.ts`), both tables that turn Dispatch's status on a
+  410 into an exit code. `... for a retried verdict` (:644) gains `["valid", "waiting", 1]` and
+  `["valid", "skipped", 1]`; `... for the failure report` (:674) gains `["waiting", 1]` and
+  `["skipped", 1]`.
 - **Dashboard tests:** stage sections with `h4.section-title-sub` headings under the one `Patrol on
   this step` h3, the sub-label in its `.section-plain` span; Waiting and Skipped cards and their
   classes; the Debug pane's `p.hint` for a waiting agent and for each of the five skipped cases in
@@ -730,7 +743,7 @@ check at sign-off:
   the one-fallback-rule test is in vitest, with `SKILL.md` added to `basetobase-ci`'s paths.
   **(owner, delegated)**
 - A job refused for a waiting or a skipped agent ends red: the forwarder's green list stays
-  `clear` and `stopped`. **(owner, delegated)**
+  `clear` and `stopped`, pinned in both of its 410 exit tables. **(owner, delegated)**
 - D1 reads grow with the `runs` table, as today; accepted with the retention non-goal, and the
   hand check compares a day's reads with the allowance. **(owner, delegated)**
 - The empty-stage test covers a first stage emptied and the middle of three emptied.
@@ -742,9 +755,10 @@ check at sign-off:
 - "Stage" has no themed term: stage headings are plain-only, and their text and the hints' are
   written in the component. **(owner, delegated)**
 - `skippedFor.stage` is 0-based, as `AgentSnapshot.stage` is. **(owner, delegated)**
-- The dashboard's poll while its socket is down can spend D1's daily reads in under an hour once
-  `runs` is large. That is today's exposure, stated and left to the retention design.
-  **(owner, delegated)**
+- The dashboard's reads of `runs` can spend D1's daily allowance: in under an hour of polling
+  while its socket is down once the table is large, and within about 6 weeks at 10x with the
+  socket up. That is today's exposure, stated with its worst-case count and left to the retention
+  design. **(owner, delegated)**
 - "The tests pass" means every agent of every earlier stage passes, not Mainline alone, and the
   owner's bypass counts. **(designer's call)**
 - `designRoles` lives in the same config file and is read from the default branch; with no file,
@@ -902,10 +916,14 @@ Round 6:
 - BLD-22 The skill's read of `origin/<default branch>` never says where the branch name comes from or what a failed fetch does: owner: delegated; git ls-remote --symref origin HEAD names the branch, the config is read from FETCH_HEAD, and a failed read means every lens
 
 Round 7:
-- GOAL-11 Transcript upload refusal for waiting and skipped agents guards a case the design says cannot occur
-- INF-10 The three runs/index.ts line citations for the full-table D1 reads do not match the file
-- SCL-9 D1 read budget assumes 50 list loads a day; the dashboard's 5 s poll fallback breaks it, and the 10x date counts one scan
-- SCL-10 Cited file:line for the three full-table D1 reads is off
-- QLT-16 Docs put §1's renames in §2's PR, leaving three CLAUDE.md lines stale between the merges
+- GOAL-11 Transcript upload refusal for waiting and skipped agents guards a case the design says cannot occur: revised Fit with existing features
+- INF-10 The three runs/index.ts line citations for the full-table D1 reads do not match the file: revised Scaling
+- SCL-9 D1 read budget assumes 50 list loads a day; the dashboard's 5 s poll fallback breaks it, and the 10x date counts one scan: owner: delegated; after two answers, the worst-case count now includes the poll and every lobby frame's owed-designs read, and the exposure is today's, accepted and left to the retention design
+- SCL-10 Cited file:line for the three full-table D1 reads is off: revised Scaling
+- QLT-16 Docs put §1's renames in §2's PR, leaving three CLAUDE.md lines stale between the merges: revised Fit with existing features
 - DSN-10 Stage headings and check-title wording have no themed·plain pairing, which the dashboard requires: owner: delegated; Stage has no themed term, the headings are plain-only under the themed h3, and their text and the hints' are written in the component and pinned by the dashboard tests
 - BLD-23 `skippedFor.stage` is 'the held stage's position': 0-based or 1-based is not stated, and the hint's `k` comes from it: owner: delegated; 0-based as AgentSnapshot.stage is, shown as stage + 1 by the dashboard and in the machine's summary
+
+Round 8:
+- FUN-15 Bypass on an open sweep with stage 1 still running has no test, though Fit with existing features states its behaviour
+- FUN-16 Forwarder test is named as one test, but there are two tables that map an agent status to an exit code: owner: delegated; both tables gain waiting and skipped rows, each exit 1
