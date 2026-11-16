@@ -150,7 +150,9 @@ code hygiene in both phases.
       the sweep in the same transition.
   - `AgentSnapshot` gains `skippedFor?: { stage: number; canPass: boolean }`, set with the summary
     and only on a skipped agent, so the dashboard shows what to do next without judging pass or
-    fail itself. `stage` is the held stage's position. `canPass` says whether the owner can still
+    fail itself. `stage` is the held stage's position, 0 for the first as `AgentSnapshot.stage` is;
+    the dashboard shows `stage + 1`, and the `k` of the machine's summary is `stage + 1` too.
+    `canPass` says whether the owner can still
     turn that stage on this run: every agent of it that does not pass is a failed one (`error`),
     which a retry runs again, or would pass once the bypass is made, which is `passes` on the state
     with `designBypassedAt` set. A `hazards` verdict with any other open hazard, or with none
@@ -204,13 +206,12 @@ code hygiene in both phases.
 - The dispatch effect is unchanged. A release runs the effects stage 0's start runs, after RunDO
   stores the state: one workflow dispatch call per released agent, one check-run write, one
   broadcast.
-- The transcript upload is the one agent route outside `admit`: `PUT /agent/transcript`
-  (`routes/agent.ts:97`) checks the nonce alone (`checkNonce`, `do.ts:99`), so that a stopped run's
-  agents can still upload. It now refuses a waiting or a skipped agent too, which never ran and
-  has nothing to upload. `checkNonce` and `transcriptStored` (`do.ts:171`) answer with a `Report`,
-  as the other agent calls do, and the route hands it to `refuseUnlessAccepted`: 403 for a wrong
-  nonce, 410 naming the status for a waiting or a skipped agent, both before anything is stored.
-  Every other agent uploads as today.
+- The transcript upload is unchanged. `PUT /agent/transcript` (`routes/agent.ts:97`) is the one
+  agent route outside `admit`: it checks the nonce alone (`checkNonce`, `do.ts:99`), so that a
+  stopped run's agents can still upload. No caller can reach it for a waiting or a skipped agent:
+  a nonce leaves the RunDO only in its agent's dispatch, neither was dispatched, and a released
+  agent never goes back to either. So no status check is added. `hasTranscript` has one reader,
+  the Debug pane's transcript button, which a waiting or skipped card does not show.
 - The forwarder reads `AgentStatus` too: `GREEN_WHEN_UNWANTED` (`forwarder/src/run.ts:44`) lists the
   statuses on which a job Dispatch answers 410 ends green. It stays `clear` and `stopped`. No job
   exists for a waiting or a skipped agent, since neither was dispatched and a released agent never
@@ -231,6 +232,12 @@ code hygiene in both phases.
   is a column with the 8px gap of `.detail-block` (`theme.css:780`) between heading and grid, and
   12px between sections. The heading is text and wraps at phone width. Tab order is stage, then
   roster order. A run with one stage keeps today's markup, with no stage heading.
+- "Stage" is a plain word with no themed term, so the stage headings are plain-only; the rule that
+  a themed label renders with its plain one (`dashboard/CLAUDE.md:3`) is kept by the h3 above
+  them, `Patrol on this step · reviewers`. The headings, the waiting hint and the skipped
+  sentences are written in the component, as its other hints and its button labels are
+  (`StepDetail.tsx`), and the dashboard tests pin them. The two status labels are in
+  `AGENT_STATUS_LABELS`, as above. The machine writes its own summary and check title.
 - A release re-renders the cards in place (a card goes from Waiting to Queued); the selected card
   and focus are kept, since cards are keyed by agent id.
 - Waiting and skipped cards read "Waiting" and "Skipped" and stay selectable. They take the `idle`
@@ -340,13 +347,15 @@ different tests: Corduroy asks why an existing one is not extended, Granite Chie
 justifies it. This design leaves that pair as it is.
 
 **Docs,** each in the PR that changes what it describes:
-- §1: `basetobase/CLAUDE.md` (Patrol: `reviewStages`, stages, `waiting` and `skipped`, `skippedFor`;
-  `REVIEW_ROLES`; the agent routes' 410) and `basetobase/dashboard/CLAUDE.md` (stage sections, the
+- §1, which makes the renames, carries every line that names them: `basetobase/CLAUDE.md` (Patrol:
+  `reviewStages`, stages, `waiting` and `skipped`, `skippedFor`; `REVIEW_ROLES`),
+  `.basetobase/CLAUDE.md:3` (`reviewStages` for `enabledRoles`), `basetobase/e2e/CLAUDE.md:9`
+  (`REVIEW_ROLES` for `ENABLED_ROLES`), and `basetobase/dashboard/CLAUDE.md` (stage sections, the
   Waiting and Skipped cards and their Debug hint, the rule that the dashboard takes a skipped
   card's next action from `skippedFor` and judges no pass or fail, and the retry label the button
   and the hint share).
-- §2: `.basetobase/CLAUDE.md` (`reviewStages` for `enabledRoles`, Corduroy's template) and
-  `basetobase/e2e/CLAUDE.md` (three patrollers in two stages).
+- §2: `.basetobase/CLAUDE.md` (Corduroy's template) and `basetobase/e2e/CLAUDE.md` (three
+  patrollers in two stages).
 - §3: `plugins/CLAUDE.md` and `.basetobase/CLAUDE.md` (the panel reads `designRoles`).
 - No test pins a CLAUDE.md. Each is part of its PR's diff, and Granite Chief holds the PR to this
   section.
@@ -413,15 +422,26 @@ deploy have no `stage` and read as one stage, so no migration.
   which the bypass owes today. That is about 2 to 4 upserts a run: about 60 a day at the assumed
   load and 600 at 10x, against Workers Free's 100,000 D1 rows written a day. The cron and the
   dashboard read `runs` as they do today.
-- D1 reads grow with the table, as they do today: Workers Free allows 5 million rows read a day
-  (the designer's figure, as above). Three queries read every `runs` row, or every landed one, on
-  each call: `listRuns` (`dispatch/src/runs/index.ts:75`, each load of the runs list, whose sort no
-  index serves), `listOwedDesigns` (:93, with it) and `runNamesFor` (:120, once per run started).
-  `runs` holds about 5,500 rows after a year at 15 runs a day and 55,000 at 150. At 5,500 rows, 50
-  loads and 15 runs a day read about 630,000 rows. At 10x `runNamesFor` alone passes 5 million
-  once `runs` holds about 33,000 rows, in about 7 months. Accepted for now with the retention
-  non-goal, whose design owns these queries; the hand check compares the day's D1 rows read with
-  5 million.
+- D1 reads are today's, and this design adds none. They grow with the `runs` table, which nothing
+  prunes. Workers Free allows 5 million rows read a day (the designer's figure, as above). Three
+  reads scan the table, in `dispatch/src/runs/index.ts`: each call of `/api/runs` reads every row
+  (`listRuns`, :74, whose sort no index serves); each call of `/api/owed-designs` every open and
+  landed row (`listOwedDesigns`, :96); and each run started every row once (`runNamesFor`, :118,
+  its second query, which filters on `rating` and sorts on `created_at` with no index for either).
+  The dashboard calls the first two on load, on each open of its lobby socket, and every 5 s while
+  that socket is down and the tab is visible (`dashboard/src/useRunsLive.ts`, `POLL_MS`;
+  `useOwedDesigns` follows the list). `runs` holds about 5,500 rows after a year at 15 runs a day
+  and 55,000 at 150.
+  - Socket up: 50 loads and 15 runs a day read about 630,000 rows at 5,500 rows. At 10x, 150 runs
+    and 50 loads make about 250 full reads a day, which pass 5 million at about 20,000 rows, in
+    about 4.5 months.
+  - Socket down: one visible tab reads about twice the table every 5 s. At 5,500 rows that is
+    5 million rows in about 38 minutes.
+  - Past the allowance D1 refuses reads until 00:00 UTC, and the runs list and run starts fail
+    until then.
+  - Accepted for now as today's exposure, which this design leaves as it is, with the retention
+    non-goal: that design owns the three queries and the poll. The hand check compares the day's D1
+    rows read with 5 million.
 - Nothing deletes a finished run's `RunDO` storage, its state and `log` rows, or its `runs` row;
   only transcripts expire. That is so today, and this design adds Corduroy's log rows to every run
   whose stage 1 passes, about half again at the shipped stages. A row's text is at most 2,000
@@ -468,9 +488,10 @@ deploy have no `stage` and read as one stage, so no migration.
 - Corduroy's job is a patroller like the others: the same OIDC token, nonce,
   `--setting-sources user`, and PR text and code read as data. Its template keeps it read-only; the
   runner does not enforce it, as for every patroller today (owner).
-- No call for a waiting or a skipped agent is admitted: brief, events, verdict, failure and the
-  transcript upload each answer 410. Its nonce has also never left the RunDO, since a nonce goes
-  out only in its agent's dispatch.
+- No call for a waiting or a skipped agent can be made: every agent route needs the agent's nonce,
+  and a nonce leaves the RunDO only in its agent's dispatch, which neither has had. Besides that,
+  brief, events, verdict and failure answer 410 for an agent that is not live. The transcript
+  upload checks the nonce alone, as today, and answers 403 without it.
 - Granite Chief and KT-22 sit on every design panel: config validation refuses a `designRoles`
   without them.
 - The config changes only through a PR to `basetobase/**`, which the patrol leaves unpatrolled
@@ -512,7 +533,8 @@ deploy have no `stage` and read as one stage, so no migration.
     in progress. Mainline then reports clear: Corduroy is `skipped`, its summary names Granite
     Chief alone, and the sweep closes in that transition. The same with the reports in the other
     order.
-  - `skippedFor` on a skipped agent: `stage` is the held stage's position. `canPass` is true for a
+  - `skippedFor` on a skipped agent: `stage` is the held stage's position, 0 when stage 1 holds,
+    beside a summary that reads `stage 1`. `canPass` is true for a
     failed agent, for Granite Chief's lone missing-design hazard before a bypass, and for both
     together. It is false for any other open hazard, for a `hazards` verdict that lists none, for
     a second missing-design hazard, and for a failed agent beside any of those. Both ways out of
@@ -565,9 +587,6 @@ deploy have no `stage` and read as one stage, so no migration.
   adds Corduroy at stage 1, `waiting` or `skipped`. `REVIEW_ROLES` stays a flat list.
   - `GET /agent/brief` and `POST /agent/events`, `/agent/verdict` and `/agent/failure` each answer
     410 for a waiting agent and for a skipped one.
-  - `PUT /agent/transcript` with the right nonce answers 410 for a waiting agent and for a skipped
-    one, stores nothing in KV and leaves `hasTranscript` false; a stopped run's agent that ran
-    still uploads.
   - A retry of a skipped agent by id gets 409 `nothing to retry`.
   - Mainline's clear verdict on a run with a waiting Corduroy dispatches Corduroy's workflow once
     and stores its `releasedAt`.
@@ -578,8 +597,8 @@ deploy have no `stage` and read as one stage, so no migration.
   classes; the Debug pane's `p.hint` for a waiting agent and for each of the five skipped cases in
   their order, case 1 on a stopped, a landed and a `failed` run, case 2 from `canPass` false, each
   sentence naming stage k from `skippedFor` and carrying the buttons' own labels, with one failed
-  patroller and with two; no transcript button, job link, retry button or transcript hint; the
-  pipeline row's
+  patroller and with two; no transcript button, job link, retry button or transcript hint, even
+  with `hasTranscript` true; the pipeline row's
   `N failed · N skipped`, `hazards flagged · N skipped` and bare `failed`; a card that goes from
   Waiting to Queued keeps its selection; a one-stage run unchanged.
 - **Text pins.** Each ships in the PR that ships its text, in the suite that tests that kind of
@@ -720,6 +739,12 @@ check at sign-off:
   test pins them. **(owner, delegated)**
 - The skill names the default branch with `git ls-remote --symref origin HEAD` and reads the config
   from `FETCH_HEAD`; a failed read means every lens. **(owner, delegated)**
+- "Stage" has no themed term: stage headings are plain-only, and their text and the hints' are
+  written in the component. **(owner, delegated)**
+- `skippedFor.stage` is 0-based, as `AgentSnapshot.stage` is. **(owner, delegated)**
+- The dashboard's poll while its socket is down can spend D1's daily reads in under an hour once
+  `runs` is large. That is today's exposure, stated and left to the retention design.
+  **(owner, delegated)**
 - "The tests pass" means every agent of every earlier stage passes, not Mainline alone, and the
   owner's bypass counts. **(designer's call)**
 - `designRoles` lives in the same config file and is read from the default branch; with no file,
@@ -743,8 +768,9 @@ check at sign-off:
   holds no copy of `passes`. **(designer's call)**
 - The skipped line's case 1 is the buttons' own gate: a run that is not open. **(designer's call)**
 - Corduroy's success line holds for a PR whose stage 1 passes. **(designer's call)**
-- The transcript upload refuses a waiting or a skipped agent with 410, like the other agent
-  routes. **(designer's call)**
+- The transcript upload stays gated by the nonce alone, with no status check for waiting or
+  skipped agents: Security asked for one or for the claim to be corrected, Goal fit asked for no
+  code a goal does not need, and nobody can hold such an agent's nonce. **(owner, delegated)**
 
 ## Left to the builder
 
@@ -869,8 +895,17 @@ Round 5:
 
 Round 6:
 - INF-9 D1 read allowance is not stated; the runs table grows unbounded and dashboard queries scan all of it: owner: delegated; the allowance and the three full-table reads are stated, the growth is accepted with the retention non-goal, and the hand check compares a day's D1 reads with 5 million
-- SEC-7 Claim that no call for a waiting agent is admitted is false for PUT /agent/transcript
-- FUN-13 No test for a stage with one agent in and hazardous while a sibling still runs
+- SEC-7 Claim that no call for a waiting agent is admitted is false for PUT /agent/transcript: revised Security
+- FUN-13 No test for a stage with one agent in and hazardous while a sibling still runs: revised How we'll know it works
 - FUN-14 The empty-stage panel-filter test states no expected state: owner: delegated; both cases, a first stage emptied and the middle of three emptied, with their stages, statuses, dispatches and titles
 - QLT-15 Docs list omits basetobase/dashboard/CLAUDE.md, which documents the retry/bypass predicates and Debug panel this design changes: owner: delegated; added, each CLAUDE.md changes in the PR that changes what it describes, and no test pins them
 - BLD-22 The skill's read of `origin/<default branch>` never says where the branch name comes from or what a failed fetch does: owner: delegated; git ls-remote --symref origin HEAD names the branch, the config is read from FETCH_HEAD, and a failed read means every lens
+
+Round 7:
+- GOAL-11 Transcript upload refusal for waiting and skipped agents guards a case the design says cannot occur
+- INF-10 The three runs/index.ts line citations for the full-table D1 reads do not match the file
+- SCL-9 D1 read budget assumes 50 list loads a day; the dashboard's 5 s poll fallback breaks it, and the 10x date counts one scan
+- SCL-10 Cited file:line for the three full-table D1 reads is off
+- QLT-16 Docs put §1's renames in §2's PR, leaving three CLAUDE.md lines stale between the merges
+- DSN-10 Stage headings and check-title wording have no themed·plain pairing, which the dashboard requires: owner: delegated; Stage has no themed term, the headings are plain-only under the themed h3, and their text and the hints' are written in the component and pinned by the dashboard tests
+- BLD-23 `skippedFor.stage` is 'the held stage's position': 0-based or 1-based is not stated, and the hint's `k` comes from it: owner: delegated; 0-based as AgentSnapshot.stage is, shown as stage + 1 by the dashboard and in the machine's summary
