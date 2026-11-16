@@ -312,14 +312,14 @@ code hygiene in both phases.
 
 **Design skill and lens** (`plugins/standard/`)
 - `skills/system-design/SKILL.md`, "Size and panel": the lenses are `designRoles` from the default
-  branch's config, read fresh, never from the working copy, in three commands:
-  `git ls-remote --symref origin HEAD`, whose `ref: refs/heads/<name>` line names the default
-  branch; `git fetch origin <name>`; and `git show FETCH_HEAD:basetobase/config/basetobase.json`.
-  `refs/remotes/origin/HEAD` is not used: a cloud session's clone does not set it, as the design
-  session's own clone showed. Every lens when any of the three fails: no remote, no network, or no
-  `ref:` line. Then the rule Granite Chief's template holds too, word for word: every lens when
-  there is no such file, no key, a file that does not parse, or a list without `granite-chief` or
-  `kt-22`.
+  branch's config, read fresh, never from the working copy, in two commands: `git fetch origin
+  HEAD`, which fetches the remote's default branch whatever its name, and
+  `git show FETCH_HEAD:basetobase/config/basetobase.json`. Both are fixed text: no branch name is
+  read or typed, so nothing the remote supplies goes into a command. It worked in the design
+  session's own clone, a shallow cloud clone where `refs/remotes/origin/HEAD` is not set. Every
+  lens when either command fails: no remote, or no network. Then the rule Granite Chief's template
+  holds too, word for word: every lens when there is no such file, no key, a file that does not
+  parse, or a list without `granite-chief` or `kt-22`.
 - A config that changes between the panel's quorum and the design PR's patrol can leave the panel
   short of a new `designRoles` lens: Granite Chief raises the missing prefix, and the fix is that
   lens's sweep and a new quorum. Extra lenses are always fine. Every panel:
@@ -422,8 +422,16 @@ deploy have no `stage` and read as one stage, so no migration.
 - Past a daily allowance Cloudflare refuses the calls until 00:00 UTC: jobs fail, and the owner
   retries them after it. The remedy is the Workers Paid plan, which lifts all of them; a longer
   batch interval cuts requests and stored states, not log rows. No change now. §2's hand check
-  records the day's usage from the Cloudflare dashboard: Worker requests; Durable Object requests,
-  rows written, duration and stored bytes; D1 rows read and written; and KV stored bytes.
+  records the day's usage from the Cloudflare dashboard: Worker requests and log events; Durable
+  Object requests, rows written, duration and stored bytes; D1 rows read and written; and KV
+  stored bytes.
+- Workers Logs is on (`wrangler.jsonc:7`) and logs every Worker request, and console lines
+  besides. Workers Free keeps 200,000 log events a day for 3 days (the designer's figures, as
+  above). The assumed load's 13,500 to 27,000 requests a day are well under it; at 10x, 135,000 to
+  270,000 may pass it, so it joins what binds first there. Past it Cloudflare drops or samples the
+  rest of the day's logs. Only the Worker's debugging trail thins: a run's own log and its
+  transcripts are kept in the RunDO and KV, and no review depends on Workers Logs. Accepted, with
+  no sampling set now.
 - D1 does not bind, and this design adds no row and no read to it. A run's `runs` row is upserted
   on its start, sweep close, retry, bypass, stop and land (the `index` effects in `machine.ts`),
   never per agent or per event, and a staged run adds an upsert only when a bypass reopens it,
@@ -626,7 +634,7 @@ deploy have no `stage` and read as one stage, so no migration.
   file today:
   - Plugin files, in Go (`plugins/standard/standard_test.go`). §2: Corduroy's new lens line, word
     for word, with :6 unchanged and the file at most 40 lines. §3: `TestSkillReferences`, the panel
-    lines read `designRoles` with the three git commands above and always name `builder`,
+    lines read `designRoles` with the two git commands above and always name `builder`,
     `granite-chief` and `kt-22`.
   - Patrol templates, in vitest, in `basetobase/shared/test/design.test.ts`, which pins
     `granite-chief.md` and its 40-line cap today (:14-:38). No new test file. §2: a `describe` for
@@ -759,8 +767,11 @@ check at sign-off:
   **(owner, delegated)**
 - Each CLAUDE.md changes in the PR that changes what it describes, the dashboard's included; no
   test pins them. **(owner, delegated)**
-- The skill names the default branch with `git ls-remote --symref origin HEAD` and reads the config
-  from `FETCH_HEAD`; a failed read means every lens. **(owner, delegated)**
+- The skill reads the default branch's config with `git fetch origin HEAD` and
+  `git show FETCH_HEAD:…`, naming no branch; a failed read means every lens.
+  **(owner, delegated)**
+- Workers Logs may pass its free daily allowance at 10x. Only the debugging trail thins, so it is
+  accepted with no sampling now. **(owner, delegated)**
 - "Stage" has no themed term: stage headings are plain-only, and their text and the hints' are
   written in the component. **(owner, delegated)**
 - `skippedFor.stage` is 0-based, as `AgentSnapshot.stage` is. **(owner, delegated)**
@@ -939,6 +950,10 @@ Round 8:
 - FUN-16 Forwarder test is named as one test, but there are two tables that map an agent status to an exit code: owner: delegated; both tables gain waiting and skipped rows, each exit 1
 
 Round 9:
-- GOAL-12 Corduroy is gated on Granite Chief's pass as well as the end-to-end test, wider than the owner's stated want
-- FUN-17 Forwarder tests miss a third status-to-exit table: the brief 410 table
-- QLT-17 New patrol.test.ts beside design.test.ts, which already hosts patrol-template pins and the 40-line check
+- GOAL-12 Corduroy is gated on Granite Chief's pass as well as the end-to-end test, wider than the owner's stated want: defended: a Granite Chief hazard means the code will change, the other orders cost more, and the order is one list edit away
+- FUN-17 Forwarder tests miss a third status-to-exit table: the brief 410 table: revised How we'll know it works
+- QLT-17 New patrol.test.ts beside design.test.ts, which already hosts patrol-template pins and the 40-line check: revised How we'll know it works
+
+Round 10:
+- INF-11 Workers Logs is enabled and its free-tier event allowance is not set against the job traffic: owner: delegated; the allowance is stated and joins what binds first at 10x, only the debugging trail thins, and it is accepted with no sampling now
+- SEC-8 Default-branch name from `git ls-remote` goes into `git fetch` with no stated validation or quoting: owner: delegated; the skill names no branch, reading with git fetch origin HEAD and git show FETCH_HEAD, so nothing the remote supplies goes into a command
