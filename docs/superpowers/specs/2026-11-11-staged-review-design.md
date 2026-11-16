@@ -32,6 +32,14 @@ code hygiene in both phases.
   targets excess code.
 - A hygiene review is worth its job only on code that works: the owner wants it run only when the
   end-to-end test passes.
+- Corduroy waits for Granite Chief too, which is wider than those words. A stage waits for every
+  agent of the stage before it, and Granite Chief shares stage 1 with Mainline. Its hazards, a
+  missing design, drift from the design or a missed goal, mean the code is not yet what will
+  merge, so a hygiene review of it is a job spent on code about to change. The cost: when Granite
+  Chief flags, hygiene findings come one push later. The other orders cost more. Granite Chief
+  behind Mainline would hold the design gate back behind the slowest job. Corduroy waiting on
+  Mainline alone needs per-role dependencies, which ordered stages, the owner's pick, do not have.
+  The order is one list edit away.
 - Which specialists review where is fixed in two places: `enabledRoles` for PRs, and the panel
   rules hardcoded in the system-design skill. The owner wants to choose some or all for the design
   phase and others for the post-implementation review.
@@ -601,10 +609,10 @@ deploy have no `stage` and read as one stage, so no migration.
   - A retry of a skipped agent by id gets 409 `nothing to retry`.
   - Mainline's clear verdict on a run with a waiting Corduroy dispatches Corduroy's workflow once
     and stores its `releasedAt`.
-- **Forwarder tests** (`forwarder/test/run.test.ts`), both tables that turn Dispatch's status on a
-  410 into an exit code. `... for a retried verdict` (:644) gains `["valid", "waiting", 1]` and
-  `["valid", "skipped", 1]`; `... for the failure report` (:674) gains `["waiting", 1]` and
-  `["skipped", 1]`.
+- **Forwarder tests** (`forwarder/test/run.test.ts`), the three tables that turn Dispatch's status
+  on a 410 into an exit code. The brief's, `is refused with the agent %s in Dispatch` (:383), and
+  the failure report's (:674) each gain `["waiting", 1]` and `["skipped", 1]`; the retried
+  verdict's (:644) gains `["valid", "waiting", 1]` and `["valid", "skipped", 1]`.
 - **Dashboard tests:** stage sections with `h4.section-title-sub` headings under the one `Patrol on
   this step` h3, the sub-label in its `.section-plain` span; Waiting and Skipped cards and their
   classes; the Debug pane's `p.hint` for a waiting agent and for each of the five skipped cases in
@@ -620,10 +628,11 @@ deploy have no `stage` and read as one stage, so no migration.
     for word, with :6 unchanged and the file at most 40 lines. §3: `TestSkillReferences`, the panel
     lines read `designRoles` with the three git commands above and always name `builder`,
     `granite-chief` and `kt-22`.
-  - Patrol templates, in vitest (`basetobase/shared/test/`). §2: a new `patrol.test.ts` for
-    `corduroy.md`'s read-only rule, hazard classes and `docs/` rule, at most 40 lines. §3:
-    `design.test.ts`, which pins `granite-chief.md` today: its panel rules name `designRoles`, BLD,
-    GOAL and SEC, and UX and DSN only "when in `designRoles`".
+  - Patrol templates, in vitest, in `basetobase/shared/test/design.test.ts`, which pins
+    `granite-chief.md` and its 40-line cap today (:14-:37). No new test file. §2: a `describe` for
+    Corduroy's template beside Granite Chief's, sharing one read-and-line-cap helper: its read-only
+    rule, hazard classes and `docs/` rule, at most 40 lines. §3: Granite Chief's panel rules name
+    `designRoles`, BLD, GOAL and SEC, and UX and DSN only "when in `designRoles`".
   - One fallback rule in both readers, §3: a test in `design.test.ts` reads `SKILL.md` and
     `granite-chief.md` and fails unless both hold the same every-lens fallback sentence, since the
     two readers are prompts with no shared code. The Go CI skips a PR of `.basetobase/**` alone
@@ -739,11 +748,11 @@ check at sign-off:
   flat list. **(owner, delegated)**
 - Agents are in roster order within a stage, as today; the order a stage's list names its roles
   does not matter. **(owner, delegated)**
-- Each text pin ships with its text, plugin files in the Go suite and patrol templates in vitest;
-  the one-fallback-rule test is in vitest, with `SKILL.md` added to `basetobase-ci`'s paths.
-  **(owner, delegated)**
+- Each text pin ships with its text, plugin files in the Go suite and patrol templates in vitest's
+  `design.test.ts`; the one-fallback-rule test is there too, with `SKILL.md` added to
+  `basetobase-ci`'s paths. **(owner, delegated)**
 - A job refused for a waiting or a skipped agent ends red: the forwarder's green list stays
-  `clear` and `stopped`, pinned in both of its 410 exit tables. **(owner, delegated)**
+  `clear` and `stopped`, pinned in its three 410 exit tables. **(owner, delegated)**
 - D1 reads grow with the `runs` table, as today; accepted with the retention non-goal, and the
   hand check compares a day's reads with the allowance. **(owner, delegated)**
 - The empty-stage test covers a first stage emptied and the middle of three emptied.
@@ -759,8 +768,9 @@ check at sign-off:
   while its socket is down once the table is large, and within about 6 weeks at 10x with the
   socket up. That is today's exposure, stated with its worst-case count and left to the retention
   design. **(owner, delegated)**
-- "The tests pass" means every agent of every earlier stage passes, not Mainline alone, and the
-  owner's bypass counts. **(designer's call)**
+- "The tests pass" means every agent of every earlier stage passes, and the owner's bypass counts.
+  So Corduroy waits for Granite Chief as well as Mainline, with the trade-off under "Why".
+  **(owner, delegated)**
 - `designRoles` lives in the same config file and is read from the default branch; with no file,
   every lens. **(designer's call)**
 - `ENABLED_ROLES` and `withEnabledRoles` are renamed `REVIEW_ROLES` and `withReviewRoles`, and pin
@@ -925,5 +935,10 @@ Round 7:
 - BLD-23 `skippedFor.stage` is 'the held stage's position': 0-based or 1-based is not stated, and the hint's `k` comes from it: owner: delegated; 0-based as AgentSnapshot.stage is, shown as stage + 1 by the dashboard and in the machine's summary
 
 Round 8:
-- FUN-15 Bypass on an open sweep with stage 1 still running has no test, though Fit with existing features states its behaviour
+- FUN-15 Bypass on an open sweep with stage 1 still running has no test, though Fit with existing features states its behaviour: revised How we'll know it works
 - FUN-16 Forwarder test is named as one test, but there are two tables that map an agent status to an exit code: owner: delegated; both tables gain waiting and skipped rows, each exit 1
+
+Round 9:
+- GOAL-12 Corduroy is gated on Granite Chief's pass as well as the end-to-end test, wider than the owner's stated want
+- FUN-17 Forwarder tests miss a third status-to-exit table: the brief 410 table
+- QLT-17 New patrol.test.ts beside design.test.ts, which already hosts patrol-template pins and the 40-line check
