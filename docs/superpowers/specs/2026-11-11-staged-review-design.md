@@ -629,7 +629,7 @@ deploy have no `stage` and read as one stage, so no migration.
     lines read `designRoles` with the three git commands above and always name `builder`,
     `granite-chief` and `kt-22`.
   - Patrol templates, in vitest, in `basetobase/shared/test/design.test.ts`, which pins
-    `granite-chief.md` and its 40-line cap today (:14-:37). No new test file. §2: a `describe` for
+    `granite-chief.md` and its 40-line cap today (:14-:38). No new test file. §2: a `describe` for
     Corduroy's template beside Granite Chief's, sharing one read-and-line-cap helper: its read-only
     rule, hazard classes and `docs/` rule, at most 40 lines. §3: Granite Chief's panel rules name
     `designRoles`, BLD, GOAL and SEC, and UX and DSN only "when in `designRoles`".
