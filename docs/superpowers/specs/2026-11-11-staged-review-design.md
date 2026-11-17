@@ -1,7 +1,7 @@
 # Review phases by config, and Corduroy's code-hygiene review
 
 - Size: full
-- Status: in review
+- Status: approved 2026-11-17
 - From: the owner's conversation of 2026-11-11 (https://claude.ai/code/session_01M8sD8mMdENrvRWzJ5M9QMD)
 
 ## What we're building
