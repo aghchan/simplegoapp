@@ -12,16 +12,17 @@ them the person who adds that app to Claude as a custom connector. The
 first app is thetraveler (`aghchan/thetraveler`).
 
 1. **Deploy readiness.** An app takes its listen address and its secrets
-   from environment variables and can require TLS to Postgres. This
-   repo's Ticketmaster key leaves `config.yml`.
+   from environment variables, and in production it connects to Postgres
+   only over TLS. This repo's committed secrets leave `config.yml`.
 2. **Sign-in (`pkg/auth`).** An app registers one service, and every route
    then requires a bearer token issued by a hosted sign-in service (WorkOS
-   AuthKit). Handlers read the signed-in caller from the request context.
+   AuthKit), except `/health` and the sign-in discovery paths. Handlers read
+   the signed-in caller from the request context.
 3. **Connector (`pkg/mcp`, `app.MCP`).** An app declares tools in `main.go`
    and the framework serves them to Claude as a remote MCP server. An app
    that declares tools without sign-in does not start.
 
-This repo's app serves no tools. A tool set in the tests proves the
+This repo's app serves no tools. A tool set defined in the tests proves the
 pattern end to end (owner).
 
 ## Why
@@ -70,23 +71,28 @@ thetraveler's acceptance, which deploys anyway (owner).
    and subject, and puts the caller in the request context. Done: A1, A3–A10,
    A13.
 2. Default deny. Once `auth.NewService` is registered, every path needs a
-   valid token except `/health`, the metadata document and the paths the app
-   declares with `app.Public`. Done: A2, A11, A12, A14.
+   valid token except `/health` and the two metadata paths. Done: A2, A11,
+   A12, A14.
 3. Claude can find the sign-in server from a `401`. Done: A2, A11.
 4. Sign-in degrades safely. Held keys keep verifying while the key set is
    unreachable. With no key held, protected paths answer `503` and recover
-   once a fetch succeeds. Fetches stay within the bounds in "Scaling". Done:
-   K1–K8.
+   once a fetch succeeds. At most one key fetch starts every 10 s per
+   instance (owner). Done: K1–K9.
 5. `pkg/mcp` serves tools declared in `main.go`, with injected services,
-   validated input, annotations, bounded size and concurrency, and masked
-   errors. Done: M1–M13, M15.
+   validated input, annotations, bounded size, a per-caller share of the
+   running calls, and masked errors. Done: M1–M13, M15, R1.
 6. A connector never runs without sign-in (owner). Done: M14.
-7. Deploy readiness. Done: D1–D4.
-8. Apps that use none of it are unchanged, except that an environment
-   variable already set for an `env:`-tagged field now wins over YAML
-   (owner). Done: C1, C2.
+7. Deploy readiness, with TLS to Postgres required in production (owner).
+   Done: D1–D5.
+8. Apps that use none of it are unchanged, with two exceptions (owner):
+   - an environment variable already set for an `env:`-tagged field now
+     wins over YAML
+   - an app that constructs `postgres.Service` in production must set
+     `postgres_sslmode`
+
+   Done: C1, A15.
 9. No token, header, tool argument or tool result reaches a framework log
-   line or error body. Done: L1.
+   line or error body. Done: L1, L2.
 
 **Non-goals**
 
@@ -96,6 +102,8 @@ thetraveler's acceptance, which deploys anyway (owner).
   standard. `pkg/auth` takes one issuer now; a second is new config keys.
 - Gating who may sign up. Sign-up is open (owner). Users, roles, sharing
   and invitations belong to each app, keyed on the caller's subject.
+- Public paths an app declares. None is needed yet (owner); a design adds
+  them when an app needs one.
 - The first real connection from Claude (owner). It needs a deployed app
   and a WorkOS account, so it is thetraveler's acceptance.
 - Hosting: the host, the database and the deploy pipeline. Part 3, Base to
@@ -103,24 +111,30 @@ thetraveler's acceptance, which deploys anyway (owner).
 - MCP resources, prompts, sampling, server-to-client requests, streaming
   responses and sessions. Tools over request and response cover the need.
 - Rate limiting per caller. The framework has none on any route today.
-  `pkg/mcp` caps concurrent calls (see "Scaling"), which bounds load but
-  not any one caller's share.
+  `pkg/mcp` bounds running tool calls and each caller's share of them (see
+  "Scaling"), but not how often a caller calls.
 - A tool set served by this repo's app (owner).
 - New lens rules for connectors. They wait for a second design that needs
   them.
 
 **Anti-goals**
 
-- A request reaching a handler without a verified caller because a line
-  was forgotten.
+- A request reaching a handler without a verified caller, once sign-in is
+  registered or a connector exists, because a line was forgotten.
 - A token issued for another app being accepted.
 - A token, an `Authorization` header, a tool argument or a tool result in
   a framework log line or error body.
 - A panic in one tool call stopping the process.
-- An existing consumer breaking on upgrade.
+- An existing consumer breaking on upgrade, beyond the two owner-accepted
+  exceptions in goal 8.
 - App code importing the MCP SDK or the JWT libraries directly
   (docs/BEST_PRACTICES.md §6).
 - A paid resource appearing without the owner opting in.
+
+The first anti-goal is narrowed to apps that use sign-in or a connector.
+Requiring every app to declare "no sign-in" would change every existing
+app, which goal 8 rules out. An app with no sign-in and no connector logs
+`auth: not registered, every route is public` at startup, as A15 checks.
 
 ## Fit with existing features
 
@@ -133,27 +147,29 @@ An app uses it or `pkg/auth`, never both (below).
 
 | Thing | Change | What existing callers see |
 |---|---|---|
-| `app.NewApp` (app/app.go:33) | Signature unchanged. 1) Before `newRouter`, it takes the `app.Public` and `app.MCP` entries out of the routes slice and passes the rest on unchanged. 2) After `resolve`, it looks up `auth.Service` as it looks up `postgres.Service` (app/app.go:86), but optionally. 3) On the router `newRouter` returns, it mounts the metadata routes (when `auth.Service` is registered) and the connector (when an `app.MCP` entry exists). 4) It panics when an `app.MCP` entry exists without `auth.Service`, and when `auth.Service` is registered while a `SetAuthMiddleware` hook is set. | No change without the new entries and service. |
+| `app.NewApp` (app/app.go:33) | Signature unchanged. 1) It calls a new function in `router.go` that takes the `app.MCP` entry out of the routes slice and passes the rest to `newRouter` unchanged. 2) After `resolve`, it looks up `auth.Service` as it looks up `postgres.Service` (app/app.go:86), but optionally. 3) It calls `router.go` again to mount the metadata routes (when `auth.Service` is registered) and the connector (when an `app.MCP` entry exists) on the router `newRouter` returns. 4) It panics when `auth.Service` is registered while `pkghttp.HasAuthMiddleware()` is true. | No change without the new entry and service. |
+| `app` package logger | `NewApp` gets its logger from an unexported package variable, `newLogger = logger.NewService` (owner). Only `app`'s own tests replace it. | No change: the same logger is built. |
 | `App.Run` chain (app/app.go:110-118) | Built by the new `Handler()`. The auth slot (line 117) holds `pkghttp.Auth()` when no `auth.Service` is registered, and the service's middleware when one is. Only one of them can be set. | Same chain for today's apps. |
 | `app` interface (app/app.go:18) | Gains `Handler() http.Handler`, the chain `Run` serves. `Run` calls it. | Additive. Tests use it with `httptest`. |
-| Config flattening (app/app.go:58-74) | For a field with an `env:` tag, `os.LookupEnv` is read first. Set and not empty: its value replaces the YAML value in the struct and in the flat map. Otherwise: the YAML value is exported as today (app/app.go:68). `env:` is for string fields only. A tagged field of another type panics with `config: <Section>.<Field> has an env tag but is not a string`; today it panics on the type assertion at app/app.go:68. The config file stays required (app/app.go:50-53). | Changes only when a tagged variable is already set at startup: today YAML overwrites it; after, it wins (owner). `main.go:23` (`TWILIO_PHONE_NUMBER`) is this repo's one tag today. |
-| `newRouter` (app/router.go:76) | Signature unchanged. | Unchanged; `router_test.go` calls it as before. |
+| `router.go` (app/router.go) | All parsing of the routes slice stays here. It gains the `app.MCP` entry kind, the function that takes it out of the slice, and the function that mounts the metadata routes and the connector, with every connector registration panic. `newRouter`'s signature is unchanged. `app/CLAUDE.md` "Router rules" lists the third entry kind. | Unchanged for `app.Spec` and path pairs. `router_test.go` calls `newRouter` as before. |
 | `injectFields` (app/router.go:42) | Before injecting a field, it panics with `field <Name> of <Type> is unexported; injected fields must be exported` when the field cannot be set. Tool sets use it too. | Today an unexported field panics inside reflect; now the panic names it. Existing messages are unchanged (router_test.go:47-57). |
-| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | Reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else panics with `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. | No change without the key. |
-| `pkg/http` | Gains `HasAuthMiddleware() bool`, true once `SetAuthMiddleware` has set a hook. | Additive. |
+| Config flattening (app/app.go:58-74) | For a field with an `env:` tag, `os.LookupEnv` is read first. Set and not empty: its value replaces the YAML value in the struct and in the flat map. Otherwise: the YAML value is exported as today (app/app.go:68). `env:` is for string fields only. A tagged field of another type panics with `config: <Section>.<Field> has an env tag but is not a string`; today it panics on the type assertion at app/app.go:68. The config file stays required (app/app.go:50-53). | Changes only when a tagged variable is already set at startup: today YAML overwrites it; after, it wins (owner). `main.go:23` (`TWILIO_PHONE_NUMBER`) is this repo's one tag today. |
+| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | Reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else panics with `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. With `ENV=PRODUCTION`, anything but `require`, `verify-ca` or `verify-full` panics with `postgres: in production postgres_sslmode must be require, verify-ca or verify-full` (owner). | No change outside production. In production, an app must set the key (owner). |
+| `pkg/http` | Gains `HasAuthMiddleware() bool`, which returns whether the hook is non-nil, so `SetAuthMiddleware(nil)` clears it (owner). Gains `GetBytes(ctx context.Context, url string, maxBytes int64) (status int, body []byte, err error)`. It uses the shared client (pkg/http/http.go:29), honours `ctx`'s deadline, and fails when the body passes `maxBytes`. | Additive. `GET` and `POST` are unchanged. |
 | `pkg/http/apierror` | Gains `Unavailable(detail)` (503, code `unavailable`) and `TooLarge(detail)` (413, code `payload_too_large`). | Additive. |
-| `main.go` | `app.ListenAddr("localhost", 8080)` replaces the literals (lines 62-63). The Postgres fields gain `env:` tags `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`; all five are strings today. `Ticketmaster.APIKey` gains `env:"TICKETMASTER_API_KEY"`. No `app.MCP` entry. | Same address and config unless those variables are set. |
-| `config.yml` | `ticketmaster.api_key` becomes empty (owner). | Production reads the key from `TICKETMASTER_API_KEY`. Nothing in this repo calls Ticketmaster: `ticketmaster.Service` is resolved but no code uses it. |
+| `main.go` | `app.ListenAddr("localhost", 8080)` replaces the literals (lines 62-63). The Postgres fields gain `env:` tags `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`; all five are strings today. A new field `SSLMode string`, with `yaml:"sslmode"`, `config:"postgres_sslmode"` and `env:"POSTGRES_SSLMODE"`, joins them. `Ticketmaster.APIKey` gains `env:"TICKETMASTER_API_KEY"`. No `app.MCP` entry. | Same address and config unless those variables are set. |
+| `config.yml` | `ticketmaster.api_key` becomes empty (owner). `postgres.user` and `postgres.password` become empty (owner). `postgres.sslmode: require` is added. | Production reads them from the environment. A missing Postgres variable fails at connect instead of using a known password. Nothing in this repo calls Ticketmaster: `ticketmaster.Service` is resolved but no code uses it. |
 
-`.basetobase/ci/local.yml` is unchanged; it already holds a placeholder.
+`.basetobase/ci/local.yml` is unchanged; it already holds a placeholder,
+and CI does not run with `ENV=PRODUCTION`.
 
 **Unchanged and relied on**
 
 - `TimeoutMW` buffers every response and cuts a request at 10 s
   (app/app.go:116, pkg/http/middleware.go:154). The connector answers with
   one JSON body, never a stream, so it works behind it. A throwaway test
-  against go-sdk v1.8.0 confirmed this. The handler gets the request's
-  context, so a tool handler sees the 10 s deadline.
+  against go-sdk v1.8.0 confirmed this. The tool handler gets the
+  request's context, so it sees the 10 s deadline.
 - `CORS` answers a preflight before the auth slot (pkg/http/middleware.go:185),
   so preflights need no token.
 - `RequestLogger` logs method, path, status, duration and request id only
@@ -165,21 +181,25 @@ An app uses it or `pkg/auth`, never both (below).
 - `pkg/auth/`, `pkg/auth/authtest/` (a test issuer: signs RS256 and ES256
   tokens, serves a key set, counts fetches, can be stopped and hung), and
   `pkg/mcp/`, each with a `CLAUDE.md`.
-- `app/CLAUDE.md` gains the two entry kinds. The root `CLAUDE.md` gains a
-  third golden flow, "New connector tool". `docs/BEST_PRACTICES.md` gains
-  sign-in, connector tools, the ownership rule (see "Security") and the
-  `env:` rule (§4).
+- The root `CLAUDE.md` gains a third golden flow, "New connector tool".
+  `docs/BEST_PRACTICES.md` gains sign-in, connector tools, the ownership
+  rule (see "Security") and the `env:` and TLS rules (§4, §7).
 - Tool sets live in `app/tool/<name>/`, beside `app/controller/`. The docs
   state this. thetraveler creates the first such directory, with its
   `CLAUDE.md`.
 
-**Consumers.** `aghchan/recruiter` at e1bd8d8 pins simplegoapp v0.3.1. Checked
-in this session: its `go.mod` says `go 1.25.0`, its config struct has no
-`env:` tags (main.go:13-26), and nothing in it calls `SetAuthMiddleware`. It
-uses `app.NewApp`, `app.Spec`, `pkg/http`, `apierror`, `pkg/postgres`,
-`pkg/linear`, `pkg/gmail`, `pkg/llm` and `pkg/logger`. Upgrading changes
-nothing it uses. Its binary gains go-sdk, jwt and jwkset, because `app`
-imports `pkg/auth` and `pkg/mcp`.
+**Consumers.** `aghchan/recruiter` at e1bd8d8 pins simplegoapp v0.3.1.
+Checked in this session:
+
+- Its `go.mod` says `go 1.25.0`.
+- Its config struct has no `env:` tags (main.go:13-26).
+- Nothing in it calls `SetAuthMiddleware`.
+- Its deployed process is `cmd/agent` (Dockerfile), which never constructs
+  `postgres.Service`; only its API server in `main.go` does.
+
+Upgrading changes nothing it runs today. If its API server is ever run with
+`ENV=PRODUCTION`, it must set `postgres_sslmode` (owner). Its binary gains
+go-sdk, jwt and jwkset, because `app` imports `pkg/auth` and `pkg/mcp`.
 
 ## API contract
 
@@ -194,13 +214,13 @@ document are out of contract, as `/health` and websockets are
 // package app
 func ListenAddr(defaultHost string, defaultPort int) (string, int)
 func MCP(path string, info mcp.Info, toolSets ...mcp.ToolSet) interface{}
-func Public(paths ...string) interface{}
 
 // package auth
 type Service interface {
     Verify(ctx context.Context, token string) (Identity, error)
-    Middleware(publicPaths []string) pkghttp.Middleware
+    Middleware() pkghttp.Middleware
     ResourceMetadata() ResourceMetadata
+    MetadataPaths() []string
 }
 type Identity struct {
     Subject string // the token's sub
@@ -235,6 +255,8 @@ func NewHandler(logger logger.Logger, info Info, tools []Tool) http.Handler
   defaults. `PORT` must be decimal digits only, from 1 to 65535. Anything
   else panics with `PORT must be a port number from 1 to 65535, got
   "<value>"`.
+- `Middleware()` leaves exactly `/health` and the paths `MetadataPaths()`
+  returns public. It takes no list.
 - A tool set is a pointer to a struct. `NewApp` injects its fields with
   `injectFields`, as it does a controller's. Every field must be exported
   and have a provider.
@@ -244,22 +266,25 @@ func NewHandler(logger logger.Logger, info Info, tools []Tool) http.Handler
   field is optional. The schema carries no length or range limits, so a
   handler checks them, as a controller does (api/CLAUDE.md), and returns
   `mcp.Errorf`.
-- A handler gets the request's context, with the 10 s deadline. It must
-  return when that context is done.
+- A tool handler gets the request's context, with the 10 s deadline. It
+  must return when that context is done.
 - `FromContext` returns the caller and `true` behind `pkg/auth`, and
   `false` anywhere else.
 - `auth.NewService` returns one value, as the resolver requires
   (app/resolver.go:132). Bad config panics, naming the key.
 
 **Registration mistakes.** Each is a startup panic with a named message,
-as the router's are (app/CLAUDE.md):
+raised in `router.go` as the router's are (app/CLAUDE.md):
 
 - an `app.MCP` entry without `auth.NewService` in the service list:
   `app.MCP requires auth.NewService in the service list`
-- `auth.NewService` with a `SetAuthMiddleware` hook set:
-  `auth.NewService and SetAuthMiddleware are both set; use one`
+- `auth.NewService` with a `SetAuthMiddleware` hook set (raised in
+  `NewApp`): `auth.NewService and SetAuthMiddleware are both set; use one`
 - a second `app.MCP` entry
 - a path not starting with `/`
+- a connector path equal to `/health` or a metadata path, or matching a
+  route already on the router (checked with the router's own matcher for
+  `POST`)
 - no tool set
 - an empty `Info.Name` or `Info.Version`
 - a tool set that is not a pointer to a struct
@@ -270,9 +295,6 @@ as the router's are (app/CLAUDE.md):
 - a nil handler
 - more than 64 tools
 - `In` or `Out` that is not a struct
-- an `app.Public` path not starting with `/`
-
-`app.Public` without `auth.Service` is allowed and has no effect.
 
 **Routes**
 
@@ -295,14 +317,24 @@ SDK's DNS-rebinding check is off (see "Security"). Every tool sends
 `title`, `readOnlyHint` and `openWorldHint: false`. When `ReadOnly` is
 false it also sends `idempotentHint` and `destructiveHint`.
 
-`pkg/mcp` reads the whole body, up to 256 KiB, before the SDK sees it. A
-concurrency limit of 32 calls in flight applies before the body is read.
+`pkg/mcp` reads the whole body, up to 256 KiB, before the SDK sees it.
+
+**Running tool calls** (owner):
+
+- A running tool call holds a slot. Only `tools/call` takes one: the tool
+  wrapper takes it after the arguments pass the schema, and releases it
+  when the handler returns. If the response was already cut at 10 s, the
+  slot is still held until the handler returns.
+- There are 32 slots per instance, and one signed-in subject holds at most
+  8 of them.
+- `initialize`, `ping` and `tools/list` take none.
 
 | Request | Response |
 |---|---|
 | `initialize`, `ping`, `tools/list` | `200`, JSON-RPC result |
 | `tools/call`, handler returns a value | `200`, result with `structuredContent` and the same JSON as text |
-| `tools/call`, arguments fail the schema (missing, wrong type, unknown field at any level, `arguments` absent) | `200`, result with `isError: true` and the validator's message. The handler does not run. |
+| `tools/call`, arguments fail the schema (missing, wrong type, unknown field at any level, `arguments` absent) | `200`, result with `isError: true` and the validator's message. The handler does not run and no slot is taken. |
+| `tools/call`, no free slot, or the caller already holds 8 | `200`, `isError: true`, text `connector busy, try again`. The handler does not run. |
 | `tools/call`, handler returns `mcp.Errorf(...)` | `200`, `isError: true`, text is that message, cut at 1 KiB |
 | `tools/call`, handler returns any other error, its `Out` fails to marshal, or it panics | `200`, `isError: true`, text `internal error`. Logged as in "Security". |
 | `tools/call`, handler returns a value and an error | the error's row |
@@ -310,7 +342,6 @@ concurrency limit of 32 calls in flight applies before the body is read.
 | `tools/call`, unknown tool | `200`, JSON-RPC error `-32602` |
 | Any other MCP method | the SDK's default answer (an empty list for `resources/list`) |
 | Body over 256 KiB, with or without `Content-Length` | `413` problem, code `payload_too_large` |
-| 32 calls already in flight | `503` problem, code `unavailable`, detail `connector busy`, header `Retry-After: 1` |
 | Body that is not a JSON-RPC message | `400`, the SDK's plain-text body |
 | `Accept` without both `application/json` and `text/event-stream` | `400`, the SDK's plain-text body |
 | `Content-Type` other than `application/json` | `415`, the SDK's plain-text body |
@@ -321,30 +352,31 @@ The SDK's plain-text rows were observed with go-sdk v1.8.0 in a throwaway
 test. They are the transport's answers, not this app's contract.
 
 **Sign-in.** When `auth.Service` is registered, these checks run in order
-on every path that is not public. The first that fails decides the
-response.
+on every path except `/health` and the metadata paths. The first that
+fails decides the response.
 
 1. Exactly one `Authorization` header, in the form `<scheme> <token>`, with
    the scheme `Bearer` in any case. The token is not empty, contains no
    space, and is at most 8,192 bytes. Failure: `401` problem, code
    `unauthorized`, detail `authentication required`, header
    `WWW-Authenticate: Bearer resource_metadata="<M>"`.
-2. Unverified checks on the token: it is a JWT, its `alg` is `RS256` or
-   `ES256`, it has a `kid`, and its claims pass the claim checks in
-   "Security". Failure: `401` problem, detail `invalid token`, header
+2. Unverified checks on the token: three dot-separated segments with a
+   JSON header and payload, an `alg` of `RS256` or `ES256`, a non-empty
+   `kid`, and claims that pass the claim checks in "Security". Failure:
+   `401` problem, detail `invalid token`, header
    `WWW-Authenticate: Bearer error="invalid_token", resource_metadata="<M>"`.
 3. The key for `kid`, by the key-set policy in "Scaling". There is no key
    held and none can be fetched now: `503` problem, code `unavailable`,
-   detail `sign-in service unavailable`. Keys are held but none matches:
-   step 2's `401`.
+   detail `sign-in service unavailable`. Keys are held but none matches, or
+   the key's type does not match `alg`: step 2's `401`.
 4. The signature, then the claim checks again on the verified token.
    Failure: step 2's `401`.
 
 `<M>` is the origin of `auth_resource`, then
 `/.well-known/oauth-protected-resource`, then `P`. A request with no token
-never gets `503`, so discovery works while the key set is down. A path
-that matches no route is not public, so without a token it gets `401`,
-not `404`.
+or a malformed token never gets `503`, so discovery works while the key
+set is down. A path that matches no route is not public, so without a
+token it gets `401`, not `404`.
 
 ## Data model and migrations
 
@@ -362,12 +394,12 @@ instance is assumed to have 512 MiB of memory.
 |---|---|
 | Connector request body | 256 KiB |
 | Tool result JSON | 256 KiB |
-| Tool calls in flight | 32 per instance |
+| Running tool calls | 32 per instance, 8 per subject |
 | Tools per endpoint | 64 |
 | `mcp.Errorf` message | 1 KiB |
 | Bearer token | 8 KiB |
 | Key-set response | 64 KiB |
-| Usable keys in a set | 16 |
+| Key fetches | 1 started per 10 s per instance |
 
 **Hot path, per request.**
 
@@ -379,33 +411,48 @@ instance is assumed to have 512 MiB of memory.
 - The framework makes no query.
 - Its cost per request is not measured. Benchmark B1 records it.
 
-**Memory.** A call in flight holds at most 256 KiB of body and about
+**Memory.** A running tool call holds at most 256 KiB of body and about
 768 KiB of response: the result twice, once structured and once as text,
-inside a buffered response. Thirty-two calls hold at most about 32 MiB.
+inside a buffered response. Thirty-two running calls hold about 32 MiB.
 
-**Concurrency.** A call takes one of the 32 slots before its body is read
-and releases it when its handler returns, not when the response is cut at
-10 s. Live tool-handler goroutines therefore never pass 32. Services are
-singletons. The tool list is built at startup and never written again.
-`pkg/mcp` holds no per-caller state, so instances scale side by side with
-nothing shared.
+Requests still reading their body hold at most 256 KiB each. The server's
+15 s read timeout (app/app.go:121) bounds them: at 20 requests a second,
+at most 300 are reading at once, about 75 MiB. The two together stay
+under 512 MiB.
+
+**Concurrency.**
+
+- Slots bound live tool-handler goroutines to 32. A handler that ignores
+  its context keeps its slot until it returns.
+- The per-subject limit of 8 keeps one account from taking every slot.
+  Several accounts together still can, which follows from open sign-up
+  (owner).
+- Services are singletons, and the tool list is built at startup and never
+  written again.
+- The slot counts are the only shared state in `pkg/mcp`: a counter and a
+  map from subject to count, under one mutex. They are per instance, so
+  instances scale side by side.
 
 **Key set** (`pkg/auth`, hand-written over jwkset's parser):
 
-- **Fetch.** `GET auth_jwks_url`, with a 5 s timeout and a body of at most
-  64 KiB. The status must be `200`.
+- **Fetch.** `pkghttp.GetBytes` of `auth_jwks_url`, with a 5 s deadline
+  and a body of at most 64 KiB. The status must be `200`.
 - **A usable key.** RSA of at least 2,048 bits, or EC P-256. A non-empty
   `kid`. `use` absent or `sig`. `alg` absent, or `RS256` for RSA and `ES256`
   for EC. Other keys are ignored.
-- **A failed fetch.** Too large, not `200`, malformed, no usable key, or more
-  than 16 usable keys. On failure the held keys are kept.
-- **When a fetch happens.**
-  - No keys held: on demand, at most once every 10 s.
-  - A token's `kid` is not held while other keys are: on demand, at most once
-    every 5 minutes.
-  - The last success is more than an hour old: the next verification starts
-    a refresh in the background and is answered from the held keys.
-- **One fetch at a time.** Callers that need its result wait for it, at most
+- **A failed fetch.** Too large, not `200`, malformed, or no usable key. On
+  failure the held keys are kept.
+- **When a fetch is wanted.**
+  - No keys are held, on demand.
+  - A token's `kid` is not held while other keys are, on demand.
+  - The last success is more than an hour old: in the background, while the
+    request is answered from the held keys.
+- **When a fetch starts (owner).** At most one starts every 10 s per
+  instance, whatever wants it, and every attempt counts, failed or not. A
+  wanted fetch inside the 10 s does not start: on demand, the request gets
+  `503` with no keys held, or `401` for an unknown `kid`; in the background,
+  it waits for a later request.
+- **One fetch at a time.** On-demand callers that wait for it wait at most
   5 s.
 - **Locking.** No lock is held during the HTTP call. The key map is swapped
   under a write lock held only for the swap, and verification reads under
@@ -414,14 +461,14 @@ nothing shared.
 - **Testing.** Time comes from an unexported clock field, `time.Now` in
   production, which the package's own tests replace.
 
-These bounds hold at any request rate. A flood of bad tokens causes at
-most 1 fetch every 10 s with no keys held, and 1 every 5 minutes with
-keys held.
+So at any request rate, with any tokens, an instance makes at most 8,640
+fetches a day. A forged token with a random `kid` can delay picking up a
+rotated key by at most 10 s.
 
 **What breaks first.** Slow handlers. At 20 requests a second, handlers
-slower than 1.6 s fill the 32 slots, and further calls get `503 connector
-busy` until a slot frees. A handler that ignores its context holds a slot
-until it returns.
+slower than 1.6 s fill the 32 slots, and further calls get `connector
+busy`. With fewer than four subjects calling, the per-subject limit is
+reached first.
 
 No cache, queue or table is added.
 
@@ -433,7 +480,7 @@ No cache, queue or table is added.
 |---|---|---|
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | the MCP server. It needs Go 1.25.0, which `go.mod` already states. |
 | `github.com/golang-jwt/jwt/v5` | v5.3.1 | token parsing and checks. Already in `go.mod` as an indirect dependency, and required by the SDK. |
-| `github.com/MicahParks/jwkset` | v0.11.4 | parsing a key set into keys (`JWKSMarshal.JWKSlice`, `JWK.Key`). Fetching and caching are `pkg/auth`'s own code. |
+| `github.com/MicahParks/jwkset` | v0.11.4 | parsing a key set into keys (`JWKSMarshal.JWKSlice`, `JWK.Key`). Fetching and caching are `pkg/auth`'s own code, over `pkghttp.GetBytes`. |
 
 **Service: WorkOS AuthKit**, the hosted sign-in service. This repo's tests
 never call it; they sign tokens with `pkg/auth/authtest`. An app that
@@ -452,17 +499,18 @@ The setup steps are in https://workos.com/docs/authkit/mcp.
   100,000 times the expected use.
 - **Not used.** A custom domain ($99 a month).
 - **Limits.** Hosted AuthKit allows 1,000 reads per 10 s per environment
-  (https://workos.com/docs/reference/rate-limits). The key-set fetches stay
-  under 1 every 10 s per instance in the worst case.
+  (https://workos.com/docs/reference/rate-limits). Key-set fetches stay at
+  or under 1 every 10 s per instance.
 - **A card at sign-up.** WorkOS's pricing page doesn't say whether one is
   required. The owner checks when creating the account. If WorkOS asks for a
   card, this design switches to another hosted provider before any code
   (owner).
 
 **Hosting.** This design adds no host and no database. The app's host and
-Postgres are named, priced and limited in thetraveler's design. A host
-that sleeps when idle starts up before the app sees the request, so a cold
-start does not count against the 10 s timeout.
+Postgres are named, priced and limited in thetraveler's design, and the
+database must accept TLS. A host that sleeps when idle starts up before the
+app sees the request, so a cold start does not count against the 10 s
+timeout.
 
 **Config keys.** `auth.NewService` reads these from the flat config map.
 An app declares them in its config struct under these `config:` names.
@@ -475,7 +523,7 @@ and set in its `local.yml`.
 | `auth_issuer` | yes | none | The AuthKit domain. The token's `iss` must equal it. |
 | `auth_resource` | yes | none | The app's public connector URL, exactly as entered in Claude. The token's `aud` must contain it. |
 | `auth_jwks_url` | no | `<auth_issuer>/oauth2/jwks` | The key set. The test seam. |
-| `postgres_sslmode` | no | absent | Read by `pkg/postgres`. |
+| `postgres_sslmode` | outside production, no; in production, yes | absent | Read by `pkg/postgres`. In production it must be `require`, `verify-ca` or `verify-full` (owner). |
 
 With `ENV=PRODUCTION`, `auth_issuer`, `auth_resource` and `auth_jwks_url`
 must start with `https://`, else startup panics, naming the key.
@@ -483,7 +531,7 @@ must start with `https://`, else startup panics, naming the key.
 **Environment variables.** `HOST` and `PORT` are read by `app.ListenAddr`.
 Any variable an app names in an `env:` tag is read as well. This repo adds
 `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`,
-`POSTGRES_DATABASE` and `TICKETMASTER_API_KEY`.
+`POSTGRES_DATABASE`, `POSTGRES_SSLMODE` and `TICKETMASTER_API_KEY`.
 
 **Secrets.**
 
@@ -492,6 +540,9 @@ Any variable an app names in an `env:` tag is read as well. This repo adds
   git-ignored `local.yml` and in the host's environment as
   `TICKETMASTER_API_KEY`, then revoke the committed key (owner). The old
   value stays in git history, which is why it is revoked.
+- **The Postgres user and password.** They leave `config.yml` (owner). The
+  development values live only in the git-ignored `local.yml`; production
+  takes them from `POSTGRES_USER` and `POSTGRES_PASSWORD`.
 - **No new secret.** Verification uses the issuer's public keys.
 - **Others.** A secret an app already has leaves YAML through its `env:` tag.
   Its source is the host's environment settings and its holder is the owner.
@@ -511,7 +562,7 @@ the WorkOS dashboard when the app is retired; until then it costs $0.
 
 | Route | Caller |
 |---|---|
-| `/health`, the metadata document, `app.Public` paths | anonymous |
+| `/health` and the metadata document | anonymous |
 | every other path, with `auth.Service` registered | a signed-in user, meaning anyone who registered with the app's WorkOS environment. Sign-up is open (owner). |
 | every path, without `auth.Service` | anonymous, as today. `NewApp` logs `auth: not registered, every route is public` once at startup. A connector cannot exist in this case (M14). |
 
@@ -521,8 +572,8 @@ caller is. Every app checks that each record it reads or writes belongs to
 `pkg/auth/CLAUDE.md`, `docs/BEST_PRACTICES.md` and the root `CLAUDE.md`.
 thetraveler's design must test that one user cannot read another's trip.
 
-`app.Public` matches the request path exactly: no prefixes, no patterns,
-no case folding, no trailing slash. The query string is ignored.
+The public paths match the request path exactly: no prefixes, no case
+folding, no trailing slash. The query string is ignored.
 
 **Claim checks**, all required:
 
@@ -534,8 +585,9 @@ no case folding, no trailing slash. The query string is ignored.
 - Provider `workos`: a token whose `sub_profile` is `ai_agent` is refused, as
   WorkOS's guide requires.
 
-`exp` and `nbf` allow 30 s of clock skew. `none` and every symmetric
-algorithm are refused, and a token in the query string is never read.
+`exp` and `nbf` allow 30 s of clock skew. Only `RS256` and `ES256` are
+accepted, `none` and every symmetric algorithm are refused, and a token in
+the query string is never read.
 
 **Input at the edge.**
 
@@ -565,8 +617,12 @@ never logs a token, a header, an argument or a result.
 
 **Unauthenticated routes.** `/health` and the metadata document do no I/O
 and return a fixed body. A bad token costs one parse and at most one
-signature check, and triggers no fetch beyond the bounds in "Scaling".
-There is no per-caller rate limit (non-goal).
+signature check, and starts no fetch beyond the 10 s limit. There is no
+per-caller rate limit (non-goal).
+
+**One caller's share.** One subject holds at most 8 of the 32 running tool
+calls, so one account cannot lock the owner out. Several accounts together
+can, since sign-up is open (owner).
 
 **DNS-rebinding check off.** The SDK refuses a request that arrives on a
 loopback address with a non-loopback `Host`. It answered `403` to
@@ -579,7 +635,9 @@ adds nothing here.
 **Secrets and personal data.**
 
 - No secret is added.
-- The committed Ticketmaster key is rotated (owner).
+- The committed Ticketmaster key is rotated, and the committed Postgres
+  credentials leave `config.yml` (owner).
+- In production the database link is encrypted (owner).
 - Token claims live in memory for one request, and nothing is stored.
 - Users' email addresses live at WorkOS (see "Switching off").
 
@@ -593,14 +651,16 @@ to AuthKit, never to the app. The app never forwards a caller's token.
 
 | Failure | Behaviour |
 |---|---|
-| Key set unreachable, keys held | The held keys keep verifying. A refresh is tried again an hour after the last success. |
-| Key set unreachable, no key held | Protected paths answer `503` to a request with a token, and `401` to one without. Public paths work. A fetch is tried at most once every 10 s. |
+| Key set unreachable, keys held | The held keys keep verifying. A refresh is wanted once the last success is an hour old, and starts at most once every 10 s until one succeeds. |
+| Key set unreachable, no key held | Protected paths answer `503` to a request with a well-formed token, and `401` to one without. Public paths work. A fetch starts at most once every 10 s. |
 | Key set hangs | The fetch gives up at 5 s. Requests whose key is held are not held up. |
-| Issuer rotates its keys | A token with an unknown `kid` triggers a fetch, at most once every 5 minutes. |
+| Issuer rotates its keys | A token with an unknown `kid` starts a fetch, subject to the 10 s limit. |
 | AuthKit down for sign-in | Tokens already issued work until they expire. New sign-ins fail at AuthKit; the app does nothing. |
 | A tool handler panics | The call returns `internal error`, the panic is logged, and the process keeps running. `pkg/mcp` recovers inside the tool wrapper. `Recover` (pkg/http/middleware.go:48) cannot: go-sdk v1.8.0 runs each request on its own goroutine (internal/jsonrpc2/conn.go:684), and a panic there ended the process in a throwaway test. A goroutine the handler starts itself is the app's to guard. |
 | A tool handler runs past 10 s | `504` from the existing chain. The handler's context is done and its slot is held until it returns. |
-| Slow handlers fill 32 slots | `503 connector busy` with `Retry-After: 1`. |
+| Slow handlers fill the slots | `connector busy, try again` as a tool error. |
+| Production config without TLS to Postgres | Startup panics with the `postgres_sslmode` message. |
+| A production Postgres variable not set | The connection fails at startup (pkg/postgres/service.go:132-137), since `config.yml` no longer holds a user or password. |
 | A bad release of the framework | An app goes back to the previous tag. There is no data to undo. |
 
 **Rollback limit.** An app that moved a secret to an `env:` tag cannot go
@@ -617,10 +677,12 @@ account.
 
 - End-to-end tests build an app with `app.NewApp`, register a fake
   `postgres.Service` in the service slice, and write a `local.yml` to
-  `t.TempDir()` after `t.Chdir`. They call `Handler()` through `httptest`.
+  `t.TempDir()` after `t.Chdir`. They set `newLogger` to a recording
+  `logger.Logger` (owner) and call `Handler()`.
 - Tokens are signed by `authtest`.
 - Key-set tests (K) are in package `auth` and drive its clock.
-- Log tests use a recording `logger.Logger`.
+- A test that sets a `SetAuthMiddleware` hook resets it with
+  `SetAuthMiddleware(nil)` (owner).
 
 **Sign-in**
 
@@ -640,16 +702,24 @@ account.
 - A7. `aud` as a string equal to `auth_resource`: `200`. As an array
   containing it: `200`. With a trailing slash added, with different case,
   or absent: `401`.
-- A8. `alg: none`: `401`. HS256 signed with the public key's bytes: `401`.
-  RS256 and ES256 tokens: `200`. A held `kid` with a signature from
-  another key: `401`.
+- A8. Each of these gets `401`, with no fetch:
+  - `alg` of `none`, `HS256` signed with the public key's bytes, `RS384`,
+    `RS512`, `PS256` and `ES384`
+  - no `kid`
+  - a header or payload that is not JSON
+  - two segments, or four
+
+  These get `401` too:
+  - an `ES256` token whose `kid` names a held RSA key, and the reverse
+  - a held `kid` with a signature from another key
+
+  RS256 and ES256 tokens get `200`.
 - A9. `sub` absent or empty: `401`. `sub_profile: ai_agent`: `401`.
 - A10. A valid token in `?access_token=` and no header: A2's response.
-- A11. With no token, all `200`: `/health`, `/health?x=1`, an `app.Public`
-  path, and both metadata paths with the exact document. The test logs
-  the document. With no token, all `401`: `/health/`, `/HEALTH`, a prefix
-  of a public path, and `/x/../health`. `POST` to a metadata path: `405`
-  problem.
+- A11. With no token, all `200`: `/health`, `/health?x=1`, and both metadata
+  paths with the exact document. The test logs the document. With no
+  token, all `401`: `/health/`, `/HEALTH`, `/healthz` and `/x/../health`.
+  `POST` to a metadata path: `405` problem.
 - A12. Without a token, all `401`: an `app.Spec` route, a path-pair route,
   an unknown path, and a wrong method on a protected path. With a token
   these are `200`, `200`, `404` and `405`. An `OPTIONS` preflight to the
@@ -658,21 +728,25 @@ account.
   `auth_provider`, and, with `ENV=PRODUCTION`, an `http://` value in
   `auth_issuer`, `auth_resource` or `auth_jwks_url`.
 - A14. A `SetAuthMiddleware` hook with `auth.Service`: startup panic with
-  its message.
-- A15. No `auth.Service`: routes answer with no token, `FromContext`
-  returns `false`, and the startup log line is written once.
+  its message. A hook without `auth.Service`: the app starts and the hook
+  runs, as today. After `SetAuthMiddleware(nil)`, `HasAuthMiddleware`
+  returns `false` and an app with `auth.Service` starts.
+- A15. No `auth.Service` and no connector: routes answer with no token,
+  `FromContext` returns `false`, and the recording logger holds the startup
+  line once.
 
 **Key set** (package `auth`, test clock, `authtest` server)
 
 - K1. No keys and the server down. A well-formed token: `503`, code
-  `unavailable`. No header: `401`. 9 s later: `503` and no new fetch. 10 s
-  later: one fetch. Server up, 10 s later: `200`.
+  `unavailable`. No header, or an A8 token: `401`, never `503`. 9 s later:
+  `503` and no new fetch. 10 s later: one fetch. Server up, 10 s after
+  that: `200`.
 - K2. Keys held, then the server goes down: tokens with held `kid`s get
-  `200`, and the fetch count does not change.
+  `200`, and no fetch starts before the hour.
 - K3. Unknown `kid` while keys are held:
-  - 20 concurrent requests make one fetch.
-  - At 4 min 59 s: `401` and no fetch.
-  - At 5 min: one fetch.
+  - 20 concurrent requests start one fetch.
+  - A different unknown `kid` at 9 s: `401` and no fetch.
+  - At 10 s: one fetch.
   - A rotated-in key then verifies with `200`.
 - K4. At 59 min: no fetch. At 60 min: a verification answers `200` from the
   held keys without waiting, and starts one background fetch.
@@ -680,7 +754,6 @@ account.
   100 ms while the fetch is pending. The fetch gives up at 5 s. A request
   with no key held gets `503` within 6 s.
 - K6. Each of these sets is refused, and the held keys keep verifying:
-  - 17 usable keys
   - no usable key
   - a body of 64 KiB + 1 byte
   - status `500`
@@ -691,6 +764,11 @@ account.
 - K7. 100 goroutines verify while the set is swapped 50 times, under
   `-race`. Every held-`kid` verification succeeds.
 - K8. A token with a wrong `iss` and an unknown `kid`: `401` and no fetch.
+- K9. A failed refresh past the hour:
+  - The server goes down at 61 min, and 100 valid requests follow over
+    60 s. All get `200` from the held keys, and at most 6 fetches start.
+  - The server comes back. The next fetch succeeds, and no fetch starts
+    for the next 59 min.
 
 **Connector** (`pkg/mcp` with a recording logger; end to end in `app/` with
 the SDK's client)
@@ -700,8 +778,8 @@ the SDK's client)
 - M2. `tools/call` with valid arguments: the handler's output as
   `structuredContent`, and text equal to its JSON.
 - M3. A missing field, a wrong type, an unknown field at the top and in a
-  nested struct, and `arguments` absent: each gives `isError: true`, and a
-  counter shows the handler did not run.
+  nested struct, and `arguments` absent: each gives `isError: true`. A
+  counter shows the handler did not run, and no slot was taken.
 - M4. `mcp.Errorf("trip not found")`: that text. A 1,500-byte `Errorf`:
   its first 1,024 bytes. `errors.New` of a 2,000-byte message: text
   `internal error`, and the log holds the first 512 bytes.
@@ -721,23 +799,40 @@ the SDK's client)
 - M9. A handler that waits on its context, chained behind
   `pkghttp.TimeoutMW(100ms)`: `504` problem, code `timeout`. A counter shows
   the handler saw its context end and returned.
-- M10. With 32 handlers blocked, a 33rd call gets `503`, code `unavailable`,
-  detail `connector busy`, `Retry-After: 1`. Once one handler is released,
-  the next call gets `200`.
-- M11. Request headers:
+- M10. Slots:
+  - Subject A starts 8 blocked calls. A's 9th call is `connector busy`.
+    Subject B's call gets `200`.
+  - Subjects B, C and D fill the slots to 32, and subject E's call is
+    `connector busy`.
+  - One call is released, and E's next call gets `200`.
+  - `initialize`, `ping` and `tools/list` get `200` while all slots are
+    full.
+- M11. A slot outlives the cut. Behind `pkghttp.TimeoutMW(100ms)`, subject
+  A's 8 handlers ignore their context, and each request gets `504`. A's
+  next call is still `connector busy` until the handlers are released;
+  after that it gets `200`.
+- M12. Through a real loopback listener (`httptest.NewServer`):
   - No `Accept`: `400`.
   - `Content-Type: text/plain`: `415`.
   - `MCP-Protocol-Version: 1999-01-01`: `400`; `2025-11-25`: `200`.
-  - `Host: thetraveler.example.com` over loopback: `200`.
+  - `Host: thetraveler.example.com`: `200`. The control is the same request
+    to an SDK handler built with the check on, which gets `403`.
   - `Origin: https://claude.ai`: `200`.
-- M12. A raw `POST`: `200`, `application/json`, and no `Mcp-Session-Id` in
-  the response.
-- M13. Fifty concurrent `tools/call` under `-race`: fifty results.
-- M14. Each registration mistake in "API contract" panics with its
-  message, including `app.MCP` without `auth.NewService`.
+  - A raw `POST` returns `200`, `application/json`, and no
+    `Mcp-Session-Id`.
+- M13. Fifty concurrent `tools/call`, from ten subjects, under `-race`:
+  fifty results.
+- M14. Each registration mistake in "API contract" panics with its message:
+  - `app.MCP` without `auth.NewService`
+  - a connector path of `/health`, a metadata path, or a path an `app.Spec`
+    route already serves
+  - an unexported tool-set field
 - M15. End to end in `app/` with a tool set defined in the test. No token:
   A2's response on the connector path. A valid token: the handler returns
   the caller's subject.
+- R1. In `router_test.go`: a controller with an unexported field panics
+  with `field <Name> of <Type> is unexported; injected fields must be
+  exported`.
 
 **Deploy readiness**
 
@@ -754,40 +849,51 @@ the SDK's client)
   - This repo's config with `TWILIO_PHONE_NUMBER` set: the map holds the
     variable.
 - D3. The DSN:
-  - Each of the six `sslmode` values: ends `?sslmode=<value>`.
-  - Without the key: equal to today's string.
+  - Outside production, each of the six `sslmode` values ends
+    `?sslmode=<value>`, and without the key the DSN equals today's string.
   - `require&x=y` and `bogus`: a panic with the message.
-- D4. This repo's `config.yml` has an empty `ticketmaster.api_key`. With
-  `TICKETMASTER_API_KEY` set, the map holds it.
+  - With `ENV=PRODUCTION`: absent, `disable`, `allow` and `prefer` each
+    panic with the production message; `require`, `verify-ca` and
+    `verify-full` connect.
+- D4. This repo's `config.yml`:
+  - `ticketmaster.api_key`, `postgres.user` and `postgres.password` are
+    empty, and `postgres.sslmode` is `require`.
+  - With `TICKETMASTER_API_KEY` set, the map holds it.
+- D5. In package `main`:
+  - Reflection on the config struct finds the seven tag names: the five
+    Postgres ones, `POSTGRES_SSLMODE` and `TICKETMASTER_API_KEY`.
+  - `go/ast` on `main.go` finds `app.NewApp`'s first two arguments come
+    from `app.ListenAddr`.
 
 **Logs**
 
-- L1. A token, an `Authorization` header, a tool argument and a tool
-  result each carry a marker string. They go through `RequestLogger`, the
-  `pkg/auth` middleware and `pkg/mcp` with a recording logger, on
-  success, a schema failure, a `401`, a handler error and a panic. No
-  marker appears in any log line or error body.
+- L1. Through `Handler()` with sign-in, using the recording logger. A token
+  and an `Authorization` header carry marker strings, on a `200`, a `401`
+  and a `503`. No marker appears in any log line or error body.
+- L2. Through `Handler()` with a connector. A tool argument and a tool
+  result carry markers, on a success, a schema failure, a handler error
+  and a panic. No marker appears in any log line or error body.
 
 **Compatibility**
 
 - C1. The existing tests pass unchanged. An app with no `auth.Service` and
   no `app.MCP` entry answers `/health` and its routes with no token.
+
+**Evidence, not gates**
+
+- B1. `BenchmarkToolCall` runs a verified `tools/call` with RS256 and ES256
+  tokens. Its output goes in the PR.
 - C2. After each tag, recruiter is bumped to it, following its upstream
-  flow (recruiter CLAUDE.md, "Where code lives"). Its CI builds and tests
-  the bump commit.
-
-**Benchmark**
-
-- B1. `BenchmarkToolCall` runs a verified `tools/call` with RS256 and
-  ES256 tokens. Its output is evidence, not a gate.
+  flow (recruiter CLAUDE.md, "Where code lives"). Its CI result on the bump
+  commit is reported. It does not gate the next part (owner).
 
 **Evidence a reviewer sees.**
 
-- The test output naming every A, K, M, D, L and C test.
+- The test output naming every A, K, M, R, D, L and C1 test.
 - The `401` response and the metadata document that A2 and A11 log.
 - The `tools/list` response from M1.
-- The output of B1.
-- recruiter's green CI run on each bump.
+- B1's output.
+- Recruiter's CI result on each bump.
 
 ## Approaches
 
@@ -818,12 +924,15 @@ setup.
 
 **The key set**
 
-1. **Fetch and cache policy in `pkg/auth`, keys parsed by jwkset** (picked).
-   Every bound in "Scaling" is our code, under a test clock.
-2. **keyfunc v3.9.2.** It gives the hourly refresh, the 5 s timeout and a
-   rate limit on unknown `kid`s. It does not give the 10 s retry with no
-   keys held, the 16-key refusal or a byte cap. Its timers run on the real
-   clock, so K1, K3 and K4 would sleep for real.
+1. **Fetch and cache policy in `pkg/auth`, over `pkghttp.GetBytes`, keys
+   parsed by jwkset** (picked). One limit, one fetch at a time and a byte
+   cap. Reviewers raised SCL-3, SCL-4 and SCL-7 against these behaviours,
+   and the owner ruled on the 10 s limit. All of it runs under a test clock,
+   so K1–K9 run in milliseconds.
+2. **keyfunc v3.9.2.** It gives an hourly refresh, a timeout and an
+   unknown-`kid` limiter. It has no byte cap and no single limit across
+   every kind of fetch. Its limiter and refresh run on the real clock, so
+   K1, K3, K4 and K9 would wait up to an hour for real.
 3. **A hand-written JWK parser.** One less dependency, but parsing keys by
    hand is where verification goes wrong.
 
@@ -843,28 +952,33 @@ setup.
 ## Delivery
 
 Three PRs, in this order. Each names this design and its part. After each
-merges, the merge commit is tagged and recruiter is bumped to the tag (C2).
+merges, the merge commit is tagged and recruiter is bumped to the tag (C2,
+evidence only).
 
 - **§1 Deploy readiness**, tagged v0.4.0.
-  - `app.ListenAddr`, the `env:` rule, and `postgres_sslmode`.
-  - The `main.go` changes: the address and the tags.
-  - `config.yml` without the Ticketmaster key.
-  - `docs/BEST_PRACTICES.md` §4.
-  - Tests D1–D4.
+  - `app.ListenAddr`, the `env:` rule, and `postgres_sslmode` with its
+    production rule.
+  - The `main.go` changes: the address, the tags and `SSLMode`.
+  - `config.yml` without the Ticketmaster key or the Postgres user and
+    password, and with `sslmode: require`.
+  - `docs/BEST_PRACTICES.md` §4 and §7.
+  - Tests D1–D5.
   - After it merges, the owner rotates the Ticketmaster key.
 - **§2 Sign-in**, tagged v0.5.0.
   - `pkg/auth` and `pkg/auth/authtest`.
-  - `Handler()`, `app.Public` and the metadata routes.
-  - `pkghttp.HasAuthMiddleware` and `apierror.Unavailable`.
-  - The named panic in `injectFields`.
+  - `Handler()`, the `newLogger` variable and the metadata routes.
+  - `pkghttp.HasAuthMiddleware`, `pkghttp.GetBytes` and
+    `apierror.Unavailable`.
   - jwt and jwkset.
   - The sign-in docs and the ownership rule.
-  - Tests A1–A15, K1–K8 and C1.
+  - Tests A1–A15, K1–K9, L1 and C1.
 - **§3 Connector**, tagged v0.6.0.
-  - `pkg/mcp`, `app.MCP` and `apierror.TooLarge`.
+  - `pkg/mcp`, `app.MCP` and its `router.go` functions.
+  - `apierror.TooLarge`.
+  - The named panic in `injectFields`.
   - The SDK.
-  - The docs and the golden flow.
-  - Tests M1–M15, L1 and B1.
+  - The docs, `app/CLAUDE.md` and the golden flow.
+  - Tests M1–M15, R1, L2 and B1.
 
 §2 does not need §1. §3 needs §2 for `Handler()`, `auth.FromContext` and
 the sign-in requirement. thetraveler requires v0.6.0.
@@ -889,22 +1003,43 @@ the sign-in requirement. thetraveler requires v0.6.0.
   Claude checked recruiter in this session **(owner)**.
 - This design is proven by tests against the documented requirements. The
   first real connection is thetraveler's acceptance **(owner)**.
+- In production, startup refuses a Postgres connection without TLS
+  (`require`, `verify-ca` or `verify-full`) **(owner)**.
+- The Postgres user and password leave `config.yml` **(owner)**.
+- At most one key fetch starts every 10 s per instance, whatever wants it,
+  and every attempt counts **(owner)**.
+- Slots count running tool calls only: 32 per instance and 8 per subject.
+  A slot is held until the handler returns, and a call with no slot gets
+  `connector busy, try again` **(owner)**.
+- No `app.Public`. Only `/health` and the metadata paths are public, and a
+  clashing connector path stops startup **(owner)**.
+- Tests replace `NewApp`'s logger through an unexported variable
+  **(owner)**.
+- `HasAuthMiddleware` returns whether the hook is non-nil, so
+  `SetAuthMiddleware(nil)` clears it **(owner)**.
+- The recruiter bump is evidence, not a gate **(owner)**.
 - WorkOS AuthKit is the hosted service **(designer's call)**.
 - One provider, named by a required `auth_provider`
   **(designer's call)**.
-- Default deny, with exact-match public paths declared in `main.go`. An
-  unknown path gets `401` without a token **(designer's call)**.
+- Default deny. An unknown path gets `401` without a token
+  **(designer's call)**.
+- The first anti-goal applies once sign-in or a connector exists
+  **(designer's call)**.
 - `pkg/auth` and `SetAuthMiddleware` cannot both be set
   **(designer's call)**.
 - The order of the sign-in checks. A request without a token never gets
   `503` **(designer's call)**.
-- The `Bearer` scheme in any case, with exactly one `Authorization`
-  header **(designer's call)**.
+- The `Bearer` scheme in any case, with exactly one `Authorization` header
+  **(designer's call)**.
 - `Identity` carries only `Subject` **(designer's call)**.
 - `env:` is for string fields only **(designer's call)**.
-- `postgres_sslmode` is optional and checked against libpq's six values
+- `postgres_sslmode` is checked against libpq's six values
   **(designer's call)**.
 - `app.ListenAddr` reads `HOST` and `PORT` **(designer's call)**.
+- All parsing of the routes slice stays in `router.go`
+  **(designer's call)**.
+- The key set is fetched through a new `pkghttp.GetBytes` on the shared
+  client **(designer's call)**.
 - The connector is stateless with JSON responses, tools only, and one
   endpoint per app **(designer's call)**.
 - Protocol errors keep the SDK's bodies. Only the framework's own `401`,
@@ -912,9 +1047,9 @@ the sign-in requirement. thetraveler requires v0.6.0.
 - Argument errors are tool errors and an unknown tool is a protocol
   error, as the MCP specification's tool error handling says
   **(designer's call)**.
-- The bounds: 256 KiB body and result, 32 calls in flight, 64 tools,
-  1 KiB `Errorf`, 8 KiB token, 64 KiB key set, 16 keys, 30 s skew, and the
-  fetch limits **(designer's call)**.
+- The other bounds: 256 KiB body and result, 64 tools, 1 KiB `Errorf`,
+  8 KiB token, 64 KiB key set, 30 s skew and a 5 s fetch deadline
+  **(designer's call)**.
 - A tool's error is masked unless built with `mcp.Errorf`. Logged errors
   are cut at 512 bytes, and a panic's value is logged only for a
   `runtime.Error` **(designer's call)**.
@@ -933,11 +1068,8 @@ the sign-in requirement. thetraveler requires v0.6.0.
   and `pkg/mcp`.
 - Whether the metadata handler is hand-written or the SDK's helper; the
   bytes are fixed above.
-- How `app.MCP` and `app.Public` entries are represented between the
-  routes slice and `NewApp`.
+- How the `app.MCP` entry is represented inside `router.go`.
 - Log field names beyond the five listed under "Security".
-- How the 32-slot limit is built, given that a slot is taken before the
-  body is read and released when the handler returns.
 - The wording of the new `CLAUDE.md` files and doc sections.
 - The shape of B1.
 
@@ -946,51 +1078,77 @@ the sign-in requirement. thetraveler requires v0.6.0.
 Panel: BLD, GOAL, QLT, SCL, INF, SEC, FUN. Why: full design with no screen.
 
 Round 1:
-- BLD-1 Reference order tools have no inputs, outputs, annotations or service mapping
-- BLD-2 No clock seam in the public signature, yet A3 and A11 depend on one
-- BLD-3 405 for GET/DELETE on the connector: SDK body or router problem
-- BLD-4 Order of checks among 401 and 503 is open
-- BLD-5 `env:` rule silent on non-string fields and where the override is applied
+- BLD-1 Reference order tools have no inputs, outputs, annotations or service mapping: revised What we're building
+- BLD-2 No clock seam in the public signature, yet A3 and A11 depend on one: revised Scaling
+- BLD-3 405 for GET/DELETE on the connector: SDK body or router problem: revised API contract
+- BLD-4 Order of checks among 401 and 503 is open: revised API contract
+- BLD-5 `env:` rule silent on non-string fields and where the override is applied: revised Fit with existing features
 - GOAL-1 Goal 7 and the 'existing consumer' anti-goal contradict the env: rule: owner: accepted as a deliberate change; Claude checked recruiter, which has no env: tags
 - GOAL-2 An app can serve MCP with no sign-in and still meet every goal: owner: an app with a connector and no sign-in does not start
 - GOAL-3 Success line does not check the problem: Claude accepting the connector: owner: tests against the documented requirements now; the first real connection is thetraveler's acceptance
 - GOAL-4 No-card and no-paid-resource constraints rest on an unanswered question: owner: the owner checks at WorkOS sign-up; a card means switching provider before code
-- GOAL-5 Identity.Scopes and Identity.Claims serve no goal
+- GOAL-5 Identity.Scopes and Identity.Claims serve no goal: revised API contract
 - GOAL-6 Order tools in the production app go beyond what the Why needs: owner: this repo's app serves no tools; a test fixture proves the pattern
 - GOAL-7 Tests A11 and A13 are named by no goal's 'Done' line
-- QLT-1 Reference order tools may duplicate OrdersController validation and error mapping; design does not say where it lives
-- QLT-2 newRouter and NewApp must carry public paths and the MCP handler, but the Changed table lists no signature change and no caller outcome
-- QLT-3 Claim that tool-set injection works "as it does a controller's" and covers "exported fields" does not match injectFields
-- QLT-4 The env: rule is silent on non-string tagged fields and on the mandatory config file that env-only deploys still need
-- QLT-5 pkg/auth is a second auth seam beside SetAuthMiddleware, with two ordering rules to remember
-- SCL-1 Timed-out handlers keep running; in-flight work is unbounded
-- SCL-2 Memory per request at the stated bounds is not worked
-- SCL-3 Key-set download has no byte cap; only the key count is bounded
-- SCL-4 Is the key-set lock held across the outbound fetch?
-- SCL-5 Reference order tools: per-call cost and argument bounds not stated
-- SCL-6 'Sized for 50 rps' and 'under a millisecond of CPU' have no number or test behind them
-- INF-1 Public host and Postgres host are needed but not listed, so the $0 total is incomplete
-- INF-2 auth_* config keys have no stated place where they are set
+- QLT-1 Reference order tools may duplicate OrdersController validation and error mapping; design does not say where it lives: revised What we're building
+- QLT-2 newRouter and NewApp must carry public paths and the MCP handler, but the Changed table lists no signature change and no caller outcome: revised Fit with existing features
+- QLT-3 Claim that tool-set injection works "as it does a controller's" and covers "exported fields" does not match injectFields: revised Fit with existing features
+- QLT-4 The env: rule is silent on non-string tagged fields and on the mandatory config file that env-only deploys still need: revised Fit with existing features
+- QLT-5 pkg/auth is a second auth seam beside SetAuthMiddleware, with two ordering rules to remember: revised Fit with existing features
+- SCL-1 Timed-out handlers keep running; in-flight work is unbounded: revised Scaling
+- SCL-2 Memory per request at the stated bounds is not worked: revised Scaling
+- SCL-3 Key-set download has no byte cap; only the key count is bounded: revised Scaling
+- SCL-4 Is the key-set lock held across the outbound fetch?: revised Scaling
+- SCL-5 Reference order tools: per-call cost and argument bounds not stated: revised API contract
+- SCL-6 'Sized for 50 rps' and 'under a millisecond of CPU' have no number or test behind them: revised Scaling
+- INF-1 Public host and Postgres host are needed but not listed, so the $0 total is incomplete: revised Infrastructure and dependencies
+- INF-2 auth_* config keys have no stated place where they are set: revised Infrastructure and dependencies
 - INF-3 WorkOS free-tier limits and card requirement unstated, against an owner decision of no card: owner: the owner checks at WorkOS sign-up; a card means switching provider before code
 - INF-4 Pay-per-use WorkOS MAU has no cap, alert or owner opt-in: owner: sign-up stays open, with no gate and no spend cap
-- INF-5 Switching off leaves the WorkOS environment and its settings in place
-- INF-6 keyfunc/jwkset adds two modules for fetching a key set under custom bounds
+- INF-5 Switching off leaves the WorkOS environment and its settings in place: revised Infrastructure and dependencies
+- INF-6 keyfunc/jwkset adds two modules for fetching a key set under custom bounds: revised Approaches
 - SEC-1 Any self-registered AuthKit user passes as the 'signed-in user': owner: sign-up is open; each app checks ownership by subject
 - SEC-2 Reference /mcp order tools are anonymous, with no stated owner check on get_order: owner: this repo's app serves no tools
 - SEC-3 A production deploy with no auth.Service silently serves every route anonymously: owner: an app with a connector and no sign-in does not start
-- SEC-4 No transport check on auth_issuer and auth_jwks_url in production
-- SEC-5 What a logged handler error or panic may contain is not bounded
+- SEC-4 No transport check on auth_issuer and auth_jwks_url in production: revised Infrastructure and dependencies
+- SEC-5 What a logged handler error or panic may contain is not bounded: revised Security
 - SEC-6 A committed, real-looking API key stays in config.yml for a public deployment: owner: the key is rotated; the owner creates a new key before the old one is revoked
-- SEC-7 Input bounds for tool arguments are left to each tool set; none are stated for the order tools
-- FUN-1 Anti-goal 'no token, header, argument or result in a log line' has no test
-- FUN-2 Key-set behaviour in Scaling and Failure is mostly untested
-- FUN-3 Token and header edge cases missing from A1-A9
-- FUN-4 Public-path exactness and unknown-path behaviour untested and unspecified
-- FUN-5 Rows of the connector response table have no test
-- FUN-6 Missing Accept/Content-Type, protocol-version header and rebinding protection behaviour on POST
-- FUN-7 Behaviour left open in tools and unauthenticated connector
-- FUN-8 D1-D3 miss the boundaries of the env, PORT and sslmode rules
-- FUN-9 Rollback and compatibility claims have no test that runs them
-- FUN-10 A handler panic claim: 'Recover cannot catch it' is stated, not shown; M5 may pass for the wrong reason
-- FUN-11 A11 and A3 depend on a test clock whose mechanism is left open; reviewer evidence for sign-in is missing
-- FUN-12 Choosing 200 + isError for schema-invalid arguments and a stateless endpoint is not justified against the tests that prove it
+- SEC-7 Input bounds for tool arguments are left to each tool set; none are stated for the order tools: revised API contract
+- FUN-1 Anti-goal 'no token, header, argument or result in a log line' has no test: revised How we'll know it works
+- FUN-2 Key-set behaviour in Scaling and Failure is mostly untested: revised How we'll know it works
+- FUN-3 Token and header edge cases missing from A1-A9: revised How we'll know it works
+- FUN-4 Public-path exactness and unknown-path behaviour untested and unspecified: revised How we'll know it works
+- FUN-5 Rows of the connector response table have no test: revised How we'll know it works
+- FUN-6 Missing Accept/Content-Type, protocol-version header and rebinding protection behaviour on POST: revised API contract
+- FUN-7 Behaviour left open in tools and unauthenticated connector: revised API contract
+- FUN-8 D1-D3 miss the boundaries of the env, PORT and sslmode rules: revised How we'll know it works
+- FUN-9 Rollback and compatibility claims have no test that runs them: defended: no state to roll back; switching off removes two lines together, recruiter was checked and is bumped per tag, and the framework registers nothing on its own
+- FUN-10 A handler panic claim: 'Recover cannot catch it' is stated, not shown; M5 may pass for the wrong reason: revised Failure and rollback
+- FUN-11 A11 and A3 depend on a test clock whose mechanism is left open; reviewer evidence for sign-in is missing: revised How we'll know it works
+- FUN-12 Choosing 200 + isError for schema-invalid arguments and a stateless endpoint is not justified against the tests that prove it: defended: the MCP 2025-11-25 tools specification makes input validation errors tool execution errors and unknown tools protocol errors
+
+Round 2:
+- SEC-8 Production Postgres connection may be unencrypted: postgres_sslmode is optional with no production floor: owner: in production, startup refuses a connection without TLS
+- SEC-9 An unset env: secret silently falls back to the committed dev credential: owner: the Postgres user and password leave config.yml
+- QLT-6 Key-set fetch is hand-written outbound HTTP; design does not say why pkg/http's helper is not used or extended
+- QLT-7 Route-slice parsing, MCP mounting and registration panics now live in NewApp, which router.go and app/CLAUDE.md give to the router
+- QLT-8 HasAuthMiddleware is defined as true "once SetAuthMiddleware has set a hook", which is ambiguous for SetAuthMiddleware(nil) and for tests: owner: the hook counts as set while non-nil; SetAuthMiddleware(nil) clears it
+- GOAL-8 §2 ships the injectFields panic with no goal or test; L1 tests §2's middleware but ships in §3
+- GOAL-9 Goal 8's measure of done, C2, happens after merge in another repo: owner: the recruiter bump is evidence, not a gate
+- GOAL-10 Goal 4's key-set bounds are the designer's, and cost hand-written security code over keyfunc
+- GOAL-11 app.Public has no need named in the Why: owner: app.Public is dropped
+- GOAL-12 The 'forgotten line' anti-goal still holds for an app with no connector
+- BLD-6 Retry rate after a failed hourly refresh is open, so the stated fetch bound can break: owner: at most one key fetch starts every 10 s per instance, and every attempt counts
+- BLD-7 Which requests take one of the 32 slots, and what the slot spans, are left open: owner: only running tool calls hold slots, until the handler returns; 8 per subject
+- BLD-8 Who adds /health and the metadata paths to the public list passed to Middleware: owner: app.Public is dropped; pkg/auth leaves only /health and its metadata paths public
+- SCL-7 Stale-key refresh has no rate limit once a refresh fails, so the fetch bound is false: owner: at most one key fetch starts every 10 s per instance, and every attempt counts
+- SCL-8 One signed-up user can fill all 32 in-flight slots, and slow bodies hold a slot: owner: only running tool calls hold slots, until the handler returns; 8 per subject
+- SCL-9 The 5-minute unknown-kid limiter lets a forged token delay a key rotation by 5 minutes: owner: at most one key fetch starts every 10 s per instance, and every attempt counts
+- FUN-13 No retry spacing after a failed hourly refresh; the stated fetch bound can be exceeded and no test catches it: owner: at most one key fetch starts every 10 s per instance, and every attempt counts
+- FUN-14 'A slot is released when the handler returns, not at the 10 s cut' has no test: owner: only running tool calls hold slots, until the handler returns; 8 per subject
+- FUN-15 M11's 'Host over loopback: 200' cannot fail when run through httptest with Handler()
+- FUN-16 Sign-in step 2 rules have no test: missing kid and algorithms other than RS256/ES256
+- FUN-17 An app.Public path equal to the connector path leaves the connector anonymous; not a registration mistake: owner: app.Public is dropped; a clashing connector path stops startup
+- FUN-18 NewApp creates its own logger, so A15's startup line and end-to-end L1 have no capture point: owner: tests replace NewApp's logger through an unexported variable
+- FUN-19 main.go wiring and the controller-side injectFields panic are covered by no test
+- FUN-20 A14 depends on a package global the design gives no way to reset: owner: the hook counts as set while non-nil; SetAuthMiddleware(nil) clears it
