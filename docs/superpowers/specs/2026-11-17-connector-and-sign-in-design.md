@@ -89,13 +89,15 @@ thetraveler's acceptance, which deploys anyway (owner).
 6. A connector never runs without sign-in (owner). Done: M14.
 7. Deploy readiness, with TLS to Postgres required in production (owner).
    Done: D1–D5.
-8. Apps that use none of it are unchanged, with two exceptions (owner):
+8. Apps that use none of it are unchanged, with three exceptions (owner):
    - an environment variable already set for an `env:`-tagged field now
      wins over YAML
    - an app that constructs `postgres.Service` in production must set
      `postgres_sslmode` to a TLS mode, and a non-empty user and password
+   - a Postgres user or password stored percent-encoded in config must now
+     be stored raw, since `dsn` escapes it
 
-   Done: C1, A15.
+   Done: C1, A15, D3.
 9. No token, header, tool argument or tool result reaches a framework log
    line or error body. Done: L1, L2.
 
@@ -130,8 +132,8 @@ thetraveler's acceptance, which deploys anyway (owner).
 - A token, an `Authorization` header, a tool argument or a tool result in
   a framework log line or error body.
 - A panic in one tool call stopping the process.
-- An existing consumer breaking on upgrade, beyond the two owner-accepted
-  exceptions in goal 8.
+- An existing consumer breaking on upgrade, beyond the three
+  owner-accepted exceptions in goal 8.
 - App code importing the MCP SDK or the JWT libraries directly
   (docs/BEST_PRACTICES.md §6).
 - A paid resource appearing without the owner opting in.
@@ -159,7 +161,7 @@ An app uses it or `pkg/auth`, never both (below).
 | `router.go` (app/router.go) | All parsing of the routes slice stays here. It gains the `app.MCP` entry kind, the function that takes it out of the slice, and the function that mounts the metadata routes and the connector, with every connector registration panic. `newRouter`'s signature is unchanged. `app/CLAUDE.md` "Router rules" lists the third entry kind. | Unchanged for `app.Spec` and path pairs. `router_test.go` calls `newRouter` as before. |
 | `injectFields` (app/router.go:42) | Before injecting a field, it panics with `field <Name> of <Type> is unexported; injected fields must be exported` when the field cannot be set. Tool sets use it too. | Today an unexported field panics inside reflect; now the panic names it. Existing messages are unchanged (router_test.go:47-57). |
 | Config flattening (app/app.go:58-74) | For a field with an `env:` tag, `os.LookupEnv` is read first. Set and not empty: its value replaces the YAML value in the struct and in the flat map. Otherwise: the YAML value is exported as today (app/app.go:68). `env:` is for string fields only. A tagged field of another type panics with `config: <Section>.<Field> has an env tag but is not a string`; today it panics on the type assertion at app/app.go:68. The config file stays required (app/app.go:50-53). | Changes only when a tagged variable is already set at startup: today YAML overwrites it; after, it wins (owner). `main.go:23` (`TWILIO_PHONE_NUMBER`) is this repo's one tag today. |
-| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | The DSN is built by a new unexported function, `dsn(config map[string]interface{}) (string, error)`, which `connect` calls; `connect` panics with its error before opening anything. `dsn` escapes the user and password with `url.UserPassword` (owner), so a credential containing `@`, `/`, `:`, `?` or `#` round-trips, and a DSN whose credentials need no escaping is byte-identical to today. When the connection fails, `connect` replaces the password in the error's text with `xxxxx` before logging it (owner). `dsn` reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else: `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. With `ENV=PRODUCTION` (owner): anything but `require`, `verify-ca` or `verify-full` gives `postgres: in production postgres_sslmode must be require, verify-ca or verify-full`; an empty `postgres_user` gives `postgres: in production postgres_user must be set`, and likewise for `postgres_password`. | No change outside production. In production, an app must set a TLS mode, a user and a password (owner). |
+| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | The DSN is built by a new unexported function, `dsn(config map[string]interface{}) (string, error)`, which `connect` calls; `connect` panics with its error before opening anything. `dsn` escapes the user and password with `url.UserPassword` (owner), so a credential containing `@`, `/`, `:`, `?` or `#` round-trips, and a DSN whose credentials need no escaping is byte-identical to today. When the connection fails, `connect` replaces the raw password, its escaped form and the whole DSN with `xxxxx` in the error's text before logging it, and in any panic text it raises (owner). `connect` opens the driver through an unexported variable, `open`, which tests replace. `dsn` reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else: `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. With `ENV=PRODUCTION` (owner): anything but `require`, `verify-ca` or `verify-full` gives `postgres: in production postgres_sslmode must be require, verify-ca or verify-full`; an empty `postgres_user` gives `postgres: in production postgres_user must be set`, and likewise for `postgres_password`. | Outside production, no change unless a credential was stored percent-encoded, which must now be stored raw (owner). In production, an app must set a TLS mode, a user and a password (owner). |
 | `pkg/http` | Gains `HasAuthMiddleware() bool`, which returns whether the hook is non-nil, so `SetAuthMiddleware(nil)` clears it (owner). Gains `GetBytes(ctx context.Context, url string, maxBytes int64) (status int, body []byte, err error)`. It sends through the shared client's transport with the shared client's 10 s timeout (pkg/http/http.go:29), in a client that refuses redirects: a `3xx` comes back as its status, with no error, and is not followed. It honours `ctx`'s deadline, fails before reading when `Content-Length` passes `maxBytes`, and stops reading once the body passes it. | Additive. `GET` and `POST` are unchanged and still follow redirects. |
 | `pkg/http/apierror` | Gains `Unavailable(detail)` (503, code `unavailable`) and `TooLarge(detail)` (413, code `payload_too_large`). | Additive. |
 | `main.go` | `app.ListenAddr("localhost", 8080)` replaces the literals (lines 62-63). The Postgres fields gain `env:` tags `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`; all five are strings today. A new field `SSLMode string`, with `yaml:"sslmode"`, `config:"postgres_sslmode"` and `env:"POSTGRES_SSLMODE"`, joins them. `Ticketmaster.APIKey` gains `env:"TICKETMASTER_API_KEY"`. No `app.MCP` entry. | Same address and config unless those variables are set. |
@@ -192,7 +194,7 @@ allowed there. Its other keys already match `config.yml`'s.
   `docs/BEST_PRACTICES.md` gains sign-in, connector tools and the
   ownership rule (see "Security"). §4 gains the `env:` rule and the rule
   that every host sets `ENV=PRODUCTION`; §7 gains the TLS and credential
-  rules.
+  rules, including that credentials are stored raw, never percent-encoded.
 - `app/tool/CLAUDE.md` (owner). Tool sets live in `app/tool/<name>/`, beside
   `app/controller/`. The guide's rules:
   - a tool set injects `domain/` services by field
@@ -366,8 +368,8 @@ of its body is read. Every connector request takes one, `initialize`,
   when the response was already cut at 10 s.
 - A subject's count is deleted when it reaches zero.
 - A request with no identity is refused before its body is read: `500`
-  problem, code `internal`, logged as `mcp: request with no signed-in
-  caller`. `app.MCP` always has sign-in in front, so only a handler wired
+  problem, code `internal`, detail `internal server error`, logged as
+  `mcp: request with no signed-in caller`. `app.MCP` always has sign-in in front, so only a handler wired
   by hand can see this.
 
 | Request | Response |
@@ -382,9 +384,9 @@ of its body is read. Every connector request takes one, `initialize`,
 | `tools/call`, the result's JSON over 256 KiB | `200`, `isError: true`, text `result too large` |
 | `tools/call`, unknown tool | `200`, JSON-RPC error `-32602` |
 | Any other MCP method | the SDK's default answer (an empty list for `resources/list`) |
-| Body over 256 KiB, with or without `Content-Length` | `413` problem, code `payload_too_large` |
+| Body over 256 KiB, with or without `Content-Length` | `413` problem, code `payload_too_large`, detail `request body too large` |
 | No reader place free, or the caller already holds 8 | `503` problem, code `unavailable`, detail `connector busy`, header `Retry-After: 1` |
-| Any request with no identity in the context | `500` problem, code `internal`, before the body is read. Logged as `mcp: request with no signed-in caller`. |
+| Any request with no identity in the context | `500` problem, code `internal`, detail `internal server error`, before the body is read. Logged as `mcp: request with no signed-in caller`. |
 | Body that is not a JSON-RPC message | `400`, the SDK's plain-text body |
 | `Accept` without both `application/json` and `text/event-stream` | `400`, the SDK's plain-text body |
 | `Content-Type` other than `application/json` | `415`, the SDK's plain-text body |
@@ -719,8 +721,9 @@ adds nothing here.
 - The committed Ticketmaster key is rotated, and the committed Postgres
   credentials leave `config.yml` (owner).
 - In production the database link is encrypted (owner).
-- The Postgres password is escaped in the DSN and replaced with `xxxxx` in
-  a logged connection error (owner).
+- The Postgres password is escaped in the DSN. A logged connection error
+  and `connect`'s panic text replace it with `xxxxx` in its raw and escaped
+  forms and as part of the whole DSN (owner).
 - Token claims live in memory for one request, and nothing is stored.
 - Users' email addresses live at WorkOS (see "Switching off").
 
@@ -911,7 +914,8 @@ the SDK's client)
   `method_not_allowed`.
 - M8. Size limits:
   - A body of exactly 256 KiB is handled; 256 KiB + 1 byte gives `413`,
-    both with `Content-Length` and chunked.
+    detail `request body too large`, both with `Content-Length` and
+    chunked.
   - A result of exactly 256 KiB is returned; 1 byte more gives `isError:
     true`, `result too large`.
 - M9. A handler that waits on its context, chained behind
@@ -926,7 +930,8 @@ the SDK's client)
   - `initialize`, `ping` and `tools/list` get `200` while all slots are
     full.
   - A request with no identity, through `NewHandler` with no sign-in in
-    front: `500` problem, code `internal`, and the log line.
+    front: `500` problem, code `internal`, detail `internal server error`,
+    and the log line.
   - After every call has returned, errored or panicked, the counters are
     zero and the maps are empty.
 - M11. A slot outlives the cut. Behind `pkghttp.TimeoutMW(100ms)`, subject
@@ -1003,8 +1008,13 @@ the SDK's client)
   - `connect` panics with the error `dsn` returns.
   - A user `app@x` and a password `p@ss/w:rd?#1` give a DSN that `net/url`
     parses back to the same user and password (owner).
-  - With a recording logger, `connect` to a closed local port logs an
-    error that does not contain the password (owner).
+  - With a recording logger, and `open` replaced by a stub whose error
+    quotes the raw password, its escaped form and the DSN: the control
+    shows the stub's error holds all three, and the logged line holds none
+    of them, with `xxxxx` in their place (owner).
+  - A password stored percent-encoded, `p%40ss`, gives a DSN that decodes
+    to the literal `p%40ss`, as `docs/BEST_PRACTICES.md` §7 documents
+    (owner).
 - D4. This repo's `config.yml`:
   - `ticketmaster.api_key`, `postgres.user` and `postgres.password` are
     empty, and `postgres.sslmode` is `require`.
@@ -1109,8 +1119,9 @@ merges, the merge commit is tagged and recruiter is bumped to the tag (C2,
 evidence only).
 
 - **§1 Deploy readiness**, tagged v0.4.0.
-  - `app.ListenAddr`, the `env:` rule, and `dsn` with `postgres_sslmode`
-    and the production rules.
+  - `app.ListenAddr` and the `env:` rule.
+  - `dsn` with `postgres_sslmode`, the production rules and credential
+    escaping, and `connect`'s redaction through the `open` variable.
   - The `main.go` changes: the address, the tags and `SSLMode`.
   - `config.yml` without the Ticketmaster key or the Postgres user and
     password, and with `sslmode: require`.
@@ -1195,6 +1206,10 @@ the sign-in requirement. thetraveler requires v0.6.0.
   connection error never shows the password **(owner)**.
 - Deploy readiness has success rows, from the Base to Base prerequisites
   **(owner)**.
+- Credentials are always given raw. A password stored percent-encoded must
+  be stored decoded, which is goal 8's third exception **(owner)**.
+- The new `413` and no-identity `500` bodies read `request body too large`
+  and `internal server error` **(owner)**.
 - WorkOS AuthKit is the hosted service **(designer's call)**.
 - One provider, named by a required `auth_provider`
   **(designer's call)**.
@@ -1224,12 +1239,15 @@ the sign-in requirement. thetraveler requires v0.6.0.
 - `.basetobase/ci/local.yml` sets `sslmode: disable` **(designer's call)**.
 - The DSN is built by an unexported `dsn` that tests call directly
   **(designer's call)**.
+- Redaction covers the raw password, its escaped form and the whole DSN,
+  and is tested through an unexported `open` variable **(designer's call)**.
 - `auth_issuer` has no trailing slash, and `auth_resource` is an absolute
   URL **(designer's call)**.
 - The connector is stateless with JSON responses, tools only, and one
   endpoint per app **(designer's call)**.
 - Protocol errors keep the SDK's bodies. Only the framework's own `401`,
-  `413`, `503` and `504` are problems **(designer's call)**.
+  `405`, `413`, `500` (no identity), `503` and `504` are problems
+  **(designer's call)**.
 - Argument errors are tool errors and an unknown tool is a protocol
   error, as the MCP specification's tool error handling says
   **(designer's call)**.
@@ -1365,9 +1383,17 @@ Round 4:
 - SCL-12 Reader places: release on a failed or aborted body read is not stated or tested: owner: reader places are freed however the read ends, and a subject's count is dropped at zero
 - SEC-13 The DSN is built from environment credentials with no stated escaping, and a connect error is logged: owner: the user and password are escaped, and a logged connection error never shows the password
 - GOAL-14 Success covers connector and sign-in only; deploy readiness, the Why's third gap, has no success line: owner: success rows added for deploy readiness, from the Base to Base prerequisites
-- GOAL-15 Per-subject reader places and a 64-place pool are scope the Why's load does not justify
-- GOAL-16 §2 ships the metadata routes but the mounting function is listed in §3
-- BLD-12 Claims BEST_PRACTICES §7 already says every host sets ENV=PRODUCTION; the repo's §7 does not
-- BLD-13 Approaches says K1-K9 run in milliseconds under a test clock; K10 exists and K5 and K10 use real time
+- GOAL-15 Per-subject reader places and a 64-place pool are scope the Why's load does not justify: defended: the per-subject half keeps the owner's slot ruling true, that one account cannot lock the owner out
+- GOAL-16 §2 ships the metadata routes but the mounting function is listed in §3: revised Delivery
+- BLD-12 Claims BEST_PRACTICES §7 already says every host sets ENV=PRODUCTION; the repo's §7 does not: revised Infrastructure and dependencies
+- BLD-13 Approaches says K1-K9 run in milliseconds under a test clock; K10 exists and K5 and K10 use real time: revised Scaling
 - FUN-29 Reader-place release and the no-identity reader case are untested and open: owner: reader places are freed however the read ends, and a request with no identity is refused before its body is read
 - FUN-30 What a waiting request gets when the fetch it waited for fails, hangs or lacks its key: owner: a waiting request is judged on the keys held when its wait ends
+
+Round 5:
+- QLT-11 url.UserPassword changes the DSN for existing credentials that contain reserved or percent characters; callers' outcome stated as unchanged: owner: credentials are given raw; a password stored percent-encoded must be stored decoded
+- SEC-14 Password redaction in the logged connect error covers the raw password, not its escaped form or the DSN
+- GOAL-17 DSN escaping and error redaction are a third consumer-visible change; goal 8 lists two: owner: accepted as goal 8's third exception; credentials are given raw
+- FUN-31 D3's password-redaction test cannot fail, and the redaction rule is ambiguous about escaping
+- BLD-14 Decision says only 401, 413, 503 and 504 are problems; the design also returns 405 and 500 problems
+- BLD-15 Detail text of the new 413 and no-identity 500 problem bodies is not stated: owner: 'request body too large' and 'internal server error'
