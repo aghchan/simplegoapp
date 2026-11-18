@@ -161,7 +161,7 @@ An app uses it or `pkg/auth`, never both (below).
 | `router.go` (app/router.go) | All parsing of the routes slice stays here. It gains the `app.MCP` entry kind, the function that takes it out of the slice, and the function that mounts the metadata routes and the connector, with every connector registration panic. `newRouter`'s signature is unchanged. `app/CLAUDE.md` "Router rules" lists the third entry kind. | Unchanged for `app.Spec` and path pairs. `router_test.go` calls `newRouter` as before. |
 | `injectFields` (app/router.go:42) | Before injecting a field, it panics with `field <Name> of <Type> is unexported; injected fields must be exported` when the field cannot be set. Tool sets use it too. | Today an unexported field panics inside reflect; now the panic names it. Existing messages are unchanged (router_test.go:47-57). |
 | Config flattening (app/app.go:58-74) | For a field with an `env:` tag, `os.LookupEnv` is read first. Set and not empty: its value replaces the YAML value in the struct and in the flat map. Otherwise: the YAML value is exported as today (app/app.go:68). `env:` is for string fields only. A tagged field of another type panics with `config: <Section>.<Field> has an env tag but is not a string`; today it panics on the type assertion at app/app.go:68. The config file stays required (app/app.go:50-53). | Changes only when a tagged variable is already set at startup: today YAML overwrites it; after, it wins (owner). `main.go:23` (`TWILIO_PHONE_NUMBER`) is this repo's one tag today. |
-| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | The DSN is built by a new unexported function, `dsn(config map[string]interface{}) (string, error)`, which `connect` calls; `connect` panics with its error before opening anything. `dsn` escapes the user and password with `url.UserPassword` (owner), so a credential containing `@`, `/`, `:`, `?` or `#` round-trips, and a DSN whose credentials need no escaping is byte-identical to today. When the connection fails, `connect` replaces the raw password, its escaped form and the whole DSN with `xxxxx` in the error's text before logging it, and in any panic text it raises (owner). `connect` opens the driver through an unexported variable, `open`, which tests replace. `dsn` reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else: `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. With `ENV=PRODUCTION` (owner): anything but `require`, `verify-ca` or `verify-full` gives `postgres: in production postgres_sslmode must be require, verify-ca or verify-full`; an empty `postgres_user` gives `postgres: in production postgres_user must be set`, and likewise for `postgres_password`. | Outside production, no change unless a credential was stored percent-encoded, which must now be stored raw (owner). In production, an app must set a TLS mode, a user and a password (owner). |
+| `pkg/postgres` `connect` (pkg/postgres/service.go:120) | The DSN is built by a new unexported function, `dsn(config map[string]interface{}) (string, error)`, which `connect` calls; `connect` panics with its error before opening anything. `dsn` escapes the user and password with `url.UserPassword` (owner), so a credential containing `@`, `/`, `:`, `?` or `#` round-trips, and a DSN whose credentials need no escaping is byte-identical to today. When the connection fails, `connect` replaces the raw password, its escaped form and the whole DSN with `xxxxx` in the error's text before logging it, and in any panic text it raises (owner). An empty password skips the raw and escaped replacements, and the whole-DSN replacement always applies. A non-empty password is replaced wherever it appears, so a short development password such as `password` also hides that word in the error text (owner). `connect` opens the driver through an unexported variable, `open`, which tests replace. `dsn` reads `postgres_sslmode` with a checked type assertion. Absent or empty: the DSN is byte-identical to today. One of `disable`, `allow`, `prefer`, `require`, `verify-ca`, `verify-full`: the DSN ends `?sslmode=<value>`. Anything else: `postgres: postgres_sslmode must be one of disable, allow, prefer, require, verify-ca, verify-full`. With `ENV=PRODUCTION` (owner): anything but `require`, `verify-ca` or `verify-full` gives `postgres: in production postgres_sslmode must be require, verify-ca or verify-full`; an empty `postgres_user` gives `postgres: in production postgres_user must be set`, and likewise for `postgres_password`. | Outside production, no change unless a credential was stored percent-encoded, which must now be stored raw (owner). In production, an app must set a TLS mode, a user and a password (owner). |
 | `pkg/http` | Gains `HasAuthMiddleware() bool`, which returns whether the hook is non-nil, so `SetAuthMiddleware(nil)` clears it (owner). Gains `GetBytes(ctx context.Context, url string, maxBytes int64) (status int, body []byte, err error)`. It sends through the shared client's transport with the shared client's 10 s timeout (pkg/http/http.go:29), in a client that refuses redirects: a `3xx` comes back as its status, with no error, and is not followed. It honours `ctx`'s deadline, fails before reading when `Content-Length` passes `maxBytes`, and stops reading once the body passes it. | Additive. `GET` and `POST` are unchanged and still follow redirects. |
 | `pkg/http/apierror` | Gains `Unavailable(detail)` (503, code `unavailable`) and `TooLarge(detail)` (413, code `payload_too_large`). | Additive. |
 | `main.go` | `app.ListenAddr("localhost", 8080)` replaces the literals (lines 62-63). The Postgres fields gain `env:` tags `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`; all five are strings today. A new field `SSLMode string`, with `yaml:"sslmode"`, `config:"postgres_sslmode"` and `env:"POSTGRES_SSLMODE"`, joins them. `Ticketmaster.APIKey` gains `env:"TICKETMASTER_API_KEY"`. No `app.MCP` entry. | Same address and config unless those variables are set. |
@@ -1015,6 +1015,12 @@ the SDK's client)
   - A password stored percent-encoded, `p%40ss`, gives a DSN that decodes
     to the literal `p%40ss`, as `docs/BEST_PRACTICES.md` §7 documents
     (owner).
+  - Outside production, with an empty password and a stub error that
+    quotes the DSN: the logged line equals the stub's text with only the
+    DSN replaced (owner).
+  - With the password `password` and a stub error containing `password
+    authentication failed`: the logged line reads `xxxxx authentication
+    failed` (owner).
 - D4. This repo's `config.yml`:
   - `ticketmaster.api_key`, `postgres.user` and `postgres.password` are
     empty, and `postgres.sslmode` is `require`.
@@ -1241,6 +1247,8 @@ the sign-in requirement. thetraveler requires v0.6.0.
   **(designer's call)**.
 - Redaction covers the raw password, its escaped form and the whole DSN,
   and is tested through an unexported `open` variable **(designer's call)**.
+- Redaction skips an empty password, and otherwise hides every occurrence
+  of the password **(owner)**.
 - `auth_issuer` has no trailing slash, and `auth_resource` is an absolute
   URL **(designer's call)**.
 - The connector is stateless with JSON responses, tools only, and one
@@ -1392,8 +1400,12 @@ Round 4:
 
 Round 5:
 - QLT-11 url.UserPassword changes the DSN for existing credentials that contain reserved or percent characters; callers' outcome stated as unchanged: owner: credentials are given raw; a password stored percent-encoded must be stored decoded
-- SEC-14 Password redaction in the logged connect error covers the raw password, not its escaped form or the DSN
+- SEC-14 Password redaction in the logged connect error covers the raw password, not its escaped form or the DSN: revised Fit with existing features
 - GOAL-17 DSN escaping and error redaction are a third consumer-visible change; goal 8 lists two: owner: accepted as goal 8's third exception; credentials are given raw
-- FUN-31 D3's password-redaction test cannot fail, and the redaction rule is ambiguous about escaping
-- BLD-14 Decision says only 401, 413, 503 and 504 are problems; the design also returns 405 and 500 problems
+- FUN-31 D3's password-redaction test cannot fail, and the redaction rule is ambiguous about escaping: revised How we'll know it works
+- BLD-14 Decision says only 401, 413, 503 and 504 are problems; the design also returns 405 and 500 problems: revised Decisions
 - BLD-15 Detail text of the new 413 and no-identity 500 problem bodies is not stated: owner: 'request body too large' and 'internal server error'
+
+Round 6:
+- BLD-16 Redaction with an empty password outside production is unspecified and a literal replace would corrupt the log: owner: an empty password skips the raw and escaped replacements; otherwise every occurrence is hidden
+- FUN-32 Redaction with an empty password corrupts the logged error outside production, and no test covers it: owner: an empty password skips the raw and escaped replacements; otherwise every occurrence is hidden
