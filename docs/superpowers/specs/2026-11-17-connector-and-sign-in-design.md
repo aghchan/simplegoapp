@@ -1409,3 +1409,7 @@ Round 5:
 Round 6:
 - BLD-16 Redaction with an empty password outside production is unspecified and a literal replace would corrupt the log: owner: an empty password skips the raw and escaped replacements; otherwise every occurrence is hidden
 - FUN-32 Redaction with an empty password corrupts the logged error outside production, and no test covers it: owner: an empty password skips the raw and escaped replacements; otherwise every occurrence is hidden
+
+Round 7:
+
+Quorum: BLD, GOAL, QLT, SCL, INF, SEC, FUN clear on revision 7
