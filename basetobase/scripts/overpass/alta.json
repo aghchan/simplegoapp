@@ -2,8 +2,8 @@
   "version": 0.6,
   "generator": "Overpass API 0.7.62.11 87bfad18",
   "osm3s": {
-    "timestamp_osm_base": "2026-11-02T20:51:49Z",
-    "timestamp_areas_base": "2026-11-02T18:09:35Z",
+    "timestamp_osm_base": "2026-11-23T21:43:59Z",
+    "timestamp_areas_base": "2026-11-23T14:59:06Z",
     "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
   },
   "elements": [
@@ -526,28 +526,10 @@
   "type": "way",
   "id": 564199044,
   "tags": {
-    "piste:difficulty": "intermediate",
-    "piste:type": "downhill",
-    "ski": "designated"
-  }
-},
-{
-  "type": "way",
-  "id": 564199045,
-  "tags": {
     "name": "Sleepy Hollow",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill",
     "ski": "designated"
-  }
-},
-{
-  "type": "way",
-  "id": 564199046,
-  "tags": {
-    "name": "Upper Sleepy Hollow",
-    "piste:difficulty": "advanced",
-    "piste:type": "downhill"
   }
 },
 {
@@ -643,7 +625,7 @@
   "type": "way",
   "id": 564199057,
   "tags": {
-    "name": "Upper Big Dipper",
+    "name": "Big Dipper",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill",
     "ski": "designated"
@@ -654,16 +636,6 @@
   "id": 564199058,
   "tags": {
     "name": "Rock 'n Roll",
-    "piste:difficulty": "intermediate",
-    "piste:type": "downhill",
-    "ski": "designated"
-  }
-},
-{
-  "type": "way",
-  "id": 564199059,
-  "tags": {
-    "name": "Big Dipper",
     "piste:difficulty": "intermediate",
     "piste:type": "downhill",
     "ski": "designated"
@@ -865,7 +837,7 @@
   "type": "way",
   "id": 776839644,
   "tags": {
-    "name": "White Squaw Areae",
+    "name": "Aviary",
     "piste:difficulty": "advanced",
     "piste:type": "downhill"
   }
@@ -1325,6 +1297,7 @@
   "type": "way",
   "id": 1335849277,
   "tags": {
+    "piste:difficulty": "advanced",
     "piste:type": "downhill"
   }
 },
@@ -1367,14 +1340,6 @@
     "piste:difficulty": "advanced",
     "piste:type": "downhill",
     "ski": "designated"
-  }
-},
-{
-  "type": "way",
-  "id": 1336684450,
-  "tags": {
-    "piste:difficulty": "intermediate",
-    "piste:type": "downhill"
   }
 },
 {

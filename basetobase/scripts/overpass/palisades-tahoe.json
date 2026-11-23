@@ -2,8 +2,8 @@
   "version": 0.6,
   "generator": "Overpass API 0.7.62.11 87bfad18",
   "osm3s": {
-    "timestamp_osm_base": "2026-11-02T20:39:37Z",
-    "timestamp_areas_base": "2026-11-02T18:09:35Z",
+    "timestamp_osm_base": "2026-11-23T21:30:36Z",
+    "timestamp_areas_base": "2026-11-23T14:59:06Z",
     "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
   },
   "elements": [
@@ -505,7 +505,8 @@
   "type": "way",
   "id": 452731568,
   "tags": {
-    "piste:difficulty": "expert",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Poma Rocks",
     "piste:type": "downhill"
   }
@@ -515,6 +516,7 @@
   "id": 452731569,
   "tags": {
     "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Pond Slope",
     "piste:type": "downhill"
   }
@@ -524,6 +526,7 @@
   "id": 452731570,
   "tags": {
     "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
     "piste:name": "The Buttress",
     "piste:type": "downhill"
   }
@@ -533,43 +536,8 @@
   "id": 452731571,
   "tags": {
     "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
     "piste:name": "Bernie's Bowl",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731572,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "North Estelle",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731573,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Estelle Bowl",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731574,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Beaver/Estelle Ridge",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731575,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Estelle Gully",
     "piste:type": "downhill"
   }
 },
@@ -647,73 +615,11 @@
 },
 {
   "type": "way",
-  "id": 452731585,
-  "tags": {
-    "name": "The Castle",
-    "piste:difficulty": "extreme",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731586,
-  "tags": {
-    "piste:difficulty": "advanced",
-    "piste:name": "Kangaroo Slope",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731587,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Ridge Nose",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731588,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Piston Bulley Slope",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731589,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "North Cirque",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731590,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Middle Cirque",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
   "id": 452731591,
   "tags": {
     "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
     "piste:name": "Beaver Bowl",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731592,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Big Chute",
     "piste:type": "downhill"
   }
 },
@@ -721,8 +627,9 @@
   "type": "way",
   "id": 452731593,
   "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "South Beaver",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower Beaver Entrance",
     "piste:type": "downhill"
   }
 },
@@ -886,18 +793,10 @@
 },
 {
   "type": "way",
-  "id": 452731632,
-  "tags": {
-    "piste:difficulty": "advanced",
-    "piste:name": "Butcher Block Rock",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
   "id": 452731633,
   "tags": {
     "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Lower 40 Face",
     "piste:type": "downhill"
   }
@@ -907,16 +806,8 @@
   "id": 452731634,
   "tags": {
     "piste:difficulty": "advanced",
-    "piste:name": "Lower 40 Gully",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731635,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Juniper Face",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Gully South",
     "piste:type": "downhill"
   }
 },
@@ -925,6 +816,7 @@
   "id": 452731636,
   "tags": {
     "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Gentian Gully",
     "piste:type": "downhill"
   }
@@ -933,26 +825,9 @@
   "type": "way",
   "id": 452731637,
   "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Subway Cliffs",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731638,
-  "tags": {
     "piste:difficulty": "advanced",
-    "piste:name": "Lower Cliffs",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731639,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Upper Cliffs",
+    "piste:grooming": "backcountry",
+    "piste:name": "Subway Cirque",
     "piste:type": "downhill"
   }
 },
@@ -961,33 +836,8 @@
   "id": 452731640,
   "tags": {
     "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Promised Land",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731641,
-  "tags": {
-    "piste:difficulty": "extreme",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731642,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Crag's Gully",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731643,
-  "tags": {
-    "piste:difficulty": "expert",
-    "piste:name": "Murhpy's Mistake",
     "piste:type": "downhill"
   }
 },
@@ -996,6 +846,7 @@
   "id": 452731644,
   "tags": {
     "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
     "piste:name": "Chute That Seldom Slides",
     "piste:type": "downhill"
   }
@@ -1004,19 +855,9 @@
   "type": "way",
   "id": 452731645,
   "tags": {
-    "name": "Scott Chute",
     "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
     "piste:name": "Scott Chute",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731646,
-  "tags": {
-    "piste:difficulty": "novice",
-    "piste:grooming": "classic",
-    "piste:priority": "1",
     "piste:type": "downhill"
   }
 },
@@ -1027,17 +868,6 @@
     "piste:difficulty": "easy",
     "piste:grooming": "classic",
     "piste:name": "Subway",
-    "piste:priority": "1",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452731649,
-  "tags": {
-    "piste:difficulty": "easy",
-    "piste:grooming": "classic",
-    "piste:name": "Meadow",
     "piste:priority": "1",
     "piste:type": "downhill"
   }
@@ -1420,15 +1250,6 @@
     "piste:difficulty": "intermediate",
     "piste:grooming": "classic",
     "piste:priority": "2",
-    "piste:type": "downhill"
-  }
-},
-{
-  "type": "way",
-  "id": 452735751,
-  "tags": {
-    "name": "Dogleg",
-    "piste:difficulty": "extreme",
     "piste:type": "downhill"
   }
 },
@@ -2885,6 +2706,22 @@
 },
 {
   "type": "way",
+  "id": 1103030291,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "fine_gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
   "id": 1103347775,
   "tags": {
     "name": "Chimney",
@@ -3254,6 +3091,449 @@
   "tags": {
     "name": "Paradise Alley",
     "piste:difficulty": "advanced",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458377,
+  "tags": {
+    "piste:difficulty": "intermediate",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458378,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458379,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458380,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458381,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:name": "Meadow",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458382,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458383,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579458384,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948192,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948193,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948194,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948195,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948256,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948257,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Gully North",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948266,
+  "tags": {
+    "natural": "ridge",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948267,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948269,
+  "tags": {
+    "natural": "ridge",
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948270,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower 40 Face",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948380,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948382,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948386,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "dirt",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948387,
+  "tags": {
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948413,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "fine_gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948414,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948415,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948416,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948417,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948418,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948419,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948421,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948423,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade3"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948424,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948425,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "ground",
+    "tracktype": "grade5"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948426,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "easy",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "fine_gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948427,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948428,
+  "tags": {
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1579948437,
+  "tags": {
+    "access": "permissive",
+    "highway": "track",
+    "motor_vehicle": "private",
+    "piste:difficulty": "novice",
+    "piste:grooming": "classic",
+    "piste:oneway": "no",
+    "piste:priority": "1",
+    "piste:type": "downhill",
+    "surface": "fine_gravel",
+    "tracktype": "grade2"
+  }
+},
+{
+  "type": "way",
+  "id": 1579975026,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "Estelle Bowl",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1580008421,
+  "tags": {
+    "piste:difficulty": "expert",
+    "piste:grooming": "backcountry",
+    "piste:name": "South Beaver",
+    "piste:type": "downhill"
+  }
+},
+{
+  "type": "way",
+  "id": 1580008422,
+  "tags": {
+    "piste:difficulty": "advanced",
+    "piste:grooming": "backcountry",
+    "piste:name": "Lower Beaver",
     "piste:type": "downhill"
   }
 }
