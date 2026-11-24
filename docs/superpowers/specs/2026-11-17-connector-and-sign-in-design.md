@@ -1,7 +1,7 @@
 # Claude connector, hosted sign-in and deploy readiness — Design
 
 - Size: full
-- Status: in review
+- Status: approved 2026-11-24
 - From: https://claude.ai/code/session_012U8BKMDCPmZpReTXvAzVWm
 
 ## What we're building
